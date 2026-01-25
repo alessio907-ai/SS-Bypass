@@ -17,7 +17,7 @@ function Bad($t){ Write-Host $t -ForegroundColor Red }
 # ---------------- ENTRY ----------------
 function Start-CheatScan {
     Clear-Host
-    H1 "CrystalPVP Cheat Analyser | FINAL BLUE"
+    H1 "CrystalPVP Cheat Analyser
     Info "Made by Main2Packet"
     Write-Host ""
 
@@ -198,5 +198,6 @@ function Scan-SuspiciousClasses { param($ExtractPath)
 
 # ---------------- RUN ----------------
 Start-CheatScan
+
 
 
