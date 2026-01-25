@@ -97,7 +97,6 @@ function Start-DesktopScan {
                 LastWriteTime = $exe.LastWriteTime
                 IsHidden = ($exe.Attributes -band [System.IO.FileAttributes]::Hidden)
                 IsSystem = ($exe.Attributes -band [System.IO.FileAttributes]::System)
-                FolderPath = Split-Path $exe.FullName -Parent
             }
         }
     }
@@ -115,21 +114,22 @@ function Start-DesktopScan {
         
         $counter = 1
         foreach ($file in $suspiciousFiles) {
-            # Datei-Info Box
-            Write-Host "    ┌─────────────────────────────────────────────────────────┐" -ForegroundColor DarkBlue
+            # Datei-Info Box - JETZT MIT VOLLEM PFAD!
+            Write-Host "    ┌─────────────────────────────────────────────────────────────────────┐" -ForegroundColor DarkBlue
             Write-Host "    │ [#$counter] $($file.FileName.PadRight(45)) │" -ForegroundColor DarkBlue
-            Write-Host "    ├─────────────────────────────────────────────────────────┤" -ForegroundColor DarkBlue
-            Write-Host "    │ 📊 Size:    $($file.SizeMB.ToString("0.00").PadRight(8)) MB                      │" -ForegroundColor White
-            Write-Host "    │ 📁 Folder:  $(Split-Path $file.FullName -Parent)" -ForegroundColor White
+            Write-Host "    ├─────────────────────────────────────────────────────────────────────┤" -ForegroundColor DarkBlue
+            Write-Host "    │ 📊 Size:    $($file.SizeMB.ToString("0.00").PadRight(8)) MB                                  │" -ForegroundColor White
+            Write-Host "    │ 📍 Full Path: $(if($file.FullPath.Length -gt 60){"$($file.FullPath.Substring(0,57))..."}else{$file.FullPath.PadRight(60)}) │" -ForegroundColor White
+            Write-Host "    │ 📂 Folder:   $(Split-Path $file.FullPath -Parent)" -ForegroundColor White
             if ($file.IsHidden) {
-                Write-Host "    │ ⚠️  ATTRIBUTE: HIDDEN FILE                              │" -ForegroundColor Yellow
+                Write-Host "    │ ⚠️  HIDDEN: This file is hidden                                      │" -ForegroundColor Yellow
             }
             if ($file.IsSystem) {
-                Write-Host "    │ ⚠️  ATTRIBUTE: SYSTEM FILE                              │" -ForegroundColor Yellow
+                Write-Host "    │ ⚠️  SYSTEM: This is a system file                                    │" -ForegroundColor Yellow
             }
-            Write-Host "    │ 📅 Created: $($file.CreationTime.ToString('dd.MM.yyyy HH:mm'))               │" -ForegroundColor Gray
-            Write-Host "    │ 📅 Modified: $($file.LastWriteTime.ToString('dd.MM.yyyy HH:mm'))              │" -ForegroundColor Gray
-            Write-Host "    └─────────────────────────────────────────────────────────┘" -ForegroundColor DarkBlue
+            Write-Host "    │ 📅 Created:  $($file.CreationTime.ToString('dd.MM.yyyy HH:mm'))                          │" -ForegroundColor Gray
+            Write-Host "    │ 📅 Modified: $($file.LastWriteTime.ToString('dd.MM.yyyy HH:mm'))                         │" -ForegroundColor Gray
+            Write-Host "    └─────────────────────────────────────────────────────────────────────┘" -ForegroundColor DarkBlue
             Write-Host ""
             
             $counter++
@@ -145,7 +145,8 @@ function Start-DesktopScan {
                 if ($hash) {
                     Write-Host ""
                     Write-Host "    [#$counter] $($file.FileName)" -ForegroundColor Cyan
-                    Write-Host "        $hash" -ForegroundColor Gray
+                    Write-Host "        SHA256: $hash" -ForegroundColor Gray
+                    Write-Host "        Path: $($file.FullPath)" -ForegroundColor Gray
                 }
             } catch {
                 Write-Host "    [#$counter] $($file.FileName) - Hash error" -ForegroundColor Red
@@ -165,7 +166,7 @@ function Start-DesktopScan {
     Write-Host "    └─ Hidden files found: $(($suspiciousFiles | Where-Object { $_.IsHidden }).Count)" -ForegroundColor White
     
     Write-Host ""
-    Write-Host "    📂 SCANNED PATHS:" -ForegroundColor Cyan
+    Write-Host "    📁 SCANNED LOCATIONS:" -ForegroundColor Cyan
     foreach ($path in $scanPaths) {
         if (Test-Path $path) {
             Write-Host "      ✓ $path" -ForegroundColor Green
@@ -177,7 +178,7 @@ function Start-DesktopScan {
     Write-Host ""
     Write-Host "    ⏱️  Scan completed at: $(Get-Date -Format 'dd.MM.yyyy HH:mm:ss')" -ForegroundColor Gray
     Write-Host ""
-    Write-Host "    " + ("═" * 56) -ForegroundColor DarkBlue
+    Write-Host "    " + ("═" * 70) -ForegroundColor DarkBlue
     
     Read-Host "`nPress Enter to exit"
 }
