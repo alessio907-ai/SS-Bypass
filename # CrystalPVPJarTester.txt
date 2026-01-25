@@ -147,7 +147,7 @@ function Start-CheatScan {
 
     # --------- TASK MANAGER SCAN ----------
     Sec "Task Manager Scan"
-    $processes = Get-Process | Where-Object { $_.Name -match "prestige|cheat|client|otherKeyword" }
+    $processes = Get-Process | Where-Object { $_.Name -match "prestigeclient|vaponclient|noraxclient" }
     if ($processes.Count -gt 0) {
         $processes | ForEach-Object {
             Bad "❌ Process Found: $($_.Name) (PID: $($_.Id))"
@@ -156,21 +156,18 @@ function Start-CheatScan {
         Info "✔ No suspicious processes found"
     }
 
-    # --------- APPDATA / DESKTOP SCAN ----------
-    Sec "Scanning AppData and Desktop"
-    $appdataPath = [System.Environment]::GetFolderPath('ApplicationData')
+    # --------- DESKTOP SCAN ----------
+    Sec "Scanning Desktop"
     $desktopPath = [System.Environment]::GetFolderPath('Desktop')
-
-    $appdataFiles = Get-ChildItem $appdataPath -Recurse -Force -ErrorAction SilentlyContinue
     $desktopFiles = Get-ChildItem $desktopPath -Recurse -Force -ErrorAction SilentlyContinue
 
-    $suspiciousFiles = $appdataFiles + $desktopFiles | Where-Object { $_.Name -match "cheat|client|hack" }
+    $suspiciousFiles = $desktopFiles | Where-Object { $_.Name -match "prestigeclient|vaponclient|noraxclient" }
     if ($suspiciousFiles.Count -gt 0) {
         $suspiciousFiles | ForEach-Object {
             Bad "❌ Suspicious file found: $($_.FullName)"
         }
     } else {
-        Info "✔ No suspicious files found in AppData or Desktop"
+        Info "✔ No suspicious files found in Desktop"
     }
 
     # --------- SUMMARY ----------
@@ -210,6 +207,7 @@ function Scan-NativeDLLs($pid){
                 $out += $m.FileName
             }
         }
+
     }
     return ($out | Select-Object -Unique)
 }
@@ -312,4 +310,5 @@ function Check-Strings { param([string]$filePath, [string[]]$cheatStrings); $fou
 
 # ---------------- RUN ----------------
 Start-CheatScan
+
 
