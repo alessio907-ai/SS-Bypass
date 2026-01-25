@@ -1,6 +1,6 @@
 # =====================================================
-# 🔍 BLUE DESKTOP EXE SCANNER 🔍
-# Size: 0.5MB - 2.5MB
+# 🔍 BLUE DESKTOP EXE DEEP SCANNER 🔍
+# Size: 0.5MB - 2.5MB | Recursive Search
 # =====================================================
 
 $ErrorActionPreference = "SilentlyContinue"
@@ -9,182 +9,175 @@ $ErrorActionPreference = "SilentlyContinue"
 function Show-Banner {
     Clear-Host
     Write-Host ""
-    Write-Host "████████████████████████████████████████████████████" -ForegroundColor DarkBlue
-    Write-Host "██                                                ██" -ForegroundColor DarkBlue
-    Write-Host "██          ╔════════════════════════╗           ██" -ForegroundColor DarkBlue
-    Write-Host "██          ║   DESKTOP EXE SCANNER  ║           ██" -ForegroundColor DarkBlue
-    Write-Host "██          ║     0.5MB - 2.5MB      ║           ██" -ForegroundColor DarkBlue
-    Write-Host "██          ╚════════════════════════╝           ██" -ForegroundColor DarkBlue
-    Write-Host "██                                                ██" -ForegroundColor DarkBlue
-    Write-Host "████████████████████████████████████████████████████" -ForegroundColor DarkBlue
+    Write-Host "█████████████████████████████████████████████████████████████" -ForegroundColor DarkBlue
+    Write-Host "██                                                         ██" -ForegroundColor DarkBlue
+    Write-Host "██          ╔══════════════════════════════╗              ██" -ForegroundColor DarkBlue
+    Write-Host "██          ║   DEEP DESKTOP EXE SCANNER   ║              ██" -ForegroundColor DarkBlue
+    Write-Host "██          ║    0.5MB - 2.5MB RECURSIVE   ║              ██" -ForegroundColor DarkBlue
+    Write-Host "██          ╚══════════════════════════════╝              ██" -ForegroundColor DarkBlue
+    Write-Host "██                                                         ██" -ForegroundColor DarkBlue
+    Write-Host "█████████████████████████████████████████████████████████████" -ForegroundColor DarkBlue
     Write-Host ""
 }
 
 function Show-Section($title) {
     Write-Host ""
-    Write-Host "╔═══════════════════════════════════════════════════╗" -ForegroundColor Cyan
+    Write-Host "╔══════════════════════════════════════════════════════════╗" -ForegroundColor Cyan
     Write-Host "║ $title" -ForegroundColor Cyan
-    Write-Host "╚═══════════════════════════════════════════════════╝" -ForegroundColor Cyan
-}
-
-function Show-Result($text, $type = "info") {
-    switch ($type) {
-        "info" { 
-            Write-Host "  ℹ  " -NoNewline -ForegroundColor Cyan
-            Write-Host $text -ForegroundColor White 
-        }
-        "found" { 
-            Write-Host "  ✓  " -NoNewline -ForegroundColor Green
-            Write-Host $text -ForegroundColor White 
-        }
-        "warning" { 
-            Write-Host "  ⚠  " -NoNewline -ForegroundColor Yellow
-            Write-Host $text -ForegroundColor White 
-        }
-        "error" { 
-            Write-Host "  ✗  " -NoNewline -ForegroundColor Red
-            Write-Host $text -ForegroundColor White 
-        }
-        "suspicious" { 
-            Write-Host "  🚨 " -NoNewline -ForegroundColor Red
-            Write-Host $text -ForegroundColor Red 
-        }
-    }
-}
-
-function Show-Progress($current, $total) {
-    $percent = [math]::Round(($current / $total) * 100)
-    $bars = [math]::Round($percent / 2)
-    $progressBar = "[" + ("█" * $bars) + ("░" * (50 - $bars)) + "]"
-    
-    Write-Host "`r  $progressBar $percent% ($current/$total)" -NoNewline -ForegroundColor Blue
+    Write-Host "╚══════════════════════════════════════════════════════════╝" -ForegroundColor Cyan
 }
 
 # ---------------- MAIN SCANNER ----------------
 function Start-DesktopScan {
     Show-Banner
     
-    Show-Section "🔍 SCANNING DESKTOP FOR EXE FILES"
+    Show-Section "🔍 SCANNING DESKTOP & DOWNLOADS RECURSIVELY"
     
-    # Desktop Pfad
-    $desktopPath = [System.Environment]::GetFolderPath('Desktop')
+    # Alle wichtigen Pfade
+    $scanPaths = @(
+        [System.Environment]::GetFolderPath('Desktop')
+        [System.Environment]::GetFolderPath('CommonDesktopDirectory')
+        "$env:USERPROFILE\Desktop"
+        "$env:USERPROFILE\Downloads"
+        "$env:PUBLIC\Desktop"
+        "$env:PUBLIC\Downloads"
+    )
     
-    if (-not (Test-Path $desktopPath)) {
-        Show-Result "Desktop path not found!" "error"
+    # Alle EXE Dateien sammeln (rekursiv)
+    $allExeFiles = @()
+    $totalFilesFound = 0
+    
+    foreach ($path in $scanPaths) {
+        if (Test-Path $path) {
+            Write-Host ""
+            Write-Host "  📁 Scanning: $path" -ForegroundColor Blue
+            
+            try {
+                # Rekursiv alle EXEs finden - AUCH VERSTECKTE!
+                $exeFiles = Get-ChildItem -Path $path -Recurse -Filter "*.exe" -File -Force -ErrorAction SilentlyContinue
+                
+                if ($exeFiles.Count -gt 0) {
+                    Write-Host "    ✓ Found $($exeFiles.Count) EXE files" -ForegroundColor Green
+                    $allExeFiles += $exeFiles
+                    $totalFilesFound += $exeFiles.Count
+                } else {
+                    Write-Host "    ○ No EXE files found" -ForegroundColor Gray
+                }
+            } catch {
+                Write-Host "    ✗ Error scanning: $_" -ForegroundColor Red
+            }
+        }
+    }
+    
+    Write-Host ""
+    Write-Host "  📊 Total EXE files found: $totalFilesFound" -ForegroundColor Cyan
+    
+    if ($totalFilesFound -eq 0) {
+        Show-Section "📋 RESULTS"
+        Write-Host ""
+        Write-Host "    No EXE files found in any scanned location!" -ForegroundColor Yellow
         Read-Host "`nPress Enter to exit"
         return
     }
     
-    Show-Result "Scanning: $desktopPath" "info"
+    # EXEs nach Größe filtern (0.5MB - 2.5MB)
+    Show-Section "📏 FILTERING BY SIZE (0.5MB - 2.5MB)"
     
-    # Alle EXE Dateien finden
-    Show-Result "Searching for EXE files..." "info"
+    $suspiciousFiles = @()
     
-    try {
-        $allExeFiles = Get-ChildItem -Path $desktopPath -Filter "*.exe" -File -ErrorAction SilentlyContinue
+    foreach ($exe in $allExeFiles) {
+        $sizeMB = [math]::Round($exe.Length / 1MB, 2)
         
-        if ($allExeFiles.Count -eq 0) {
-            Show-Result "No EXE files found on Desktop" "info"
-            Show-Section "📊 SCAN RESULTS"
-            Show-Result "Total EXE files: 0" "info"
-            Show-Result "Files in range 0.5-2.5MB: 0" "info"
-            Read-Host "`nPress Enter to exit"
-            return
+        if ($sizeMB -ge 0.5 -and $sizeMB -le 2.5) {
+            $suspiciousFiles += [PSCustomObject]@{
+                FileName = $exe.Name
+                FullPath = $exe.FullName
+                SizeMB = $sizeMB
+                CreationTime = $exe.CreationTime
+                LastWriteTime = $exe.LastWriteTime
+                IsHidden = ($exe.Attributes -band [System.IO.FileAttributes]::Hidden)
+                IsSystem = ($exe.Attributes -band [System.IO.FileAttributes]::System)
+                FolderPath = Split-Path $exe.FullName -Parent
+            }
         }
-        
-        Show-Result "Found $($allExeFiles.Count) EXE files total" "found"
-        
-        # EXEs nach Größe filtern
-        Show-Result "Checking file sizes (0.5MB - 2.5MB)..." "info"
+    }
+    
+    # AUSFÜHRLICHE LISTE ALLER GEFUNDENEN DATEIEN
+    Show-Section "📋 ALL FOUND EXE FILES LIST"
+    
+    if ($suspiciousFiles.Count -eq 0) {
+        Write-Host ""
+        Write-Host "    No EXE files found in size range 0.5MB - 2.5MB!" -ForegroundColor Green
+    } else {
+        Write-Host ""
+        Write-Host "    🚨 FOUND $($suspiciousFiles.Count) SUSPICIOUS EXE FILES (0.5-2.5MB):" -ForegroundColor Red
         Write-Host ""
         
-        $suspiciousFiles = @()
-        $i = 0
-        
-        foreach ($exe in $allExeFiles) {
-            $i++
-            Show-Progress $i $allExeFiles.Count
-            
-            $sizeMB = [math]::Round($exe.Length / 1MB, 2)
-            
-            if ($sizeMB -ge 0.5 -and $sizeMB -le 2.5) {
-                $suspiciousFiles += [PSCustomObject]@{
-                    Name = $exe.Name
-                    FullPath = $exe.FullName
-                    SizeMB = $sizeMB
-                    CreationTime = $exe.CreationTime
-                    LastWriteTime = $exe.LastWriteTime
-                    IsHidden = ($exe.Attributes -band [System.IO.FileAttributes]::Hidden)
-                }
+        $counter = 1
+        foreach ($file in $suspiciousFiles) {
+            # Datei-Info Box
+            Write-Host "    ┌─────────────────────────────────────────────────────────┐" -ForegroundColor DarkBlue
+            Write-Host "    │ [#$counter] $($file.FileName.PadRight(45)) │" -ForegroundColor DarkBlue
+            Write-Host "    ├─────────────────────────────────────────────────────────┤" -ForegroundColor DarkBlue
+            Write-Host "    │ 📊 Size:    $($file.SizeMB.ToString("0.00").PadRight(8)) MB                      │" -ForegroundColor White
+            Write-Host "    │ 📁 Folder:  $(Split-Path $file.FullName -Parent)" -ForegroundColor White
+            if ($file.IsHidden) {
+                Write-Host "    │ ⚠️  ATTRIBUTE: HIDDEN FILE                              │" -ForegroundColor Yellow
             }
-            
-            Start-Sleep -Milliseconds 10  # Kleine Pause für Animation
-        }
-        
-        Write-Host "`n"  # New line after progress bar
-        
-        # Ergebnisse anzeigen
-        Show-Section "📊 SCAN RESULTS"
-        Show-Result "Total EXE files: $($allExeFiles.Count)" "info"
-        Show-Result "Files in range 0.5-2.5MB: $($suspiciousFiles.Count)" "warning"
-        
-        if ($suspiciousFiles.Count -gt 0) {
-            Show-Section "🚨 SUSPICIOUS FILES FOUND"
-            
-            foreach ($file in $suspiciousFiles) {
-                Write-Host ""
-                Write-Host "  ┌─────────────────────────────────────────┐" -ForegroundColor DarkBlue
-                Write-Host "  │ File: $($file.Name.PadRight(36)) │" -ForegroundColor DarkBlue
-                Write-Host "  │ Size: $($file.SizeMB.ToString("0.00").PadRight(6)) MB (0.5-2.5MB range) │" -ForegroundColor DarkBlue
-                Write-Host "  │ Path: $($file.FullPath.PadRight(36)) │" -ForegroundColor DarkBlue
-                
-                if ($file.IsHidden) {
-                    Write-Host "  │ ⚠ HIDDEN FILE                           │" -ForegroundColor Yellow
-                }
-                
-                Write-Host "  └─────────────────────────────────────────┘" -ForegroundColor DarkBlue
+            if ($file.IsSystem) {
+                Write-Host "    │ ⚠️  ATTRIBUTE: SYSTEM FILE                              │" -ForegroundColor Yellow
             }
-            
-            # Hash für Beweise
-            Show-Section "🔐 FILE HASHES (SHA256)"
-            foreach ($file in $suspiciousFiles) {
-                try {
-                    $hash = (Get-FileHash -Path $file.FullPath -Algorithm SHA256 -ErrorAction SilentlyContinue).Hash
-                    if ($hash) {
-                        Write-Host "  [$($file.Name)]" -ForegroundColor Cyan
-                        Write-Host "  $hash" -ForegroundColor Gray
-                        Write-Host ""
-                    }
-                } catch {
-                    Write-Host "  [$($file.Name)] Error getting hash" -ForegroundColor Gray
-                }
-            }
-        }
-        
-        # Zusammenfassung
-        Show-Section "📋 SUMMARY"
-        if ($suspiciousFiles.Count -eq 0) {
+            Write-Host "    │ 📅 Created: $($file.CreationTime.ToString('dd.MM.yyyy HH:mm'))               │" -ForegroundColor Gray
+            Write-Host "    │ 📅 Modified: $($file.LastWriteTime.ToString('dd.MM.yyyy HH:mm'))              │" -ForegroundColor Gray
+            Write-Host "    └─────────────────────────────────────────────────────────┘" -ForegroundColor DarkBlue
             Write-Host ""
-            Write-Host "  ╔══════════════════════════════════════╗" -ForegroundColor Green
-            Write-Host "  ║         SCAN COMPLETED              ║" -ForegroundColor Green
-            Write-Host "  ║      No suspicious files found      ║" -ForegroundColor Green
-            Write-Host "  ╚══════════════════════════════════════╝" -ForegroundColor Green
+            
+            $counter++
+        }
+        
+        # HASHES anzeigen
+        Show-Section "🔐 SHA256 HASHES FOR EACH FILE"
+        
+        $counter = 1
+        foreach ($file in $suspiciousFiles) {
+            try {
+                $hash = (Get-FileHash -Path $file.FullPath -Algorithm SHA256 -ErrorAction SilentlyContinue).Hash
+                if ($hash) {
+                    Write-Host ""
+                    Write-Host "    [#$counter] $($file.FileName)" -ForegroundColor Cyan
+                    Write-Host "        $hash" -ForegroundColor Gray
+                }
+            } catch {
+                Write-Host "    [#$counter] $($file.FileName) - Hash error" -ForegroundColor Red
+            }
+            $counter++
+        }
+    }
+    
+    # ZUSAMMENFASSUNG
+    Show-Section "📊 FINAL SUMMARY"
+    
+    Write-Host ""
+    Write-Host "    📈 SCAN STATISTICS:" -ForegroundColor Cyan
+    Write-Host "    ├─ Total locations scanned: $($scanPaths.Count)" -ForegroundColor White
+    Write-Host "    ├─ Total EXE files found: $totalFilesFound" -ForegroundColor White
+    Write-Host "    ├─ Files in range 0.5-2.5MB: $($suspiciousFiles.Count)" -ForegroundColor White
+    Write-Host "    └─ Hidden files found: $(($suspiciousFiles | Where-Object { $_.IsHidden }).Count)" -ForegroundColor White
+    
+    Write-Host ""
+    Write-Host "    📂 SCANNED PATHS:" -ForegroundColor Cyan
+    foreach ($path in $scanPaths) {
+        if (Test-Path $path) {
+            Write-Host "      ✓ $path" -ForegroundColor Green
         } else {
-            Write-Host ""
-            Write-Host "  ╔══════════════════════════════════════╗" -ForegroundColor Red
-            Write-Host "  ║         WARNING!                    ║" -ForegroundColor Red
-            Write-Host "  ║   $($suspiciousFiles.Count) suspicious files found  ║" -ForegroundColor Red
-            Write-Host "  ╚══════════════════════════════════════╝" -ForegroundColor Red
+            Write-Host "      ✗ $path (not found)" -ForegroundColor Gray
         }
-        
-    } catch {
-        Show-Result "Error during scan: $_" "error"
     }
     
     Write-Host ""
-    Write-Host "═" * 50 -ForegroundColor DarkBlue
-    Show-Result "Scan completed at: $(Get-Date -Format 'HH:mm:ss')" "info"
-    Write-Host "═" * 50 -ForegroundColor DarkBlue
+    Write-Host "    ⏱️  Scan completed at: $(Get-Date -Format 'dd.MM.yyyy HH:mm:ss')" -ForegroundColor Gray
+    Write-Host ""
+    Write-Host "    " + ("═" * 56) -ForegroundColor DarkBlue
     
     Read-Host "`nPress Enter to exit"
 }
