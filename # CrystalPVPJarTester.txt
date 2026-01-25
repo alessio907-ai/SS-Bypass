@@ -1,4 +1,4 @@
-# =====================================================
+ =====================================================
 # CrystalPVPJarTester BLUE - ULTIMATE
 # CrystalPVP 
 # =====================================================
@@ -50,20 +50,6 @@ function Start-CheatScan {
         Info "✔ No suspicious JVM arguments"
     }
 
-    # --------- TASK MANAGER PROCESS SCAN ----------
-    Sec "Task Manager / Injectable Process Scan"
-    $procHits = Scan-SuspiciousProcesses
-    if ($procHits.Count -gt 0) {
-        foreach ($p in $procHits) {
-            Bad "❌ Suspicious process detected"
-            Bad "   Name: $($p.Name)"
-            Bad "   PID : $($p.PID)"
-            Bad "   Path: $($p.Path)"
-        }
-    } else {
-        Info "✔ No known injectable / cheat processes running"
-    }
-
     # --------- GAME DIR ----------
     $mcPath = Get-RunningMinecraftPath
     if (-not $mcPath) {
@@ -84,6 +70,7 @@ function Start-CheatScan {
     $unknown=@()
     $i=0
 
+    # Cheat Strings (Habibi)
     $cheatStrings = @(
         "AimAssist","AnchorTweaks","AutoAnchor","AutoCrystal","AutoDoubleHand",
         "AutoHitCrystal","AutoPot","AutoTotem","AutoArmor","InventoryTotem",
@@ -96,13 +83,19 @@ function Start-CheatScan {
         $i++
         Write-Host "`r[~] Scanning $i / $($mods.Count)" -NoNewline -ForegroundColor Cyan
 
+        # ---------- ANALYZE LOCAL ----------
         $r = Analyze-Mod $m.FullName $m.Name
+
+        # ---------- SHA1 / Modrinth / Megabase ----------
         $hash = Get-SHA1 -filePath $m.FullName
         $modDataModrinth = Fetch-Modrinth -hash $hash
         $modDataMegabase = Fetch-Megabase -hash $hash
 
-        if ($modDataModrinth.Slug -or $modDataMegabase.name) { $r.Verified = $true }
+        if ($modDataModrinth.Slug -or $modDataMegabase.name) {
+            $r.Verified = $true
+        }
 
+        # ---------- STRING SCAN ----------
         $stringsFound = Check-Strings $m.FullName $cheatStrings
         if ($stringsFound.Count -gt 0) {
             $r.IsSuspicious = $true
@@ -110,9 +103,12 @@ function Start-CheatScan {
             $r.Reason += "; Cheat strings detected"
         }
 
+        # ---------- Hidden Check ----------
         if ($m.Attributes -band [System.IO.FileAttributes]::Hidden) {
             $r.Hidden = $true
-            if ($r.IsSuspicious) { $r.Reason += "; Hidden mod (SS bypass attempt)" }
+            if ($r.IsSuspicious) {
+                $r.Reason += "; Diese Mod wurde versteckt, um ein SS zu umgehen"
+            }
         }
 
         if ($r.IsSuspicious) { $flagged += $r }
@@ -121,15 +117,63 @@ function Start-CheatScan {
     }
     Write-Host "`r$(' ' * 80)`r"
 
+    # --------- CLEAN MODS ----------
+    if ($clean.Count -gt 0) {
+        Sec "Verified / Clean Mods"
+        $clean | ForEach-Object {
+            Info "✔ $($_.ModName)"
+        }
+    }
+
+    # --------- UNKNOWN MODS ----------
+    if ($unknown.Count -gt 0) {
+        Sec "Unknown Mods"
+        $unknown | ForEach-Object {
+            if ($_.Hidden) { Info "⚠ $($_.ModName) (hidden mod)" } 
+            else { Info "➖ $($_.ModName)" }
+        }
+    }
+
+    # --------- CHEAT MODS ----------
     if ($flagged.Count -gt 0) {
         Sec "Cheat Mods"
         $flagged | ForEach-Object {
             Bad "❌ $($_.ModName)"
             Bad "   Reason: $($_.Reason)"
             if ($_.Hits.Count -gt 0) { Bad "   Hits: $($_.Hits -join ', ')" }
+            if ($_.Hidden) { Bad "    Diese Mod wurde versteckt, um ein SS zu umgehen" }
         }
     }
 
+    # --------- TASK MANAGER SCAN ----------
+    Sec "Task Manager Scan"
+    $processes = Get-Process | Where-Object { $_.Name -match "prestige|cheat|client|otherKeyword" }
+    if ($processes.Count -gt 0) {
+        $processes | ForEach-Object {
+            Bad "❌ Process Found: $($_.Name) (PID: $($_.Id))"
+        }
+    } else {
+        Info "✔ No suspicious processes found"
+    }
+
+    # --------- APPDATA / DESKTOP SCAN ----------
+    Sec "Scanning AppData and Desktop"
+    $appdataPath = [System.Environment]::GetFolderPath('ApplicationData')
+    $desktopPath = [System.Environment]::GetFolderPath('Desktop')
+
+    $appdataFiles = Get-ChildItem $appdataPath -Recurse -Force -ErrorAction SilentlyContinue
+    $desktopFiles = Get-ChildItem $desktopPath -Recurse -Force -ErrorAction SilentlyContinue
+
+    $suspiciousFiles = $appdataFiles + $desktopFiles | Where-Object { $_.Name -match "cheat|client|hack" }
+    if ($suspiciousFiles.Count -gt 0) {
+        $suspiciousFiles | ForEach-Object {
+            Bad "❌ Suspicious file found: $($_.FullName)"
+        }
+    } else {
+        Info "✔ No suspicious files found in AppData or Desktop"
+    }
+
+    # --------- SUMMARY ----------
     Sec "Summary"
     Info "Verified / Clean Mods: $($clean.Count)"
     Info "Unknown Mods: $($unknown.Count)"
@@ -142,33 +186,32 @@ function Start-CheatScan {
 
 # ---------------- HELPER FUNCTIONS ----------------
 function Scan-JVMArguments($cmd){
-    $bad = @("-javaagent:","-noverify","-Xbootclasspath","DisableAttachMechanism","fabric.development=true","-Djdk.attach.allowAttachSelf")
+    $bad = @(
+        "-javaagent:",
+        "-noverify",
+        "-Xbootclasspath",
+        "DisableAttachMechanism",
+        "fabric.development=true",
+        "-Djdk.attach.allowAttachSelf"
+    )
     $hits=@()
-    foreach ($b in $bad) { if ($cmd -match [regex]::Escape($b)) { $hits += $b } }
+    foreach ($b in $bad) {
+        if ($cmd -match [regex]::Escape($b)) { $hits += $b }
+    }
     return $hits
 }
 
-function Scan-SuspiciousProcesses {
-    $hits=@()
-    $badNames = @(
-        "prestige","vapor","entropy","dream","rise","tenacity","novo",
-        "inject","injector","loader","attach","client","cheat","hack",
-        "jattach","ghost","clicker"
-    )
-
-    Get-Process -ErrorAction SilentlyContinue | ForEach-Object {
-        $n = $_.Name.ToLower()
-        foreach ($b in $badNames) {
-            if ($n -match $b) {
-                $hits += [PSCustomObject]@{
-                    Name = $_.Name
-                    PID  = $_.Id
-                    Path = try { $_.Path } catch { "N/A" }
-                }
+function Scan-NativeDLLs($pid){
+    $out=@()
+    $mods = Get-Process -Id $pid -Module -ErrorAction SilentlyContinue
+    foreach ($m in $mods) {
+        if ($m.FileName -and $m.FileName -match "\.dll$") {
+            if ($m.FileName -notmatch "System32|Java|jdk|jre") {
+                $out += $m.FileName
             }
         }
     }
-    return $hits
+    return ($out | Select-Object -Unique)
 }
 
 function Get-RunningMinecraftPath {
@@ -190,31 +233,56 @@ function Get-RunningMinecraftPath {
 function Analyze-Mod($JarPath, $ModName) {
     $temp = Join-Path $env:TEMP ("cpvp_" + [guid]::NewGuid())
     New-Item $temp -ItemType Directory | Out-Null
-    $hits=@(); $sus=$false; $reasons=@()
+
+    $hits=@()
+    $sus=$false
+    $reasons=@()
+    $hidden=$false
+    $verified=$false
 
     try {
         Add-Type -AssemblyName System.IO.Compression.FileSystem
         [IO.Compression.ZipFile]::ExtractToDirectory($JarPath, $temp)
+
         $pkg = Scan-CheatPackages $temp
         $cls = Scan-SuspiciousClasses $temp
-        if ($pkg.Hits.Count -gt 0) { $sus=$true; $reasons+="Known cheat package"; $hits+=$pkg.Hits }
-        if ($cls.Hits.Count -ge 3) { $sus=$true; $reasons+="Suspicious classes"; $hits+=$cls.Hits }
-    } catch { $reasons+="Scan error" }
-    finally { Remove-Item $temp -Recurse -Force -ErrorAction SilentlyContinue }
+
+        if ($pkg.Hits.Count -gt 0) {
+            $sus=$true
+            $reasons+="Known cheat package"
+            $hits+=$pkg.Hits
+        }
+
+        if ($cls.Hits.Count -ge 3) {
+            $sus=$true
+            $reasons+="Multiple suspicious class names"
+            $hits+=$cls.Hits
+        }
+    } catch {
+        $reasons+="Scan error"
+    } finally {
+        Remove-Item $temp -Recurse -Force -ErrorAction SilentlyContinue
+    }
 
     [PSCustomObject]@{
-        ModName=$ModName; IsSuspicious=$sus; Reason=$reasons -join "; "
-        Hits=$hits | Select-Object -Unique; Hidden=$false; Verified=$false
+        ModName=$ModName
+        IsSuspicious=$sus
+        Reason=$reasons -join "; "
+        Hits=$hits | Select-Object -Unique
+        Hidden=$hidden
+        Verified=$verified
     }
 }
 
+# ---------------- ORIGINAL SCANS ----------------
 function Scan-CheatPackages {
     param($ExtractPath)
     $hits=@()
-    $ids=@("meteorclient","net.wurst","wurstclient","aristois","futureclient","rusherhack","liquidbounce")
-    Get-ChildItem $ExtractPath -Recurse -File | ForEach-Object {
-        $r=$_.FullName.ToLower()
-        foreach($i in $ids){ if($r -match $i){ $hits+="package:$i" } }
+    $cheatIds=@("meteorclient","net.wurst","wurstclient","aristois","futureclient","rusherhack","liquidbounce")
+    $files=Get-ChildItem $ExtractPath -Recurse -File -ErrorAction SilentlyContinue
+    foreach($f in $files){
+        $rel=$f.FullName.Substring($ExtractPath.Length).ToLower()
+        foreach($id in $cheatIds){ if($rel -match [regex]::Escape($id)){ $hits+="package:$id" } }
     }
     [PSCustomObject]@{ Hits=$hits | Select-Object -Unique }
 }
@@ -222,22 +290,26 @@ function Scan-CheatPackages {
 function Scan-SuspiciousClasses {
     param($ExtractPath)
     $hits=@()
-    $frags=@("killaura","crystalaura","autoclick","triggerbot","aimassist","autocrystal")
-    Get-ChildItem $ExtractPath -Recurse -Filter "*.class" | ForEach-Object {
-        try {
-            $txt=[Text.Encoding]::UTF8.GetString([IO.File]::ReadAllBytes($_.FullName))
+    $frags=@("killaura","crystalaura","autoclick","triggerbot","aimassist","autocrystal","clickcrystal",
+             "anchormacro","wtap","tpaura","placecrystal","breakcrystal","autototem","autoinv","playeresp",
+             "storageesp","fastexp","doubleanchor","autoexplode")
+    $classes=Get-ChildItem $ExtractPath -Recurse -Filter "*.class" -ErrorAction SilentlyContinue
+    foreach($c in $classes){
+        try{
+            $txt=[Text.Encoding]::UTF8.GetString([IO.File]::ReadAllBytes($c.FullName))
             foreach($f in $frags){ if($txt -match $f){ $hits+="class:$f" } }
-        } catch {}
+        }catch{}
     }
     [PSCustomObject]@{ Hits=$hits | Select-Object -Unique }
 }
 
-function Get-SHA1 { param($filePath) (Get-FileHash $filePath -Algorithm SHA1).Hash }
-function Fetch-Modrinth { param($hash) try { Invoke-RestMethod "https://api.modrinth.com/v2/version_file/$hash" } catch { @{ } } }
-function Fetch-Megabase { param($hash) try { Invoke-RestMethod "https://megabase.vercel.app/api/query?hash=$hash" } catch { $null } }
-function Check-Strings { param($file,$arr) $h=[System.Collections.Generic.HashSet[string]]::new(); $c=Get-Content -Raw $file; foreach($s in $arr){ if($c -match $s){$h.Add($s)|Out-Null}} $h }
+# ---------------- HABIBI FEATURES ----------------
+function Get-SHA1 { param([string]$filePath); return (Get-FileHash -Path $filePath -Algorithm SHA1).Hash }
+function Get-ZoneIdentifier { param([string]$filePath); $ads = Get-Content -Raw -Stream Zone.Identifier $filePath -ErrorAction SilentlyContinue; if ($ads -match "HostUrl=(.+)") { return $matches[1] } else { return $null } }
+function Fetch-Modrinth { param([string]$hash); try { $resp = Invoke-RestMethod -Uri "https://api.modrinth.com/v2/version_file/$hash" -Method Get -UseBasicParsing -ErrorAction Stop; if ($resp.project_id) { $proj = Invoke-RestMethod -Uri "https://api.modrinth.com/v2/project/$($resp.project_id)" -Method Get -UseBasicParsing -ErrorAction Stop; return @{ Name=$proj.title; Slug=$proj.slug } } } catch {}; return @{ Name=""; Slug="" } }
+function Fetch-Megabase { param([string]$hash); try { $resp = Invoke-RestMethod -Uri "https://megabase.vercel.app/api/query?hash=$hash" -Method Get -UseBasicParsing -ErrorAction Stop; if (-not $resp.error) { return $resp.data } } catch {}; return $null }
+function Check-Strings { param([string]$filePath, [string[]]$cheatStrings); $found=[System.Collections.Generic.HashSet[string]]::new(); $lines=Get-Content -Raw $filePath; foreach ($line in $lines){ foreach ($s in $cheatStrings){ if ($line -match $s) { $found.Add($s)|Out-Null } } }; return $found }
 
 # ---------------- RUN ----------------
 Start-CheatScan
-
 
