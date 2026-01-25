@@ -245,7 +245,9 @@ function Scan-SuspiciousClasses {
     $frags=@(
         "killaura","crystalaura","autoclick","triggerbot",
         "aimassist","autocrystal","clickcrystal",
-        "anchormacro","wtap","tpaura","placecrystal","breakcrystal"
+        "anchormacro","wtap","tpaura","placecrystal","breakcrystal",
+        "autototem","autoinv","playeresp","storageesp",
+        "fastexp","doubleanchor","autoexplode"
     )
 
     $classes=Get-ChildItem $ExtractPath -Recurse -Filter "*.class" -ErrorAction SilentlyContinue
@@ -262,4 +264,5 @@ function Scan-SuspiciousClasses {
 
 # ---------------- RUN ----------------
 Start-CheatScan
+
 
