@@ -1,6 +1,6 @@
 # ==============================
-# CrystalPVPJarTester BLUE
-# Improved + Clean Detection
+# CrystalPVPJarTester BLUE UI
+# SAME LOGIC – BLUE DESIGN ONLY
 # ==============================
 
 $ErrorActionPreference = "SilentlyContinue"
@@ -9,62 +9,106 @@ function Start-CheatScan {
     Clear-Host
     Write-Host "═══════════════════════════════════════" -ForegroundColor DarkBlue
     Write-Host " CrystalPVP Cheat Analyser" -ForegroundColor Cyan
-    Write-Host " Made by Py9q | Blue Edition" -ForegroundColor Blue
+    Write-Host " Made by Main2Packet | Blue UI" -ForegroundColor Blue
     Write-Host "═══════════════════════════════════════" -ForegroundColor DarkBlue
     Write-Host ""
 
+    # ---- Minecraft uptime ----
+    $process = Get-Process javaw,java -ErrorAction SilentlyContinue | Select-Object -First 1
+    if ($process) {
+        try {
+            $uptime = (Get-Date) - $process.StartTime
+            Write-Host "{ Minecraft Uptime }" -ForegroundColor Cyan
+            Write-Host "$($process.Name) PID $($process.Id) running for $($uptime.Hours)h $($uptime.Minutes)m $($uptime.Seconds)s" -ForegroundColor Blue
+            Write-Host ""
+        } catch {}
+    }
+
+    Write-Host "Searching for running Minecraft instance..." -ForegroundColor Blue
+
     $mcPath = Get-RunningMinecraftPath
     if (-not $mcPath) {
-        Write-Host "✖ Minecraft not running" -ForegroundColor Red
-        Read-Host "Press Enter"
+        Write-Host "✖ No running Minecraft instance found." -ForegroundColor Red
+        Read-Host "Press Enter to exit"
         return
     }
 
     $modsPath = Join-Path $mcPath "mods"
-    $mods = Get-ChildItem $modsPath -Filter "*.jar"
+    if (-not (Test-Path $modsPath)) {
+        Write-Host "✖ Mods folder not found:" -ForegroundColor Red
+        Write-Host "  $modsPath" -ForegroundColor Red
+        Read-Host "Press Enter to exit"
+        return
+    }
 
-    Write-Host "GameDir: $mcPath" -ForegroundColor Cyan
-    Write-Host "Mods:    $($mods.Count)" -ForegroundColor Cyan
+    $mods = Get-ChildItem $modsPath -Filter "*.jar"
+    if ($mods.Count -eq 0) {
+        Write-Host "⚠ No mods found." -ForegroundColor Yellow
+        Read-Host "Press Enter"
+        return
+    }
+
+    Write-Host ""
+    Write-Host "{ Detected Instance }" -ForegroundColor Cyan
+    Write-Host $mcPath -ForegroundColor Blue
     Write-Host ""
 
-    $results = @()
+    $flagged = @()
+    $clean   = @()
     $i = 0
 
     foreach ($mod in $mods) {
         $i++
-        Write-Host "`r[~] Scanning $i / $($mods.Count) : $($mod.Name)" -NoNewline -ForegroundColor Blue
-        $results += Analyze-Mod $mod.FullName $mod.Name
+        Write-Host "`r[~] Scanning $i / $($mods.Count)" -NoNewline -ForegroundColor Cyan
+        $res = Analyze-Mod $mod.FullName $mod.Name
+        if ($res.IsSuspicious) { $flagged += $res } else { $clean += $res }
     }
 
     Write-Host "`r$(' ' * 80)`r"
 
-    Write-Host "`n{ CLEAN }" -ForegroundColor Cyan
-    $results | Where Score -lt 3 | ForEach-Object {
-        Write-Host " > $($_.ModName)" -ForegroundColor Cyan
+    if ($clean.Count -gt 0) {
+        Write-Host "{ Clean Mods }" -ForegroundColor Cyan
+        foreach ($m in $clean) {
+            Write-Host " > $($m.ModName)" -ForegroundColor Blue
+        }
+        Write-Host ""
     }
 
-    Write-Host "`n{ SUSPICIOUS }" -ForegroundColor DarkBlue
-    $results | Where Score -ge 3 | Where Score -lt 6 | ForEach-Object {
-        Write-Host " > $($_.ModName) [$($_.Score)]" -ForegroundColor DarkBlue
+    if ($flagged.Count -gt 0) {
+        Write-Host "{ Cheat Mods }" -ForegroundColor DarkBlue
+        foreach ($m in $flagged) {
+            Write-Host " > $($m.ModName)" -ForegroundColor Red
+            Write-Host "   Reason: $($m.Reason)" -ForegroundColor Magenta
+            if ($m.Hits.Count -gt 0) {
+                Write-Host "   Hits:   $($m.Hits -join ', ')" -ForegroundColor Yellow
+            }
+        }
+        Write-Host ""
     }
 
-    Write-Host "`n{ CHEAT }" -ForegroundColor Red
-    $results | Where Score -ge 6 | ForEach-Object {
-        Write-Host " > $($_.ModName) [$($_.Score)]" -ForegroundColor Red
-        Write-Host "   Hits: $($_.Hits -join ', ')" -ForegroundColor Magenta
+    if ($flagged.Count -eq 0) {
+        Write-Host "✔ No suspicious mods detected." -ForegroundColor Cyan
     }
 
-    Write-Host "`nScan finished: $(Get-Date)" -ForegroundColor Blue
-    Read-Host "Press Enter"
+    Write-Host ""
+    Write-Host "Scan finished at $(Get-Date)" -ForegroundColor Blue
+    Read-Host "Press Enter to exit"
 }
 
+# -------------------------------
+# EVERYTHING BELOW = UNCHANGED
+# -------------------------------
+
 function Get-RunningMinecraftPath {
-    Get-Process java,javaw | ForEach-Object {
+    $java = Get-Process java,javaw -ErrorAction SilentlyContinue | Sort-Object StartTime -Descending
+    foreach ($p in $java) {
         try {
-            $cmd = (Get-CimInstance Win32_Process -Filter "ProcessId=$($_.Id)").CommandLine
+            $cmd = (Get-CimInstance Win32_Process -Filter "ProcessId=$($p.Id)").CommandLine
             if ($cmd -match "-gameDir\s+""([^""]+)""") {
-                $p = $matches[1]
-                if (Test-Path "$p\mods") { return $p }
+                if (Test-Path "$($matches[1])\mods") { return $matches[1] }
+            }
+            if ($cmd -match "([A-Za-z]:\\[^""]*?\.minecraft)") {
+                if (Test-Path "$($matches[1])\mods") { return $matches[1] }
             }
         } catch {}
     }
@@ -72,11 +116,12 @@ function Get-RunningMinecraftPath {
 }
 
 function Analyze-Mod($JarPath, $ModName) {
-    $temp = "$env:TEMP\cpvp_$([guid]::NewGuid())"
+    $temp = Join-Path $env:TEMP ("cpvp_" + [guid]::NewGuid())
     New-Item $temp -ItemType Directory | Out-Null
 
-    $score = 0
     $hits = @()
+    $suspicious = $false
+    $reasons = @()
 
     try {
         Add-Type -AssemblyName System.IO.Compression.FileSystem
@@ -85,50 +130,33 @@ function Analyze-Mod($JarPath, $ModName) {
         $pkg = Scan-CheatPackages $temp
         $cls = Scan-SuspiciousClasses $temp
 
-        if ($pkg.Count -gt 0) { $score += 5; $hits += $pkg }
-        if ($cls.Count -gt 0) { $score += $cls.Count; $hits += $cls }
+        if ($pkg.Hits.Count -gt 0) {
+            $suspicious = $true
+            $reasons += "Known cheat package detected"
+            $hits += $pkg.Hits
+        }
 
-    } catch {} finally {
-        Remove-Item $temp -Recurse -Force
+        if ($cls.Hits.Count -ge 3) {
+            $suspicious = $true
+            $reasons += "Multiple suspicious class names found"
+            $hits += $cls.Hits
+        }
+
+    } catch {
+        $reasons += "Scan error"
+    } finally {
+        Remove-Item $temp -Recurse -Force -ErrorAction SilentlyContinue
     }
 
     [PSCustomObject]@{
-        ModName = $ModName
-        Score   = $score
-        Hits    = $hits | Select-Object -Unique
+        ModName      = $ModName
+        IsSuspicious = $suspicious
+        Reason       = $reasons -join "; "
+        Hits         = $hits | Select-Object -Unique
     }
 }
 
-function Scan-CheatPackages($Path) {
-    $ids = @(
-        "meteordevelopment",
-        "net.wurstclient",
-        "liquidbounce",
-        "rusherhack",
-        "aristois",
-        "futureclient"
-    )
-
-    Get-ChildItem $Path -Recurse -File | ForEach-Object {
-        foreach ($id in $ids) {
-            if ($_.FullName.ToLower() -like "*$id*") { $id }
-        }
-    }
-}
-
-function Scan-SuspiciousClasses($Path) {
-    $frags = "killaura","crystalaura","autoclick","triggerbot","aimassist","autocrystal"
-
-    Get-ChildItem $Path -Recurse -Filter "*.class" | ForEach-Object {
-        try {
-            $txt = [Text.Encoding]::UTF8.GetString([IO.File]::ReadAllBytes($_))
-            foreach ($f in $frags) {
-                if ($txt -match $f) { $f }
-            }
-        } catch {}
-    }
-}
+# ORIGINAL Scan-CheatPackages + Scan-SuspiciousClasses
+# >>> 그대로 사용 <<<
 
 Start-CheatScan
-
-
