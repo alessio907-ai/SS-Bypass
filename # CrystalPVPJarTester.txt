@@ -20,8 +20,8 @@ function Bad($t){ Write-Host "  $t" -ForegroundColor Red }
 # ---------------- ENTRY ----------------
 function Start-CheatScan {
     Clear-Host
-    H1 "CrystalPVP Ultimate Cheat Analyser"
-    Info "Made by Main2Packer + Habibi Features"
+    H1 "CrystalPVP Cheat Analyser"
+    Info "Made by Main2Packet"
     Write-Host ""
 
     # --------- JAVA PROCESS ----------
@@ -141,7 +141,7 @@ function Start-CheatScan {
             Bad "❌ $($_.ModName)"
             Bad "   Reason: $($_.Reason)"
             if ($_.Hits.Count -gt 0) { Bad "   Hits: $($_.Hits -join ', ')" }
-            if ($_.Hidden) { Bad "   ⚠ Diese Mod wurde versteckt, um ein SS zu umgehen" }
+            if ($_.Hidden) { Bad "    Diese Mod wurde versteckt, um ein SS zu umgehen" }
         }
     }
 
@@ -284,6 +284,7 @@ function Check-Strings { param([string]$filePath, [string[]]$cheatStrings); $fou
 
 # ---------------- RUN ----------------
 Start-CheatScan
+
 
 
 
