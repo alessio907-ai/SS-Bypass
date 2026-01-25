@@ -20,7 +20,7 @@ function Bad($t){ Write-Host $t -ForegroundColor Red }
 function Start-CheatScan {
     Clear-Host
     H1 "CrystalPVP Cheat Analyser"
-    Info "Made by Py9q | Blue Edition"
+    Info "Made by Main2Packer"
     Write-Host ""
 
     # --------- JAVA PROCESS ----------
@@ -211,4 +211,3 @@ function Scan-SuspiciousClasses { param($ExtractPath)
 
 # ---------------- RUN ----------------
 Start-CheatScan
-
