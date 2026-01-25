@@ -1,214 +1,188 @@
 # =====================================================
-# CrystalPVPJarTester BLUE - FULL
-# Sichtbare & versteckte Mods + Blacklist + Extra Scan
+# CrystalPVPJarTester BLUE - STRICT MODE + LOG
+# 100% CONFIRMED CHEAT ONLY
 # =====================================================
 
 $ErrorActionPreference = "SilentlyContinue"
 
-# ---------------- UI HELPERS ----------------
-function H1($t){ 
+# ---------------- CONFIG ----------------
+$STRICT_MODE = $true
+$LOG_DIR = "$env:USERPROFILE\Documents\CrystalPVP_ScanLogs"
+New-Item $LOG_DIR -ItemType Directory -Force | Out-Null
+$LOG_FILE = Join-Path $LOG_DIR ("scan_" + (Get-Date -Format "yyyy-MM-dd_HH-mm-ss") + ".txt")
+
+function Log($t){
+    Add-Content -Path $LOG_FILE -Value ("["+(Get-Date)+"] "+$t)
+}
+
+# ---------------- UI ----------------
+function H1($t){
     Write-Host "═══════════════════════════════════════" -ForegroundColor DarkBlue
     Write-Host " $t" -ForegroundColor Cyan
-    Write-Host "═══════════════════════════════════════" -ForegroundColor DarkBlue 
+    Write-Host "═══════════════════════════════════════" -ForegroundColor DarkBlue
 }
-function Sec($t){ Write-Host "`n{ $t }" -ForegroundColor Cyan }
-function Info($t){ Write-Host $t -ForegroundColor Blue }
-function Warn($t){ Write-Host $t -ForegroundColor Yellow }
-function Bad($t){ Write-Host $t -ForegroundColor Red }
+function Sec($t){ Write-Host "`n{ $t }" -ForegroundColor Cyan; Log "{ $t }" }
+function Info($t){ Write-Host $t -ForegroundColor Blue; Log $t }
+function Warn($t){ Write-Host $t -ForegroundColor Yellow; Log "WARN: $t" }
+function Bad($t){ Write-Host $t -ForegroundColor Red; Log "CHEAT: $t" }
 
 # ---------------- ENTRY ----------------
 function Start-CheatScan {
     Clear-Host
     H1 "CrystalPVP Cheat Analyser"
     Info "Made by Main2Packer"
-    Write-Host ""
+    Info "Logfile: $LOG_FILE"
 
-    # --------- JAVA PROCESS ----------
-    $javaProc = Get-Process java,javaw -ErrorAction SilentlyContinue | Sort-Object StartTime | Select-Object -First 1
-    if (-not $javaProc) {
-        Bad "✖ Minecraft (Java) not running"
-        Read-Host "Press Enter"
+    $javaProc = Get-Process java,javaw | Sort StartTime | Select -First 1
+    if (-not $javaProc){
+        Bad "Minecraft not running"
         return
     }
 
     $cmd = (Get-CimInstance Win32_Process -Filter "ProcessId=$($javaProc.Id)").CommandLine
+    Sec "JVM Scan"
 
-    # --------- UPTIME ----------
-    $uptime = (Get-Date) - $javaProc.StartTime
-    Sec "Minecraft Uptime"
-    Info "$($javaProc.Name) PID $($javaProc.Id) | $($uptime.Hours)h $($uptime.Minutes)m $($uptime.Seconds)s"
-
-    # --------- JVM ARG SCAN ----------
-    $jvmFindings = Scan-JVMArguments $cmd
-    Sec "JVM / JavaAgent Scan"
-    if ($jvmFindings.Count -gt 0) {
-        $jvmFindings | ForEach-Object { Bad "❌ $_" }
+    $jvmHits = Scan-JVMArguments $cmd
+    if ($jvmHits.Count -gt 0){
+        foreach($h in $jvmHits){ Bad "JVM Flag: $h" }
     } else {
-        Info "✔ No suspicious JVM arguments"
+        Info "No JVM manipulation"
     }
 
-    # --------- GAME DIR ----------
     $mcPath = Get-RunningMinecraftPath
-    if (-not $mcPath) {
-        Bad "✖ Could not determine gameDir"
-        Read-Host "Press Enter"
-        return
-    }
-    Sec "Detected Instance"
+    Sec "GameDir"
     Info $mcPath
 
-    # --------- MOD SCAN ----------
     $modsPath = Join-Path $mcPath "mods"
-    # Alles holen, auch versteckte
-    $mods = Get-ChildItem $modsPath -Force -File -Filter "*.jar" -ErrorAction SilentlyContinue
-    $flagged=@(); $clean=@(); $i=0
+    $mods = Get-ChildItem $modsPath -Force -Filter "*.jar"
+
+    $confirmed=@()
+    $suspicious=@()
 
     Sec "Mod Scan"
-    foreach ($m in $mods) {
-        $i++
-        Write-Host "`r[~] Scanning $i / $($mods.Count)" -NoNewline -ForegroundColor Cyan
-        $r = Analyze-Mod $m.FullName $m.Name
-        if ($r.IsSuspicious) { $flagged += $r } else { $clean += $r }
+    foreach($m in $mods){
+        $res = Analyze-Mod $m.FullName $m.Name
 
-        # Prüfen ob versteckt
-        if ($m.Attributes -band [System.IO.FileAttributes]::Hidden) {
-            $r.Hidden = $true
+        if($res.Confirmed){
+            $confirmed += $res
+            Bad "CONFIRMED CHEAT: $($res.ModName)"
         }
-    }
-    Write-Host "`r$(' ' * 80)`r"
+        elseif($res.Suspicious){
+            $suspicious += $res
+            Warn "SUSPICIOUS: $($res.ModName)"
+        }
 
-    if ($clean.Count -gt 0) {
-        Sec "Clean Mods"
-        $clean | ForEach-Object { 
-            Info "✔ $($_.ModName)" 
-            if ($_.Hidden) { Warn "   ⚠ Mod wurde unsichtbar gemacht!" }
+        if($m.Attributes -band [IO.FileAttributes]::Hidden){
+            Warn "$($m.Name) was hidden"
         }
     }
 
-    if ($flagged.Count -gt 0) {
-        Sec "Cheat Mods"
-        $flagged | ForEach-Object {
-            Bad "❌ $($_.ModName)"
-            if ($_.Hidden) { Warn "   ⚠ Mod wurde unsichtbar gemacht!" }
-            Warn "   Reason: $($_.Reason)"
-            if ($_.Hits.Count -gt 0) { Warn "   Hits: $($_.Hits -join ', ')" }
-        }
-    }
-
-    # --------- NATIVE DLL SCAN ----------
-    $dlls = Scan-NativeDLLs $javaProc.Id
     Sec "Native DLL Scan"
-    if ($dlls.Count -gt 0) {
-        $dlls | ForEach-Object { Bad "❌ $_" }
-    } else {
-        Info "✔ No suspicious native libraries"
+    $dlls = Scan-NativeDLLs $javaProc.Id
+    foreach($d in $dlls){
+        Bad "Injected DLL: $d"
     }
 
-    # --------- SUMMARY ----------
-    Sec "Summary"
-    Info "Clean Mods: $($clean.Count)"
-    Warn "Flagged Mods: $($flagged.Count)"
-    Warn "JVM Findings: $($jvmFindings.Count)"
-    Warn "Suspicious DLLs: $($dlls.Count)"
-
-    Write-Host "`nScan finished at $(Get-Date)" -ForegroundColor Blue
-    Read-Host "Press Enter"
+    Sec "SUMMARY"
+    Info "Confirmed Cheats: $($confirmed.Count)"
+    Warn "Suspicious Mods: $($suspicious.Count)"
+    Info "Scan finished"
 }
 
-# ---------------- JVM ARGUMENTS ----------------
+# ---------------- DETECTION ----------------
 function Scan-JVMArguments($cmd){
-    $bad = @(
-        "-javaagent:","-noverify","-Xbootclasspath","DisableAttachMechanism","fabric.development=true"
-    )
+    $bad=@("-javaagent","-noverify","-Xbootclasspath","DisableAttachMechanism")
     $hits=@()
-    foreach ($b in $bad) {
-        if ($cmd -match [regex]::Escape($b)) { $hits += $b }
+    foreach($b in $bad){
+        if($cmd -match [regex]::Escape($b)){ $hits+=$b }
     }
     return $hits
 }
 
-# ---------------- NATIVE DLLS ----------------
 function Scan-NativeDLLs($pid){
     $out=@()
-    $mods = Get-Process -Id $pid -Module -ErrorAction SilentlyContinue
-    foreach ($m in $mods) {
-        if ($m.FileName -and $m.FileName -match "\.dll$") {
-            if ($m.FileName -notmatch "System32|Java|jdk|jre") {
-                $out += $m.FileName
-            }
+    Get-Process -Id $pid -Module | ForEach-Object{
+        if($_.FileName -match "\.dll$" -and $_.FileName -notmatch "System32|Java|jdk|jre"){
+            $out+=$_.FileName
         }
     }
-    return ($out | Select-Object -Unique)
+    return $out | Select -Unique
 }
 
-# ---------------- GAME DIR ----------------
-function Get-RunningMinecraftPath {
-    $java = Get-Process java,javaw -ErrorAction SilentlyContinue | Sort-Object StartTime -Descending
-    foreach ($p in $java) {
-        try {
-            $cmd = (Get-CimInstance Win32_Process -Filter "ProcessId=$($p.Id)").CommandLine
-            if ($cmd -match "-gameDir\s+""([^""]+)""") {
-                if (Test-Path "$($matches[1])\mods") { return $matches[1] }
-            }
-            if ($cmd -match "([A-Za-z]:\\[^""]*?\.minecraft)") {
-                if (Test-Path "$($matches[1])\mods") { return $matches[1] }
-            }
-        } catch {}
-    }
-    return $null
-}
-
-# ---------------- MOD ANALYSIS ----------------
-function Analyze-Mod($JarPath, $ModName) {
-    $temp = Join-Path $env:TEMP ("cpvp_" + [guid]::NewGuid())
+function Analyze-Mod($path,$name){
+    $temp="$env:TEMP\cpvp_$([guid]::NewGuid())"
     New-Item $temp -ItemType Directory | Out-Null
-    $hits=@(); $sus=$false; $reasons=@(); $hidden=$false
-    try {
-        Add-Type -AssemblyName System.IO.Compression.FileSystem
-        [IO.Compression.ZipFile]::ExtractToDirectory($JarPath, $temp)
-        $pkg = Scan-CheatPackages $temp
-        $cls = Scan-SuspiciousClasses $temp
-        if ($pkg.Hits.Count -gt 0) { $sus=$true; $reasons+="Known cheat package"; $hits+=$pkg.Hits }
-        if ($cls.Hits.Count -ge 3) { $sus=$true; $reasons+="Multiple suspicious class names"; $hits+=$cls.Hits }
-    } catch { $reasons+="Scan error" }
-    finally { Remove-Item $temp -Recurse -Force -ErrorAction SilentlyContinue }
 
-    return [PSCustomObject]@{ 
-        ModName=$ModName
-        IsSuspicious=$sus
-        Reason=$reasons -join "; "
-        Hits=$hits | Select-Object -Unique
-        Hidden=$hidden
+    $confirmed=$false
+    $suspicious=$false
+    $hits=@()
+
+    try{
+        Add-Type -AssemblyName System.IO.Compression.FileSystem
+        [IO.Compression.ZipFile]::ExtractToDirectory($path,$temp)
+
+        $pkg = Scan-CheatPackages $temp
+        if($pkg.Count -gt 0){
+            $confirmed=$true
+            $hits+=$pkg
+        }
+
+        $cls = Scan-SuspiciousClasses $temp
+        if($cls.Count -gt 0){
+            $suspicious=$true
+            $hits+=$cls
+        }
+
+    }catch{}
+    finally{ Remove-Item $temp -Recurse -Force }
+
+    [PSCustomObject]@{
+        ModName=$name
+        Confirmed=$confirmed
+        Suspicious=$suspicious
+        Hits=$hits
     }
 }
 
-# ---------------- ORIGINAL SCANS ----------------
-function Scan-CheatPackages { param($ExtractPath)
+function Scan-CheatPackages($p){
+    $ids=@(
+        "meteorclient","net.wurst","wurstclient",
+        "futureclient","rusherhack","liquidbounce"
+    )
     $hits=@()
-    $cheatIds=@("meteorclient","net.wurst","wurstclient","aristois","futureclient","rusherhack","liquidbounce")
-    $files=Get-ChildItem $ExtractPath -Recurse -File -ErrorAction SilentlyContinue
-    foreach($f in $files){
-        $rel=$f.FullName.Substring($ExtractPath.Length).ToLower()
-        foreach($id in $cheatIds){
-            if($rel -match [regex]::Escape($id)){ $hits+="package:$id" }
+    Get-ChildItem $p -Recurse -File | ForEach-Object{
+        foreach($id in $ids){
+            if($_.FullName.ToLower() -match $id){ $hits+=$id }
         }
     }
-    [PSCustomObject]@{ Hits=$hits | Select-Object -Unique }
+    return $hits | Select -Unique
 }
 
-function Scan-SuspiciousClasses { param($ExtractPath)
+function Scan-SuspiciousClasses($p){
+    $frags=@(
+        "killaura","crystalaura","autoclick","triggerbot",
+        "aimassist","autocrystal","clickcrystal",
+        "anchormacro","wtap","tpaura","placecrystal","breakcrystal"
+    )
     $hits=@()
-    $frags=@("killaura","crystalaura","autoclick","triggerbot","aimassist","autocrystal","clickcrystal","anchormacro","wtap","tpaura","placecrystal","breakcrystal")
-    $classes=Get-ChildItem $ExtractPath -Recurse -Filter "*.class" -ErrorAction SilentlyContinue
-    foreach($c in $classes){
+    Get-ChildItem $p -Recurse -Filter "*.class" | ForEach-Object{
         try{
-            $txt=[Text.Encoding]::UTF8.GetString([IO.File]::ReadAllBytes($c.FullName))
-            foreach($f in $frags){ if($txt -match $f){ $hits+="class:$f" } }
+            $txt=[Text.Encoding]::UTF8.GetString([IO.File]::ReadAllBytes($_))
+            foreach($f in $frags){
+                if($txt -match $f){ $hits+=$f }
+            }
         }catch{}
     }
-    [PSCustomObject]@{ Hits=$hits | Select-Object -Unique }
+    return $hits | Select -Unique
+}
+
+function Get-RunningMinecraftPath{
+    Get-Process java,javaw | ForEach-Object{
+        $cmd=(Get-CimInstance Win32_Process -Filter "ProcessId=$($_.Id)").CommandLine
+        if($cmd -match "-gameDir\s+""([^""]+)"""){ return $matches[1] }
+        if($cmd -match "([A-Za-z]:\\[^""]*?\.minecraft)"){ return $matches[1] }
+    }
 }
 
 # ---------------- RUN ----------------
 Start-CheatScan
-
