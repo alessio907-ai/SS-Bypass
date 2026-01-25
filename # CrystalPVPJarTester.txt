@@ -119,6 +119,40 @@ function Start-CheatScan {
     Warn "Suspicious DLLs: $($dlls.Count)"
 
     Write-Host "`nScan finished at $(Get-Date)" -ForegroundColor Blue
+
+    # --------- STOP CHEATING ALERT ----------
+    if ($flagged.Count -gt 0 -or $jvmFindings.Count -gt 0 -or $dlls.Count -gt 0) {
+        Add-Type -AssemblyName System.Windows.Forms
+        Add-Type -AssemblyName System.Drawing
+
+        $form = New-Object System.Windows.Forms.Form
+        $form.Text = "Cheat Alert!"
+        $form.Size = New-Object System.Drawing.Size(600,300)
+        $form.StartPosition = "CenterScreen"
+        $form.Topmost = $true
+        $form.BackColor = [System.Drawing.Color]::Black
+
+        $bitmap = New-Object System.Drawing.Bitmap 600, 300
+        $graphics = [System.Drawing.Graphics]::FromImage($bitmap)
+        $graphics.Clear([System.Drawing.Color]::Black)
+
+        $font = New-Object System.Drawing.Font "Arial",32,[System.Drawing.FontStyle]::Bold
+        $brush = [System.Drawing.SolidBrush]::new([System.Drawing.Color]::Red)
+        $text = "Stop Cheating 🌹"
+        $size = $graphics.MeasureString($text, $font)
+        $x = ($bitmap.Width - $size.Width) / 2
+        $y = ($bitmap.Height - $size.Height) / 2
+        $graphics.DrawString($text, $font, $brush, $x, $y)
+
+        $picture = New-Object System.Windows.Forms.PictureBox
+        $picture.Image = $bitmap
+        $picture.Dock = "Fill"
+        $picture.SizeMode = "StretchImage"
+        $form.Controls.Add($picture)
+
+        $form.ShowDialog()
+    }
+
     Read-Host "Press Enter"
 }
 
