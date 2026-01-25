@@ -1,5 +1,5 @@
 # =====================================================
-# CrystalPVPJarTester FINAL BLUE
+# CrystalPVPJarTester 
 # SAME MOD LOGIC + EXTRA RUNTIME SCANS
 # =====================================================
 
@@ -198,3 +198,4 @@ function Scan-SuspiciousClasses { param($ExtractPath)
 
 # ---------------- RUN ----------------
 Start-CheatScan
+
