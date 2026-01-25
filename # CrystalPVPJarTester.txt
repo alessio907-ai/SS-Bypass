@@ -1,15 +1,15 @@
 # =====================================================
-# CrystalPVPJarTester 
-# SAME MOD LOGIC + EXTRA RUNTIME SCANS
+# CrystalPVPJarTester BLUE - FULL
+# Sichtbare & versteckte Mods + Blacklist + Extra Scan
 # =====================================================
 
 $ErrorActionPreference = "SilentlyContinue"
 
 # ---------------- UI HELPERS ----------------
-function H1($t){
+function H1($t){ 
     Write-Host "═══════════════════════════════════════" -ForegroundColor DarkBlue
     Write-Host " $t" -ForegroundColor Cyan
-    Write-Host "═══════════════════════════════════════" -ForegroundColor DarkBlue
+    Write-Host "═══════════════════════════════════════" -ForegroundColor DarkBlue 
 }
 function Sec($t){ Write-Host "`n{ $t }" -ForegroundColor Cyan }
 function Info($t){ Write-Host $t -ForegroundColor Blue }
@@ -20,9 +20,10 @@ function Bad($t){ Write-Host $t -ForegroundColor Red }
 function Start-CheatScan {
     Clear-Host
     H1 "CrystalPVP Cheat Analyser"
-    Info "Made by Main2Packet"
+    Info "Made by Py9q | Blue Edition"
     Write-Host ""
 
+    # --------- JAVA PROCESS ----------
     $javaProc = Get-Process java,javaw -ErrorAction SilentlyContinue | Sort-Object StartTime | Select-Object -First 1
     if (-not $javaProc) {
         Bad "✖ Minecraft (Java) not running"
@@ -56,13 +57,11 @@ function Start-CheatScan {
     Sec "Detected Instance"
     Info $mcPath
 
-    # --------- MOD SCAN (FIXED: hidden mods included) ----------
+    # --------- MOD SCAN ----------
     $modsPath = Join-Path $mcPath "mods"
-    $mods = Get-ChildItem $modsPath -Filter "*.jar" -Force -ErrorAction SilentlyContinue
-
-    $flagged=@()
-    $clean=@()
-    $i=0
+    # Alles holen, auch versteckte
+    $mods = Get-ChildItem $modsPath -Force -File -Filter "*.jar" -ErrorAction SilentlyContinue
+    $flagged=@(); $clean=@(); $i=0
 
     Sec "Mod Scan"
     foreach ($m in $mods) {
@@ -70,22 +69,29 @@ function Start-CheatScan {
         Write-Host "`r[~] Scanning $i / $($mods.Count)" -NoNewline -ForegroundColor Cyan
         $r = Analyze-Mod $m.FullName $m.Name
         if ($r.IsSuspicious) { $flagged += $r } else { $clean += $r }
+
+        # Prüfen ob versteckt
+        if ($m.Attributes -band [System.IO.FileAttributes]::Hidden) {
+            $r.Hidden = $true
+        }
     }
     Write-Host "`r$(' ' * 80)`r"
 
     if ($clean.Count -gt 0) {
         Sec "Clean Mods"
-        $clean | ForEach-Object { Info "✔ $($_.ModName)" }
+        $clean | ForEach-Object { 
+            Info "✔ $($_.ModName)" 
+            if ($_.Hidden) { Warn "   ⚠ Mod wurde unsichtbar gemacht!" }
+        }
     }
 
     if ($flagged.Count -gt 0) {
         Sec "Cheat Mods"
         $flagged | ForEach-Object {
             Bad "❌ $($_.ModName)"
+            if ($_.Hidden) { Warn "   ⚠ Mod wurde unsichtbar gemacht!" }
             Warn "   Reason: $($_.Reason)"
-            if ($_.Hits.Count -gt 0) {
-                Warn "   Hits: $($_.Hits -join ', ')"
-            }
+            if ($_.Hits.Count -gt 0) { Warn "   Hits: $($_.Hits -join ', ')" }
         }
     }
 
@@ -112,11 +118,7 @@ function Start-CheatScan {
 # ---------------- JVM ARGUMENTS ----------------
 function Scan-JVMArguments($cmd){
     $bad = @(
-        "-javaagent:",
-        "-noverify",
-        "-Xbootclasspath",
-        "DisableAttachMechanism",
-        "fabric.development=true"
+        "-javaagent:","-noverify","-Xbootclasspath","DisableAttachMechanism","fabric.development=true"
     )
     $hits=@()
     foreach ($b in $bad) {
@@ -160,83 +162,53 @@ function Get-RunningMinecraftPath {
 function Analyze-Mod($JarPath, $ModName) {
     $temp = Join-Path $env:TEMP ("cpvp_" + [guid]::NewGuid())
     New-Item $temp -ItemType Directory | Out-Null
-
-    $hits=@()
-    $sus=$false
-    $reasons=@()
-
+    $hits=@(); $sus=$false; $reasons=@(); $hidden=$false
     try {
         Add-Type -AssemblyName System.IO.Compression.FileSystem
         [IO.Compression.ZipFile]::ExtractToDirectory($JarPath, $temp)
-
         $pkg = Scan-CheatPackages $temp
         $cls = Scan-SuspiciousClasses $temp
+        if ($pkg.Hits.Count -gt 0) { $sus=$true; $reasons+="Known cheat package"; $hits+=$pkg.Hits }
+        if ($cls.Hits.Count -ge 3) { $sus=$true; $reasons+="Multiple suspicious class names"; $hits+=$cls.Hits }
+    } catch { $reasons+="Scan error" }
+    finally { Remove-Item $temp -Recurse -Force -ErrorAction SilentlyContinue }
 
-        if ($pkg.Hits.Count -gt 0) {
-            $sus=$true
-            $reasons+="Known cheat package"
-            $hits+=$pkg.Hits
-        }
-        if ($cls.Hits.Count -ge 3) {
-            $sus=$true
-            $reasons+="Multiple suspicious class names"
-            $hits+=$cls.Hits
-        }
-    } catch {
-        $reasons+="Scan error"
-    } finally {
-        Remove-Item $temp -Recurse -Force -ErrorAction SilentlyContinue
-    }
-
-    [PSCustomObject]@{
+    return [PSCustomObject]@{ 
         ModName=$ModName
         IsSuspicious=$sus
-        Reason=($reasons -join "; ")
-        Hits=($hits | Select-Object -Unique)
+        Reason=$reasons -join "; "
+        Hits=$hits | Select-Object -Unique
+        Hidden=$hidden
     }
 }
 
-# ---------------- PACKAGE SCAN (FIXED) ----------------
-function Scan-CheatPackages {
-    param($ExtractPath)
-
+# ---------------- ORIGINAL SCANS ----------------
+function Scan-CheatPackages { param($ExtractPath)
     $hits=@()
-    $cheatIds=@(
-        "meteorclient","net.wurst","wurstclient","aristois","futureclient",
-        "rusherhack","liquidbounce","novoline","kwerk","pulsive","orcaclient"
-    )
-
-    $files = Get-ChildItem $ExtractPath -Recurse -File -Force -ErrorAction SilentlyContinue
+    $cheatIds=@("meteorclient","net.wurst","wurstclient","aristois","futureclient","rusherhack","liquidbounce")
+    $files=Get-ChildItem $ExtractPath -Recurse -File -ErrorAction SilentlyContinue
     foreach($f in $files){
         $rel=$f.FullName.Substring($ExtractPath.Length).ToLower()
         foreach($id in $cheatIds){
             if($rel -match [regex]::Escape($id)){ $hits+="package:$id" }
         }
     }
-    [PSCustomObject]@{ Hits=($hits | Select-Object -Unique) }
+    [PSCustomObject]@{ Hits=$hits | Select-Object -Unique }
 }
 
-# ---------------- CLASS SCAN (FIXED) ----------------
-function Scan-SuspiciousClasses {
-    param($ExtractPath)
-
+function Scan-SuspiciousClasses { param($ExtractPath)
     $hits=@()
     $frags=@("killaura","crystalaura","autoclick","triggerbot","aimassist","autocrystal")
-    $classes = Get-ChildItem $ExtractPath -Recurse -Filter "*.class" -Force -ErrorAction SilentlyContinue
-
+    $classes=Get-ChildItem $ExtractPath -Recurse -Filter "*.class" -ErrorAction SilentlyContinue
     foreach($c in $classes){
         try{
             $txt=[Text.Encoding]::UTF8.GetString([IO.File]::ReadAllBytes($c.FullName))
-            foreach($f in $frags){
-                if($txt -match $f){ $hits+="class:$f" }
-            }
+            foreach($f in $frags){ if($txt -match $f){ $hits+="class:$f" } }
         }catch{}
     }
-    [PSCustomObject]@{ Hits=($hits | Select-Object -Unique) }
+    [PSCustomObject]@{ Hits=$hits | Select-Object -Unique }
 }
 
 # ---------------- RUN ----------------
 Start-CheatScan
-
-
 
