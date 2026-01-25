@@ -86,7 +86,7 @@ function Start-CheatScan {
         Sec "Clean Mods"
         $clean | ForEach-Object {
             Info "✔ $($_.ModName)"
-            if ($_.Hidden) { Warn "   ⚠ Mod wurde unsichtbar gemacht!" }
+            if ($_.Hidden) { Warn "   ⚠ Mod wurde unsichtbar gemacht!"-ForegroundColor Red }
         }
     }
 
@@ -94,7 +94,7 @@ function Start-CheatScan {
         Sec "Cheat Mods"
         $flagged | ForEach-Object {
             Bad "❌ $($_.ModName)"
-            if ($_.Hidden) { Warn "    Mod wurde unsichtbar gemacht!" }
+            if ($_.Hidden) { Warn "    Mod wurde unsichtbar gemacht! " }
             Warn "   Reason: $($_.Reason)"
             if ($_.Hits.Count -gt 0) {
                 Warn "   Hits: $($_.Hits -join ', ')"
@@ -269,6 +269,7 @@ function Scan-SuspiciousClasses {
 
 # ---------------- RUN ----------------
 Start-CheatScan
+
 
 
 
