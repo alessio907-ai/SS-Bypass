@@ -16,12 +16,13 @@ function H1($t){
 function Sec($t){ Write-Host "`n--- $t ---" -ForegroundColor Cyan }
 function Info($t){ Write-Host "  $t" -ForegroundColor Blue }
 function Bad($t){ Write-Host "  $t" -ForegroundColor Red }
+function Warn($t){ Write-Host "  $t" -ForegroundColor Yellow }
 
 # ---------------- ENTRY ----------------
 function Start-CheatScan {
     Clear-Host
     H1 "CrystalPVP Cheat Analyser"
-    Info "Made by Main2Packer"
+    Info "Made by Main2Packet"
     Write-Host ""
 
     # --------- JAVA PROCESS ----------
@@ -98,6 +99,11 @@ function Start-CheatScan {
             Bad "❌ $($_.ModName)"
             Bad "   Reason: $($_.Reason)"
             if ($_.Hits.Count -gt 0) { Bad "   Hits: $($_.Hits -join ', ')" }
+
+            # <-- NEU: Meldung, wenn die Mod versteckt ist -->
+            if ($_.Hidden) {
+                Warn "   ⚠ Die Mod '$($_.ModName)' wurde versteckt, um ein SS zu bypassen!"
+            }
         }
     }
 
@@ -119,7 +125,7 @@ function Scan-JVMArguments($cmd){
         "-Xbootclasspath",
         "DisableAttachMechanism",
         "fabric.development=true",
-        "-Djdk.attach.allowAttachSelf"   # <--- neu hinzugefügt
+        "-Djdk.attach.allowAttachSelf"
     )
     $hits=@()
     foreach ($b in $bad) {
