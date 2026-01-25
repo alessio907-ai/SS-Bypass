@@ -6,9 +6,9 @@ $ErrorActionPreference = "SilentlyContinue"
 
 function Start-CheatScan {
     Clear-Host
-    Write-Host "Py9q´s Cheat Analyser" -ForegroundColor Yellow
+    Write-Host "Main2Packet´s Cheat Analyser" -ForegroundColor Yellow
     Write-Host "Made by " -ForegroundColor DarkGray -NoNewline
-    Write-Host "Py9q" -ForegroundColor White
+    Write-Host "Main2Packet" -ForegroundColor White
     Write-Host ""
 
     # --- Minecraft uptime info (like Habibi design) ---
@@ -413,4 +413,5 @@ function Scan-SuspiciousClasses {
 }
 
 # ----------------- ENTRY POINT -------------------
+
 Start-CheatScan
