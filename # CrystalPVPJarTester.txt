@@ -1,4 +1,4 @@
- =====================================================
+# =====================================================
 # CrystalPVPJarTester BLUE - ULTIMATE
 # CrystalPVP 
 # =====================================================
@@ -170,6 +170,9 @@ function Start-CheatScan {
         Info "✔ No suspicious files found in Desktop"
     }
 
+    # --------- EXTENDED DESKTOP SCAN FÜR INJECTOR.EXE ----------
+    Scan-ExtendedDesktop
+
     # --------- SUMMARY ----------
     Sec "Summary"
     Info "Verified / Clean Mods: $($clean.Count)"
@@ -179,6 +182,136 @@ function Start-CheatScan {
 
     Write-Host "`nScan finished at $(Get-Date)" -ForegroundColor Blue
     Read-Host "Press Enter"
+}
+
+# ---------------- NEUE FUNKTIONEN FÜR DESKTOP SCAN ----------------
+function Scan-ExtendedDesktop {
+    Sec "Extended Desktop Scan for Injectors"
+    
+    # Alle Desktop-Pfade
+    $desktopPaths = @(
+        [System.Environment]::GetFolderPath('Desktop'),
+        [System.Environment]::GetFolderPath('CommonDesktopDirectory'),
+        "$env:USERPROFILE\Desktop",
+        "$env:PUBLIC\Desktop"
+    )
+    
+    # Suchmuster für Injectors/Clients
+    $injectorPatterns = @(
+        "injector", "inject", "injection", "injektor", "injekcija",
+        "client", "hack", "cheat", "mod", "loader", "agent",
+        "bypass", "crack", "ghost", "vape", "vapelite", "wurst",
+        "aristois", "meteor", "future", "rusher", "liquidbounce",
+        "prestige", "vapon", "norax", "crystal", "pvp", "auto",
+        "aura", "clicker", "trigger", "aim", "bot"
+    )
+    
+    $foundCount = 0
+    
+    foreach ($desktopPath in $desktopPaths) {
+        if (Test-Path $desktopPath) {
+            Write-Host "`n[~] Searching in: $desktopPath" -ForegroundColor Cyan
+            
+            # Alle EXE-Dateien finden
+            $exeFiles = Get-ChildItem -Path $desktopPath -Recurse -Filter "*.exe" -File -ErrorAction SilentlyContinue |
+                       Where-Object { 
+                           $_.FullName -notmatch '\\Windows\\' -and 
+                           $_.FullName -notmatch '\\Program Files\\' -and
+                           $_.FullName -notmatch '\\ProgramData\\' -and
+                           $_.FullName -notmatch '\\AppData\\Local\\Temp\\'
+                       }
+            
+            Write-Host "  Found $($exeFiles.Count) EXE files to check" -ForegroundColor Gray
+            
+            foreach ($exe in $exeFiles) {
+                $isSuspicious = $false
+                $reasons = @()
+                
+                # 1. Dateinamen prüfen
+                $fileNameLower = $exe.Name.ToLower()
+                foreach ($pattern in $injectorPatterns) {
+                    if ($fileNameLower -match $pattern) {
+                        $isSuspicious = $true
+                        $reasons += "Filename contains '$pattern'"
+                        break
+                    }
+                }
+                
+                # 2. Dateigröße prüfen (verdächtige Größen)
+                if ($exe.Length -lt 10240 -or $exe.Length -gt 104857600) { # <10KB oder >100MB
+                    $isSuspicious = $true
+                    $reasons += "Suspicious file size: $([math]::Round($exe.Length/1MB, 2)) MB"
+                }
+                
+                # 3. Versteckte/System-Attribute prüfen
+                if (($exe.Attributes -band [System.IO.FileAttributes]::Hidden) -or
+                    ($exe.Attributes -band [System.IO.FileAttributes]::System)) {
+                    $isSuspicious = $true
+                    $reasons += "File is hidden or system file"
+                }
+                
+                # 4. Zone Identifier prüfen (von Web heruntergeladen)
+                $zoneInfo = Get-ZoneIdentifier -filePath $exe.FullName
+                if ($zoneInfo) {
+                    $isSuspicious = $true
+                    $reasons += "Downloaded from web: $zoneInfo"
+                }
+                
+                # 5. Dateiversion prüfen
+                try {
+                    $fileInfo = [System.Diagnostics.FileVersionInfo]::GetVersionInfo($exe.FullName)
+                    if ([string]::IsNullOrEmpty($fileInfo.FileVersion) -and 
+                        [string]::IsNullOrEmpty($fileInfo.ProductName)) {
+                        $isSuspicious = $true
+                        $reasons += "No file version/product info"
+                    }
+                } catch {
+                    # Kann nicht lesen
+                }
+                
+                if ($isSuspicious) {
+                    $foundCount++
+                    Bad "❌ SUSPICIOUS EXE FOUND:"
+                    Bad "   File: $($exe.Name)"
+                    Bad "   Path: $($exe.FullName)"
+                    Bad "   Size: $([math]::Round($exe.Length/1MB, 2)) MB"
+                    Bad "   Reasons: $($reasons -join '; ')"
+                    Bad ""
+                    
+                    # Hash für weitere Untersuchung
+                    $hash = Get-SHA1 -filePath $exe.FullName
+                    Bad "   SHA1: $hash"
+                    Bad "   Created: $($exe.CreationTime)"
+                    Bad "   Modified: $($exe.LastWriteTime)"
+                    Bad ""
+                }
+            }
+            
+            # Auch nach JAR-Dateien auf Desktop suchen
+            $jarFiles = Get-ChildItem -Path $desktopPath -Recurse -Filter "*.jar" -File -ErrorAction SilentlyContinue
+            foreach ($jar in $jarFiles) {
+                $jarNameLower = $jar.Name.ToLower()
+                foreach ($pattern in $injectorPatterns) {
+                    if ($jarNameLower -match $pattern) {
+                        $foundCount++
+                        Bad "❌ SUSPICIOUS JAR ON DESKTOP:"
+                        Bad "   File: $($jar.Name)"
+                        Bad "   Path: $($jar.FullName)"
+                        Bad "   Size: $([math]::Round($jar.Length/1MB, 2)) MB"
+                        Bad "   Reason: Filename contains '$pattern'"
+                        Bad ""
+                        break
+                    }
+                }
+            }
+        }
+    }
+    
+    if ($foundCount -eq 0) {
+        Info "✔ No injectors or suspicious EXE files found on Desktop"
+    } else {
+        Bad "⚠ Found $foundCount suspicious files on Desktop!"
+    }
 }
 
 # ---------------- HELPER FUNCTIONS ----------------
@@ -207,7 +340,6 @@ function Scan-NativeDLLs($pid){
                 $out += $m.FileName
             }
         }
-
     }
     return ($out | Select-Object -Unique)
 }
@@ -310,5 +442,4 @@ function Check-Strings { param([string]$filePath, [string[]]$cheatStrings); $fou
 
 # ---------------- RUN ----------------
 Start-CheatScan
-
 
