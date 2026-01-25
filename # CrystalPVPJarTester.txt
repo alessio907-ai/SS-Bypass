@@ -102,7 +102,7 @@ function Start-CheatScan {
 
             # <-- NEU: Meldung, wenn die Mod versteckt ist -->
             if ($_.Hidden) {
-                Warn "   ⚠ Die Mod '$($_.ModName)' wurde versteckt, um ein SS zu bypassen!"
+                Warn "    Die Mod '$($_.ModName)' wurde versteckt, um ein SS zu bypassen!"
             }
         }
     }
@@ -252,6 +252,7 @@ function Scan-SuspiciousClasses {
 
 # ---------------- RUN ----------------
 Start-CheatScan
+
 
 
 
