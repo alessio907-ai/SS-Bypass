@@ -1,6 +1,6 @@
 # =====================================================
-# CrystalPVPJarTester BLUE - ENHANCED
-# Mit Legit-Mod Tarnung Erkennung
+# Recently Deleted JAR Files Scanner
+# Zeigt alle in den letzten 10 Minuten gelöschten JAR-Dateien
 # =====================================================
 
 $ErrorActionPreference = "SilentlyContinue"
@@ -17,626 +17,508 @@ function Sec($t){ Write-Host "`n--- $t ---" -ForegroundColor Cyan }
 function Info($t){ Write-Host "  $t" -ForegroundColor Blue }
 function Bad($t){ Write-Host "  $t" -ForegroundColor Red }
 function Warn($t){ Write-Host "  $t" -ForegroundColor Yellow }
+function Good($t){ Write-Host "  $t" -ForegroundColor Green }
 
 # ---------------- ENTRY ----------------
-function Start-CheatScan {
+function Start-JarDeletionScan {
     Clear-Host
-    H1 "CrystalPVP Cheat Analyser v3.0"
-    Info "Made by Main2Packet | Mit Tarnungs-Erkennung"
+    H1 "Recently Deleted JAR Files Scanner"
+    Info "Zeigt alle in den letzten 10 Minuten gelöschten JAR-Dateien"
     Write-Host ""
-
-    # --------- JAVA PROCESS ----------
-    $javaProc = Get-Process java,javaw -ErrorAction SilentlyContinue |
-        Sort-Object StartTime | Select-Object -First 1
-
-    if (-not $javaProc) {
-        Bad "✖ Minecraft (Java) not running"
-        Read-Host "Press Enter"
-        return
-    }
-
-    $cmd = (Get-CimInstance Win32_Process -Filter "ProcessId=$($javaProc.Id)").CommandLine
-
-    # --------- UPTIME ----------
-    $uptime = (Get-Date) - $javaProc.StartTime
-    Sec "Minecraft Uptime"
-    Info "$($javaProc.Name) PID $($javaProc.Id) | $($uptime.Hours)h $($uptime.Minutes)m $($uptime.Seconds)s"
-
-    # --------- JVM ARG SCAN ----------
-    $jvmFindings = Scan-JVMArguments $cmd
-    Sec "JVM / JavaAgent Scan"
-    if ($jvmFindings.Count -gt 0) {
-        $jvmFindings | ForEach-Object { Bad "❌ $_" }
-    } else {
-        Info "✔ No suspicious JVM arguments"
-    }
-
-    # --------- GAME DIR ----------
-    $mcPath = Get-RunningMinecraftPath
-    if (-not $mcPath) {
-        Bad "✖ Could not determine gameDir"
-        Read-Host "Press Enter"
-        return
-    }
-
-    Sec "Detected Minecraft Instance"
-    Info "$mcPath"
-
-    # --------- MOD SCAN ----------
-    $modsPath = Join-Path $mcPath "mods"
-    $mods = Get-ChildItem $modsPath -Force -File -Filter "*.jar" -ErrorAction SilentlyContinue
-
-    $cheatMods=@()
-    $suspiciousMods=@()
-    $cleanMods=@()
-    $unknownMods=@()
-    $tarnungMods=@()  # Neue Kategorie: Getarnte Cheats
-    $i=0
-
-    Sec "Scanning Mods..."
-    foreach ($m in $mods) {
-        $i++
-        Write-Host "`r[~] Scanning $i/$($mods.Count): $($m.Name)...." -NoNewline -ForegroundColor Cyan
-
-        # ---------- VOLLSTÄNDIGE ANALYSE ----------
-        $analysis = Complete-Mod-Analysis $m.FullName $m.Name
-        
-        # ---------- KLASSIFIZIERUNG ----------
-        if ($analysis.IsTarnung) {
-            $tarnungMods += $analysis
-            Write-Host "`r[🎭] $i/$($mods.Count): $($m.Name) - GETARNTER CHEAT!" -ForegroundColor Magenta
-        }
-        elseif ($analysis.IsCheat) {
-            $cheatMods += $analysis
-            Write-Host "`r[❌] $i/$($mods.Count): $($m.Name) - CHEAT" -ForegroundColor Red
-        }
-        elseif ($analysis.IsSuspicious) {
-            $suspiciousMods += $analysis
-            Write-Host "`r[⚠] $i/$($mods.Count): $($m.Name) - Verdächtig" -ForegroundColor Yellow
-        }
-        elseif ($analysis.IsClean) {
-            $cleanMods += $analysis
-            Write-Host "`r[✓] $i/$($mods.Count): $($m.Name) - Clean" -ForegroundColor Green
-        }
-        else {
-            $unknownMods += $analysis
-            Write-Host "`r[?] $i/$($mods.Count): $($m.Name) - Unbekannt" -ForegroundColor Gray
-        }
-    }
-    Write-Host "`r$(' ' * 80)`r"
-    Write-Host ""
-
-    # --------- GETARNTE CHEATS (WICHTIGSTE ZUERST) ----------
-    if ($tarnungMods.Count -gt 0) {
-        Sec "🚨 GETARNTE CHEATS (Legit-Name mit Cheat-Funktionen)"
-        foreach ($mod in $tarnungMods) {
-            Bad "🎭 $($mod.ModName) - TARNUNG ERKANNT!"
-            Bad "   Scheinbar legitim als: $($mod.LegitName)"
-            Bad "   Enthält aber Cheats: $($mod.CheatFunctions -join ', ')"
-            if ($mod.Hidden) { Bad "   ⚠ VERSTECKTE DATEI!" }
-            if ($mod.SuspiciousStrings.Count -gt 0) {
-                Bad "   Verdächtige Strings: $($mod.SuspiciousStrings -join ', ')"
-            }
-            Bad "   Vertrauenswürdigkeit: $($mod.TrustScore)/100"
-        }
-    }
-
-    # --------- KLARE CHEAT MODS ----------
-    if ($cheatMods.Count -gt 0) {
-        Sec "❌ ERKANNTE CHEAT MODS"
-        foreach ($mod in $cheatMods) {
-            Bad "❌ $($mod.ModName)"
-            Bad "   Grund: $($mod.Reason)"
-            if ($mod.CheatClients.Count -gt 0) {
-                Bad "   Cheat-Clients: $($mod.CheatClients -join ', ')"
-            }
-            if ($mod.Hidden) { Bad "   ⚠ Versteckte Datei!" }
-        }
-    }
-
-    # --------- VERDÄCHTIGE MODS ----------
-    if ($suspiciousMods.Count -gt 0) {
-        Sec "⚠ VERDÄCHTIGE MODS"
-        foreach ($mod in $suspiciousMods) {
-            Warn "⚠ $($mod.ModName)"
-            Warn "   Grund: $($mod.Reason)"
-            if ($mod.SuspiciousPatterns.Count -gt 0) {
-                Warn "   Muster: $($mod.SuspiciousPatterns -join ', ')"
-            }
-        }
-    }
-
-    # --------- UNBEKANNTE MODS ----------
-    if ($unknownMods.Count -gt 0) {
-        Sec "? UNBEKANNTE MODS"
-        foreach ($mod in $unknownMods) {
-            Info "? $($mod.ModName)"
-            if ($mod.AnalysisNotes) {
-                Info "   Notiz: $($mod.AnalysisNotes)"
-            }
-        }
-    }
-
-    # --------- CLEAN MODS ----------
-    if ($cleanMods.Count -gt 0) {
-        Sec "✓ SAUBERE MODS"
-        $displayLimit = 10
-        $displayMods = $cleanMods | Select-Object -First $displayLimit
-        foreach ($mod in $displayMods) {
-            Info "✓ $($mod.ModName)"
-        }
-        if ($cleanMods.Count -gt $displayLimit) {
-            Info "   ... und $($cleanMods.Count - $displayLimit) weitere"
-        }
-    }
-
-    # --------- SUMMARY ----------
-    Sec "📊 ZUSAMMENFASSUNG"
-    if ($tarnungMods.Count -gt 0) {
-        Bad "Getarnte Cheats: $($tarnungMods.Count) 🚨"
-    }
-    Info "Cheat Mods: $($cheatMods.Count)"
-    Info "Verdächtige Mods: $($suspiciousMods.Count)"
-    Info "Unbekannte Mods: $($unknownMods.Count)"
-    Info "Saubere Mods: $($cleanMods.Count)"
-    Info "Total: $($mods.Count)"
     
-    $cheatPercentage = if ($mods.Count -gt 0) { 
-        [math]::Round((($cheatMods.Count + $tarnungMods.Count) / $mods.Count) * 100) 
-    } else { 0 }
+    # --------- SYSTEM INFO ----------
+    $computerName = $env:COMPUTERNAME
+    $userName = $env:USERNAME
+    $timeNow = Get-Date
     
-    if ($cheatPercentage -gt 30) {
-        Bad "⚠ ACHTUNG: $cheatPercentage% Cheats erkannt (inkl. Tarnungen)"
-    }
-
-    Write-Host "`nScan finished at $(Get-Date)" -ForegroundColor Blue
-    Read-Host "Press Enter"
-}
-
-# ---------------- ERWEITERTE ANALYSE FUNKTIONEN ----------------
-function Complete-Mod-Analysis {
-    param([string]$jarPath, [string]$modName)
+    Sec "System Information"
+    Info "Computer: $computerName"
+    Info "Benutzer: $userName"
+    Info "Aktuelle Zeit: $timeNow"
     
-    $results = @{
-        ModName = $modName
-        IsCheat = $false
-        IsSuspicious = $false
-        IsClean = $false
-        IsTarnung = $false
-        LegitName = ""
-        CheatFunctions = @()
-        CheatClients = @()
-        SuspiciousStrings = @()
-        SuspiciousPatterns = @()
-        Hidden = $false
-        Reason = ""
-        TrustScore = 100  # 100 = komplett vertrauenswürdig, 0 = Cheat
-        AnalysisNotes = ""
-    }
+    # --------- SCAN PARAMETERS ----------
+    $minutesBack = 10
+    $startTime = $timeNow.AddMinutes(-$minutesBack)
     
-    # 1. Datei-Eigenschaften prüfen
-    $fileInfo = Get-Item $jarPath -Force
-    if ($fileInfo.Attributes -band [System.IO.FileAttributes]::Hidden) {
-        $results.Hidden = $true
-        $results.TrustScore -= 20
-        $results.AnalysisNotes += "Versteckte Datei; "
-    }
+    Sec "Scan Parameter"
+    Info "Zeitraum: Letzte $minutesBack Minuten (seit $startTime)"
+    Info "Suche nach: *.jar Dateien im gesamten System"
     
-    # 2. Mod-Name analysieren (Tarnung erkennen)
-    $modNameLower = $modName.ToLower()
+    # --------- SCAN FOR RECENTLY DELETED JARS ----------
+    Sec "Scanning for recently deleted JAR files..."
     
-    # Liste von legitimen Mod-Namen die oft für Tarnung verwendet werden
-    $commonLegitNamesForTarnung = @(
-        "betterping", "pingdisplay", "optifine", "sodium", "lithium", 
-        "phosphor", "iris", "fabric", "forge", "minimap", "journeymap",
-        "xaeros", "voxelmap", "worldedit", "jei", "rei", "emi",
-        "inventorytweaks", "appleskin", "modmenu", "cloth", "carpet",
-        "litematica", "tweakeroo", "itemscroller", "malilib"
-    )
-    
-    # Liste von Cheat-Keywords die in getarnten Mods vorkommen
-    $cheatKeywordsInTarnung = @(
-        "auto", "aura", "crystal", "assist", "trigger", "velocity",
-        "reach", "fly", "speed", "nofall", "jesus", "step", "scaffold",
-        "xray", "esp", "tracers", "kill", "antibot", "autolog",
-        "cheststeal", "autodupe", "nuker", "phase", "freecam", "blink"
-    )
-    
-    # Prüfe ob Mod-Name legitim klingt
-    foreach ($legitName in $commonLegitNamesForTarnung) {
-        if ($modNameLower -match $legitName) {
-            $results.LegitName = $legitName
-            $results.AnalysisNotes += "Name klingt legitim ($legitName); "
-            break
-        }
-    }
-    
-    # 3. Tiefe Inhaltsanalyse
-    $tempDir = Join-Path $env:TEMP ("deepscan_" + [guid]::NewGuid())
+    # 1. ERSTE METHODE: Event Log Analyse (Windows Ereignisprotokolle)
+    $deletedJarsFromEvents = @()
     
     try {
-        Add-Type -AssemblyName System.IO.Compression.FileSystem
-        [IO.Compression.ZipFile]::ExtractToDirectory($jarPath, $tempDir)
+        Write-Host "`n[1/3] Prüfe Windows Ereignisprotokolle..." -ForegroundColor Cyan
         
-        # A. SCHEINBAR LEGITIME INHALTE
-        $legitPatternsFound = Scan-For-Legit-Patterns $tempDir
+        # PowerShell 5.1+ Methode
+        $events = Get-WinEvent -FilterHashtable @{
+            LogName = 'Security'
+            ID = 4663
+            StartTime = $startTime
+        } -ErrorAction SilentlyContinue | Where-Object {
+            $_.Properties[6].Value -like "*.jar" -and
+            $_.Properties[2].Value -eq "%%1537"  # DELETE Zugriff
+        }
         
-        # B. CHEAT-INHALTE (auch versteckt)
-        $cheatContentFound = Scan-For-Cheat-Content $tempDir
-        
-        # C. TARNUNGS-ANALYSE
-        if ($results.LegitName -ne "" -and $cheatContentFound.Count -gt 0) {
-            # Mod hat legitimen Namen aber Cheat-Inhalte → TARNUNG!
-            $results.IsTarnung = $true
-            $results.CheatFunctions = $cheatContentFound
-            $results.TrustScore = 10  # Sehr niedrig
-            $results.Reason = "Getarnter Cheat: '$($results.LegitName)'-Name mit Cheat-Funktionen"
+        foreach ($event in $events) {
+            $filePath = $event.Properties[6].Value
+            $user = $event.Properties[1].Value
+            $time = $event.TimeCreated
             
-            # Spezifische Cheat-Strings sammeln
-            $allFiles = Get-ChildItem $tempDir -Recurse -File -ErrorAction SilentlyContinue
-            foreach ($file in $allFiles) {
-                try {
-                    if ($file.Length -lt 1048576) { # Max 1MB
-                        $content = Get-Content $file.FullName -Raw -ErrorAction Stop
-                        foreach ($keyword in $cheatKeywordsInTarnung) {
-                            if ($content -match $keyword -and $keyword -ne $results.LegitName) {
-                                $results.SuspiciousStrings += $keyword
+            $deletedJarsFromEvents += [PSCustomObject]@{
+                FilePath = $filePath
+                User = $user
+                TimeDeleted = $time
+                Source = "Event Log"
+            }
+        }
+        
+        Info "  Ereignisprotokolle durchsucht: $($events.Count) relevante Einträge"
+    } catch {
+        Warn "  Ereignisprotokolle nicht verfügbar: $($_.Exception.Message)"
+    }
+    
+    # 2. ZWEITE METHODE: Volume Shadow Copy (VSS) - Gelöschte Dateien wiederherstellen
+    $deletedJarsFromShadow = @()
+    
+    try {
+        Write-Host "`n[2/3] Prüfe Volume Shadow Copies..." -ForegroundColor Cyan
+        
+        # Liste aller Laufwerke
+        $drives = Get-PSDrive -PSProvider FileSystem | Where-Object Root
+        
+        foreach ($drive in $drives) {
+            $driveLetter = $drive.Root.TrimEnd('\')
+            
+            try {
+                # Versuche VSS Snapshots zu listen
+                $vssAdmin = cmd /c "vssadmin list shadows /for=$driveLetter 2>nul"
+                
+                if ($vssAdmin -match "Shadow Copy Volume:") {
+                    # Suche nach JAR Dateien in VSS
+                    $shadowPath = "\\?\GLOBALROOT\Device\HarddiskVolumeShadowCopy"
+                    
+                    # Einfache Suche in typischen Minecraft/Mod-Ordnern
+                    $commonPaths = @(
+                        "$driveLetter\Users\$userName\AppData\Roaming\.minecraft\mods",
+                        "$driveLetter\Users\$userName\AppData\Roaming\.minecraft\versions",
+                        "$driveLetter\Program Files (x86)\Minecraft",
+                        "$driveLetter\Program Files\Minecraft",
+                        "$driveLetter\Users\$userName\Desktop",
+                        "$driveLetter\Users\$userName\Downloads",
+                        "$driveLetter\Users\$userName\Documents"
+                    )
+                    
+                    foreach ($path in $commonPaths) {
+                        $shadowPathFull = $path -replace "^$driveLetter", $shadowPath
+                        if (Test-Path $shadowPathFull -ErrorAction SilentlyContinue) {
+                            $oldJars = Get-ChildItem -Path $shadowPathFull -Filter "*.jar" -Recurse -ErrorAction SilentlyContinue
+                            
+                            foreach ($jar in $oldJars) {
+                                $currentPath = $jar.FullName -replace [regex]::Escape($shadowPath), $driveLetter
+                                
+                                # Prüfe ob Datei aktuell nicht existiert (gelöscht)
+                                if (-not (Test-Path $currentPath -ErrorAction SilentlyContinue)) {
+                                    $deletedJarsFromShadow += [PSCustomObject]@{
+                                        FilePath = $currentPath
+                                        User = $userName
+                                        TimeDeleted = "Unbekannt (VSS)"
+                                        Source = "Volume Shadow Copy"
+                                        OriginalPath = $jar.FullName
+                                    }
+                                }
                             }
                         }
                     }
-                } catch {
-                    continue
                 }
+            } catch {
+                # Ignoriere Fehler bei diesem Laufwerk
             }
-            $results.SuspiciousStrings = $results.SuspiciousStrings | Select-Object -Unique
-        }
-        # D. NORMALE CHEAT-ERKENNUNG (wenn keine Tarnung)
-        elseif ($cheatContentFound.Count -gt 0) {
-            $results.IsCheat = $true
-            $results.CheatFunctions = $cheatContentFound
-            $results.TrustScore = 20
-            $results.Reason = "Cheat-Funktionen erkannt: " + ($cheatContentFound -join ", ")
-        }
-        # E. SAUBERE MOD (nur legitime Muster)
-        elseif ($legitPatternsFound.Count -gt 3 -and $cheatContentFound.Count -eq 0) {
-            $results.IsClean = $true
-            $results.TrustScore = 90
-            $results.AnalysisNotes += "Nur legitime Muster gefunden"
-        }
-        # F. VERDÄCHTIG (wenige Muster, aber keine klaren Cheats)
-        elseif ($legitPatternsFound.Count -eq 0 -and $cheatContentFound.Count -eq 0) {
-            $results.IsSuspicious = $true
-            $results.TrustScore = 50
-            $results.Reason = "Keine erkennbaren Muster"
         }
         
-        # G. CHEAT-CLIENT ERKENNUNG
-        $cheatClients = Detect-Cheat-Clients $tempDir
-        if ($cheatClients.Count -gt 0) {
-            $results.IsCheat = $true
-            $results.CheatClients = $cheatClients
-            $results.TrustScore = 0
-            $results.Reason = "Cheat-Client erkannt: " + ($cheatClients -join ", ")
-        }
-        
-        # H. BYTECODE-ANALYSE FÜR VERSTECKTE CHEATS
-        $bytecodeFindings = Analyze-Bytecode-For-Hidden-Cheats $tempDir
-        if ($bytecodeFindings.Count -gt 0 -and -not $results.IsTarnung) {
-            $results.IsSuspicious = $true
-            $results.SuspiciousPatterns = $bytecodeFindings
-            $results.TrustScore -= 30
-            $results.Reason += " Verdächtiger Bytecode"
-        }
-        
+        Info "  Shadow Copies durchsucht: $($deletedJarsFromShadow.Count) gelöschte JARs gefunden"
     } catch {
-        $results.AnalysisNotes += "Scan-Fehler: $($_.Exception.Message); "
-        $results.TrustScore = 40  # Unklar wegen Fehler
-    } finally {
-        if (Test-Path $tempDir) {
-            Remove-Item $tempDir -Recurse -Force -ErrorAction SilentlyContinue
-        }
+        Warn "  Shadow Copy Zugriff nicht möglich"
     }
     
-    # 4. EXTERNE VERIFIZIERUNG
-    $hash = Get-FileHash-Safe $jarPath
-    if ($hash -ne "ERROR") {
-        $verified = Check-Mod-Verification $hash
-        if ($verified.IsVerified) {
-            if ($results.IsTarnung -or $results.IsCheat) {
-                # ACHTUNG: Verifizierte Mod mit Cheat-Inhalten!
-                $results.AnalysisNotes += "WARNUNG: Verifizierte Mod enthält Cheats! "
-                $results.TrustScore = 5
-            } else {
-                $results.IsClean = $true
-                $results.TrustScore = 95
-                $results.AnalysisNotes += "Extern verifiziert; "
+    # 3. DRITTE METHODE: Prefetch und Temp Dateien Analyse
+    $deletedJarsFromTemp = @()
+    
+    try {
+        Write-Host "`n[3/3] Prüfe temporäre Dateien und Prefetch..." -ForegroundColor Cyan
+        
+        # Prefetch Dateien (enthält geladene Programme)
+        $prefetchPath = "C:\Windows\Prefetch"
+        if (Test-Path $prefetchPath) {
+            $prefetchFiles = Get-ChildItem -Path $prefetchPath -Filter "*.pf" -ErrorAction SilentlyContinue | 
+                Where-Object LastWriteTime -gt $startTime
+            
+            foreach ($pf in $prefetchFiles) {
+                # Versuche Java/Minecraft bezogene Prefetch zu finden
+                $content = Get-Content $pf.FullName -Raw -ErrorAction SilentlyContinue
+                if ($content -match "java\.exe|javaw\.exe|minecraft") {
+                    # Extrahierte Pfade aus Prefetch könnten gelöschte JARs enthalten
+                    $deletedJarsFromTemp += [PSCustomObject]@{
+                        FilePath = "Prefetch Hinweis: $($pf.Name)"
+                        User = $userName
+                        TimeDeleted = $pf.LastWriteTime
+                        Source = "Prefetch Analysis"
+                        Note = "Java/Minecraft Aktivität erkannt"
+                    }
+                }
             }
         }
-    }
-    
-    return $results
-}
-
-function Scan-For-Legit-Patterns {
-    param($ExtractPath)
-    
-    $legitPatterns = @(
-        # Fabric/Forge
-        "fabric.mod.json", "mods.toml", "mcmod.info",
-        "assets/", "data/", "META-INF/",
-        # Bekannte Mod-Entwickler
-        "com.modrinth.", "curseforge.com",
-        # Resource Locations
-        ".png", ".json", ".mcmeta", ".properties",
-        # Legitime Packages
-        "net.minecraft", "com.mojang", "java.", "javax.",
-        "org.apache", "com.google", "it.unimi", "oshi."
-    )
-    
-    $found = @()
-    $files = Get-ChildItem $ExtractPath -Recurse -ErrorAction SilentlyContinue
-    
-    foreach ($file in $files) {
-        $path = $file.FullName.Substring($ExtractPath.Length + 1)
-        foreach ($pattern in $legitPatterns) {
-            if ($path -match [regex]::Escape($pattern)) {
-                $found += $pattern
-                break
-            }
-        }
-    }
-    
-    return ($found | Select-Object -Unique)
-}
-
-function Scan-For-Cheat-Content {
-    param($ExtractPath)
-    
-    $cheatPatterns = @{
-        # AUTO-FUNKTIONEN
-        "AutoFunctions" = @(
-            "autocrystal", "autototem", "autoarmor", "autopot", "autodoublehand",
-            "autohand", "autoswitch", "autogg", "autoez", "autolog", "autodupe",
-            "autowalk", "automine", "autobuild", "autofish"
+        
+        # Temp Verzeichnisse
+        $tempPaths = @(
+            $env:TEMP,
+            "C:\Windows\Temp",
+            "C:\Users\$userName\AppData\Local\Temp"
         )
-        # AURA/KILL
-        "Aura/Kill" = @(
-            "killaura", "crystalaura", "aura", "multiaura", "targetaura",
-            "triggerbot", "aimassist", "aimbot", "antiknockback", "antihitdelay"
-        )
-        # MOVEMENT
-        "Movement" = @(
-            "velocity", "antivelocity", "nofall", "fly", "jesus", "step",
-            "speed", "sprint", "autosprint", "fastsneak", "fastladder",
-            "phase", "noclip", "freecam", "blink", "longjump", "bunnyhop"
-        )
-        # WORLD
-        "World" = @(
-            "xray", "fullbright", "nightvision", "cavefinder", "oreesp",
-            "storageesp", "chestesp", "shulkeresp", "enderchestesp",
-            "scaffold", "tower", "fastplace", "fastbreak", "nuker",
-            "fastreplant", "autofill"
-        )
-        # RENDER/ESP
-        "Render/ESP" = @(
-            "esp", "tracers", "nametags", "hitboxes", "chams", "wallhack",
-            "playeresp", "entityesp", "itemesp", "projectilesp",
-            "healthtags", "armortags", "pingtags"
-        )
-        # COMBAT/PVP
-        "Combat/PvP" = @(
-            "reach", "hitbox", "criticals", "wtap", "stap", "blockhit",
-            "shieldbreak", "autosword", "bowaimbot", "rodaimbot",
-            "surround", "selftrap", "burrow", "holefill"
-        )
-        # MISC CHEATS
-        "Misc" = @(
-            "antibot", "antiaim", "pingspoof", "timer", "inventorymanager",
-            "cheststeal", "autoeat", "autorespawn", "autoequip",
-            "middleclickfriend", "middleclickpearl"
-        )
-    }
-    
-    $foundCheats = @()
-    
-    # Alle Dateien durchsuchen
-    $allFiles = Get-ChildItem $ExtractPath -Recurse -File -ErrorAction SilentlyContinue
-    
-    foreach ($file in $allFiles) {
-        try {
-            if ($file.Length -lt 2097152) { # Max 2MB pro Datei
-                $content = ""
+        
+        foreach ($tempPath in $tempPaths) {
+            if (Test-Path $tempPath) {
+                # Suche nach kürzlich gelöschten JARs in Temp (durch Namen)
+                $tempFiles = Get-ChildItem -Path $tempPath -Filter "*.jar" -Recurse -ErrorAction SilentlyContinue |
+                    Where-Object LastWriteTime -gt $startTime
                 
-                if ($file.Extension -eq ".class") {
-                    # Für .class Dateien nur den Namen prüfen
-                    $content = $file.Name
+                foreach ($tempFile in $tempFiles) {
+                    $deletedJarsFromTemp += [PSCustomObject]@{
+                        FilePath = $tempFile.FullName
+                        User = $userName
+                        TimeDeleted = $tempFile.LastWriteTime
+                        Source = "Temp Directory"
+                        Note = "Möglicherweise gelöschte/r verschobene/r JAR"
+                    }
+                }
+            }
+        }
+        
+        Info "  Temp/Prefetch analysiert: $($deletedJarsFromTemp.Count) Hinweise"
+    } catch {
+        Warn "  Temp/Prefetch Analyse fehlgeschlagen"
+    }
+    
+    # --------- GESAMTERGEBNISSE ----------
+    $allDeletedJars = $deletedJarsFromEvents + $deletedJarsFromShadow + $deletedJarsFromTemp
+    
+    Sec "ERGEBNISSE: Gelöschte JAR-Dateien (letzte $minutesBack Minuten)"
+    
+    if ($allDeletedJars.Count -eq 0) {
+        Good "✔ Keine gelöschten JAR-Dateien in den letzten $minutesBack Minuten gefunden."
+    } else {
+        # Gruppiere nach Quelle
+        $groupedResults = $allDeletedJars | Group-Object Source
+        
+        foreach ($group in $groupedResults) {
+            Sec "$($group.Name) - $($group.Count) Datei(en)"
+            
+            foreach ($jar in $group.Group | Sort-Object TimeDeleted -Descending) {
+                $timeAgo = if ($jar.TimeDeleted -ne "Unbekannt (VSS)") {
+                    $ago = $timeNow - $jar.TimeDeleted
+                    "$([math]::Round($ago.TotalMinutes, 1)) Minuten her"
                 } else {
-                    # Textdateien einlesen
-                    $content = Get-Content $file.FullName -Raw -ErrorAction Stop
+                    "Unbekannt"
                 }
                 
-                $contentLower = $content.ToLower()
+                Write-Host "  📄 " -NoNewline -ForegroundColor Cyan
+                Write-Host "$(Split-Path $jar.FilePath -Leaf)" -NoNewline -ForegroundColor White
+                Write-Host " (" -NoNewline
+                Write-Host "$timeAgo" -NoNewline -ForegroundColor Yellow
+                Write-Host ")" -NoNewline
                 
-                # Durch alle Cheat-Kategorien gehen
-                foreach ($category in $cheatPatterns.Keys) {
-                    foreach ($cheat in $cheatPatterns[$category]) {
-                        if ($contentLower -match $cheat) {
-                            $foundCheats += $cheat
-                        }
-                    }
+                if ($jar.Note) {
+                    Write-Host " - $($jar.Note)" -ForegroundColor Gray
+                } else {
+                    Write-Host ""
+                }
+                
+                Write-Host "      Pfad: " -NoNewline -ForegroundColor DarkGray
+                Write-Host "$($jar.FilePath)" -ForegroundColor Gray
+                
+                if ($jar.User) {
+                    Write-Host "      Benutzer: $($jar.User)" -ForegroundColor DarkGray
                 }
             }
-        } catch {
-            continue
+        }
+        
+        # STATISTIK
+        Sec "STATISTIK"
+        Info "Total gelöschte JARs: $($allDeletedJars.Count)"
+        Info "Aus Event Log: $($deletedJarsFromEvents.Count)"
+        Info "Aus Shadow Copies: $($deletedJarsFromShadow.Count)"
+        Info "Aus Temp/Prefetch: $($deletedJarsFromTemp.Count)"
+        
+        # VERDÄCHTIGE DATEIEN FILTERN
+        $suspiciousPatterns = @(
+            "cheat", "hack", "client", "aura", "crystal", "trigger", 
+            "auto", "reach", "velocity", "xray", "esp", "meteor",
+            "wurst", "aristois", "future", "rusher", "liquidbounce"
+        )
+        
+        $suspiciousJars = $allDeletedJars | Where-Object {
+            $fileName = Split-Path $_.FilePath -Leaf
+            foreach ($pattern in $suspiciousPatterns) {
+                if ($fileName -match $pattern) {
+                    return $true
+                }
+            }
+            return $false
+        }
+        
+        if ($suspiciousJars.Count -gt 0) {
+            Sec "⚠ VERDÄCHTIGE GELÖSCHTE DATEIEN"
+            foreach ($jar in $suspiciousJars) {
+                Warn "  ⚠ $($jar.FilePath)"
+                Warn "    Grund: Name enthält verdächtige Schlüsselwörter"
+            }
         }
     }
     
-    return ($foundCheats | Select-Object -Unique)
-}
-
-function Detect-Cheat-Clients {
-    param($ExtractPath)
+    # --------- EMPFEHLUNGEN ----------
+    Sec "EMPFEHLUNGEN"
     
-    $cheatClients = @{
-        "MeteorClient" = @("meteorclient", "minegame159", "meteor\\client")
-        "WurstClient" = @("net\\.wurst", "wurstclient", "Wurst\\ Client")
-        "Aristois" = @("aristois", "me\\.aristois")
-        "FutureClient" = @("futureclient", "future\\/client")
-        "LiquidBounce" = @("liquidbounce", "net\\.ccbluex")
-        "RusherHack" = @("rusherhack", "rusherhack\\/client")
-        "KamiBlue" = @("kamiblue", "org\\.kamiblue")
-        "Phobos" = @("me\\.zeroeightsix", "phobos\\/client")
-        "Konas" = @("konas", "org\\.konas")
-        "SalHack" = @("salhack", "me\\.salhack")
-        "Gamesense" = @("gamesense", "com\\.gamesense")
-        "Pyro" = @("pyro", "net\\.pyro")
-        "Tenacity" = @("tenacity", "icu\\.tenacity")
-        "Novoline" = @("novoline", "cc\\.novoline")
-        "Rise" = @("rise", "shaders\\/rise")
+    if ($allDeletedJars.Count -gt 5) {
+        Warn "  🔍 Viele JAR-Dateien wurden kürzlich gelöscht ($($allDeletedJars.Count))"
+        Warn "    Möglicherweise wurden Cheats vor einem Screenshot entfernt"
     }
     
-    $foundClients = @()
+    if ($suspiciousJars.Count -gt 0) {
+        Bad "  ⚠ Verdächtige JAR-Namen gefunden!"
+        Bad "    Wahrscheinlich wurden Cheat-Mods entfernt"
+    }
     
-    $files = Get-ChildItem $ExtractPath -Recurse -File -ErrorAction SilentlyContinue
+    Info "  📁 Tipp: Überprüfe den Papierkorb auf gelöschte Dateien"
+    Info "  🔄 Starte den Scan erneut, um neue Löschungen zu finden"
     
-    foreach ($file in $files) {
-        try {
-            if ($file.Extension -match "\.(class|java|txt|json)$") {
-                $content = Get-Content $file.FullName -Raw -ErrorAction Stop
-                $contentLower = $content.ToLower()
-                
-                foreach ($clientName in $cheatClients.Keys) {
-                    foreach ($pattern in $cheatClients[$clientName]) {
-                        if ($contentLower -match $pattern) {
-                            $foundClients += $clientName
-                            break
-                        }
-                    }
-                }
+    # --------- WEITERE OPTIONEN ----------
+    Sec "WEITERE AKTIONEN"
+    Write-Host "  1. Papierkorb durchsuchen" -ForegroundColor Cyan
+    Write-Host "  2. Erneut scannen (andere Zeit)" -ForegroundColor Cyan
+    Write-Host "  3. Event Log detailliert anzeigen" -ForegroundColor Cyan
+    Write-Host "  4. Beenden" -ForegroundColor Cyan
+    
+    $choice = Read-Host "`nAuswahl (1-4)"
+    
+    switch ($choice) {
+        "1" { Search-RecycleBin }
+        "2" { 
+            $newMinutes = Read-Host "Wie viele Minuten zurück suchen? (Standard: 10)"
+            if ($newMinutes -match '^\d+$') {
+                $minutesBack = [int]$newMinutes
+                Start-JarDeletionScan
             }
-        } catch {
-            continue
         }
+        "3" { Show-EventLogDetails }
+        "4" { return }
+        default { Write-Host "Ungültige Auswahl" -ForegroundColor Red }
     }
-    
-    return ($foundClients | Select-Object -Unique)
-}
-
-function Analyze-Bytecode-For-Hidden-Cheats {
-    param($ExtractPath)
-    
-    $suspiciousPatterns = @()
-    
-    $classFiles = Get-ChildItem $ExtractPath -Recurse -Filter "*.class" -ErrorAction SilentlyContinue | Select-Object -First 30
-    
-    foreach ($classFile in $classFiles) {
-        try {
-            $bytes = [IO.File]::ReadAllBytes($classFile.FullName)
-            $text = [System.Text.Encoding]::UTF8.GetString($bytes)
-            
-            # Versteckte Cheat-Methoden in Bytecode
-            $hiddenPatterns = @(
-                # Minecraft Hooks für Cheats
-                "onUpdate", "onTick", "onLivingUpdate",
-                # Packet Manipulation
-                "sendPacket", "receivePacket", "onPacket",
-                # Entity Interaction
-                "attackEntity", "interactWithEntity",
-                # Movement Hooks
-                "moveEntity", "setPosition", "setMotion",
-                # Render Hooks
-                "renderEntity", "renderNameTag", "drawScreen",
-                # Input Hooks
-                "keyPress", "mouseClick", "mouseScroll",
-                # World Interaction
-                "getBlock", "setBlock", "breakBlock", "placeBlock"
-            )
-            
-            foreach ($pattern in $hiddenPatterns) {
-                if ($text -match $pattern) {
-                    $suspiciousPatterns += "Bytecode:$pattern"
-                }
-            }
-        } catch {
-            continue
-        }
-    }
-    
-    return ($suspiciousPatterns | Select-Object -Unique)
 }
 
 # ---------------- HELPER FUNCTIONS ----------------
-function Get-FileHash-Safe {
-    param([string]$filePath)
+function Search-RecycleBin {
+    Clear-Host
+    H1 "Papierkorb durchsuchen"
+    
+    Info "Suche nach JAR-Dateien im Papierkorb..."
+    
+    # PowerShell 5.1+ Shell.Application Methode
+    $shell = New-Object -ComObject Shell.Application
+    $recycleBin = $shell.Namespace(0xA)  # Recycle Bin
+    
+    $jarFiles = @()
+    
+    foreach ($item in $recycleBin.Items()) {
+        if ($item.Path -like "*.jar") {
+            $jarFiles += [PSCustomObject]@{
+                Name = $item.Name
+                OriginalLocation = $item.ExtendedProperty("DateCreated")  # Nicht immer verfügbar
+                Size = "{0:N2} MB" -f ($item.Size / 1MB)
+                DateDeleted = $item.ModifyDate
+                Path = $item.Path
+            }
+        }
+    }
+    
+    if ($jarFiles.Count -eq 0) {
+        Good "✔ Keine JAR-Dateien im Papierkorb gefunden."
+    } else {
+        Sec "JAR-Dateien im Papierkorb: $($jarFiles.Count)"
+        
+        foreach ($jar in $jarFiles | Sort-Object DateDeleted -Descending) {
+            Write-Host "  🗑️ " -NoNewline -ForegroundColor Yellow
+            Write-Host "$($jar.Name)" -ForegroundColor White
+            Write-Host "    Gelöscht am: $($jar.DateDeleted)" -ForegroundColor Gray
+            Write-Host "    Größe: $($jar.Size)" -ForegroundColor Gray
+            
+            # Versuche, die Datei zu analysieren
+            if (Test-Path $jar.Path) {
+                $fileInfo = Get-Item $jar.Path -ErrorAction SilentlyContinue
+                if ($fileInfo) {
+                    $hash = Get-FileHash $jar.Path -Algorithm SHA1 -ErrorAction SilentlyContinue
+                    if ($hash) {
+                        Write-Host "    SHA1: $($hash.Hash)" -ForegroundColor DarkGray
+                    }
+                }
+            }
+        }
+    }
+    
+    Read-Host "`nDrücke Enter um fortzufahren"
+    Start-JarDeletionScan
+}
+
+function Show-EventLogDetails {
+    Clear-Host
+    H1 "Detaillierte Event Log Analyse"
+    
+    Sec "Suche nach Datei-Lösch-Ereignissen..."
+    
+    $startTime = (Get-Date).AddMinutes(-10)
+    
     try {
-        return (Get-FileHash -Path $filePath -Algorithm SHA1 -ErrorAction Stop).Hash
+        # Erweiterte Event Log Suche
+        $events = Get-WinEvent -FilterHashtable @{
+            LogName = 'Security'
+            ID = 4663  # File Delete
+            StartTime = $startTime
+        } -MaxEvents 50 -ErrorAction SilentlyContinue
+        
+        $fileEvents = @()
+        
+        foreach ($event in $events) {
+            $properties = $event.Properties
+            
+            $filePath = $properties[6].Value
+            $user = $properties[1].Value
+            $process = $properties[5].Value
+            $accessMask = $properties[2].Value
+            
+            # Nur DELETE Operationen (0x10000)
+            if ($accessMask -eq "%%1537" -or $filePath -like "*.jar") {
+                $fileEvents += [PSCustomObject]@{
+                    Time = $event.TimeCreated
+                    User = $user
+                    Process = Split-Path $process -Leaf
+                    FilePath = $filePath
+                    EventID = $event.Id
+                }
+            }
+        }
+        
+        if ($fileEvents.Count -eq 0) {
+            Info "Keine Datei-Lösch-Ereignisse in den letzten 10 Minuten gefunden."
+        } else {
+            Sec "Datei-Lösch-Ereignisse (letzte 10 Minuten): $($fileEvents.Count)"
+            
+            $jarEvents = $fileEvents | Where-Object { $_.FilePath -like "*.jar" }
+            $otherEvents = $fileEvents | Where-Object { $_.FilePath -notlike "*.jar" }
+            
+            if ($jarEvents.Count -gt 0) {
+                Write-Host "`nJAR-Datei Löschungen:" -ForegroundColor Cyan
+                foreach ($event in $jarEvents | Sort-Object Time -Descending) {
+                    Write-Host "  ⏰ $($event.Time)" -ForegroundColor Yellow
+                    Write-Host "    📄 $(Split-Path $event.FilePath -Leaf)" -ForegroundColor White
+                    Write-Host "    👤 $($event.User)" -ForegroundColor Gray
+                    Write-Host "    ⚙️ $($event.Process)" -ForegroundColor DarkGray
+                    Write-Host "    📁 $($event.FilePath)" -ForegroundColor DarkGray
+                }
+            }
+            
+            if ($otherEvents.Count -gt 0) {
+                Write-Host "`nAndere Datei-Löschungen:" -ForegroundColor Cyan
+                foreach ($event in $otherEvents | Sort-Object Time -Descending | Select-Object -First 10) {
+                    Write-Host "  $($event.Time) - $(Split-Path $event.FilePath -Leaf)" -ForegroundColor Gray
+                }
+                if ($otherEvents.Count -gt 10) {
+                    Write-Host "    ... und $($otherEvents.Count - 10) weitere" -ForegroundColor DarkGray
+                }
+            }
+        }
+        
     } catch {
-        return "ERROR"
+        Bad "Event Log Zugriff fehlgeschlagen: $($_.Exception.Message)"
     }
+    
+    Read-Host "`nDrücke Enter um fortzufahren"
+    Start-JarDeletionScan
 }
 
-function Check-Mod-Verification {
-    param([string]$hash)
+# ---------------- ERWEITERTE FUNKTIONEN ----------------
+function Check-JavaProcessHistory {
+    Sec "Java Prozess Historie"
     
-    $result = @{
-        IsVerified = $false
-        Source = ""
-        Name = ""
+    # Prüfe auf kürzlich beendete Java-Prozesse
+    $recentJavaProcesses = Get-WinEvent -FilterHashtable @{
+        LogName = 'System'
+        ID = 4689  # Process Termination
+        StartTime = (Get-Date).AddMinutes(-10)
+    } -ErrorAction SilentlyContinue | Where-Object {
+        $_.Properties[5].Value -match "java(\.exe|w\.exe)?"
     }
     
-    try {
-        # Modrinth Check
-        $modrinth = Invoke-RestMethod -Uri "https://api.modrinth.com/v2/version_file/$hash" -Method Get -UseBasicParsing -ErrorAction Stop -TimeoutSec 3
-        if ($modrinth.project_id) {
-            $result.IsVerified = $true
-            $result.Source = "Modrinth"
-            $result.Name = $modrinth.name
-            return $result
+    if ($recentJavaProcesses.Count -gt 0) {
+        Warn "  Java wurde kürzlich $($recentJavaProcesses.Count) mal beendet"
+        foreach ($proc in $recentJavaProcesses | Select-Object -First 3) {
+            Write-Host "    ⏰ $($proc.TimeCreated) - $($proc.Properties[0].Value)" -ForegroundColor Gray
         }
-    } catch {}
-    
-    try {
-        # CurseForge API (wenn verfügbar)
-        $cf = Invoke-RestMethod -Uri "https://api.curseforge.com/v1/mods/files/$hash" -Method Get -UseBasicParsing -ErrorAction Stop -TimeoutSec 3
-        if ($cf.data) {
-            $result.IsVerified = $true
-            $result.Source = "CurseForge"
-            $result.Name = $cf.data.fileName
-            return $result
-        }
-    } catch {}
-    
-    return $result
-}
-
-function Scan-JVMArguments($cmd){
-    $bad = @(
-        "-javaagent:", "-noverify", "-Xbootclasspath",
-        "DisableAttachMechanism", "fabric.development=true",
-        "-Djdk.attach.allowAttachSelf", "-Xverify:none"
-    )
-    $hits=@()
-    foreach ($b in $bad) {
-        if ($cmd -match [regex]::Escape($b)) { $hits += $b }
+    } else {
+        Info "  Keine kürzlichen Java-Prozess-Beendigungen"
     }
-    return $hits
 }
 
-function Get-RunningMinecraftPath {
-    $java = Get-Process java,javaw -ErrorAction SilentlyContinue | Sort-Object StartTime -Descending
-    foreach ($p in $java) {
+function Monitor-RealTimeDeletions {
+    Clear-Host
+    H1 "Echtzeit Überwachung von JAR Löschungen"
+    Info "Überwacht das System auf JAR Datei-Löschungen..."
+    Write-Host "Drücke Ctrl+C zum Beenden`n"
+    
+    $monitorTime = 300  # 5 Minuten
+    $endTime = (Get-Date).AddSeconds($monitorTime)
+    
+    Write-Host "Überwachung läuft für $($monitorTime/60) Minuten..." -ForegroundColor Cyan
+    
+    $deletionCount = 0
+    
+    while ((Get-Date) -lt $endTime) {
+        $currentTime = Get-Date -Format "HH:mm:ss"
+        Write-Host "`r[$currentTime] Überwache... (Noch $([math]::Round(($endTime - (Get-Date)).TotalSeconds))s)" -NoNewline -ForegroundColor DarkGray
+        
+        # Prüfe Event Log für neue Löschungen
         try {
-            $cmd = (Get-CimInstance Win32_Process -Filter "ProcessId=$($p.Id)").CommandLine
-            if ($cmd -match "-gameDir\s+""([^""]+)""") {
-                if (Test-Path "$($matches[1])\mods") { return $matches[1] }
+            $newEvents = Get-WinEvent -FilterHashtable @{
+                LogName = 'Security'
+                ID = 4663
+                StartTime = (Get-Date).AddSeconds(-5)
+            } -ErrorAction SilentlyContinue | Where-Object {
+                $_.Properties[6].Value -like "*.jar"
             }
-            if ($cmd -match "([A-Za-z]:\\[^""]*?\.minecraft)") {
-                if (Test-Path "$($matches[1])\mods") { return $matches[1] }
+            
+            foreach ($event in $newEvents) {
+                $deletionCount++
+                Write-Host "`n  ⚠ JAR gelöscht: $($event.Properties[6].Value)" -ForegroundColor Red
+                Write-Host "    Zeit: $($event.TimeCreated)" -ForegroundColor Yellow
             }
-        } catch {}
+        } catch {
+            # Ignoriere Fehler
+        }
+        
+        Start-Sleep -Seconds 2
     }
-    return $null
+    
+    Write-Host "`n`nÜberwachung beendet." -ForegroundColor Cyan
+    if ($deletionCount -gt 0) {
+        Warn "  $deletionCount JAR-Löschungen während der Überwachung erkannt!"
+    } else {
+        Good "  Keine JAR-Löschungen während der Überwachung erkannt."
+    }
+    
+    Read-Host "`nDrücke Enter um fortzufahren"
+    Start-JarDeletionScan
 }
 
 # ---------------- RUN ----------------
-Start-CheatScan
+Start-JarDeletionScan
