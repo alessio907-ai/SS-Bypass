@@ -1,6 +1,6 @@
 # =====================================================
 # CrystalPVPJarTester BLUE - ULTIMATE
-# CrystalPVP 
+# CrystalPVP mit Obfuskations-Erkennung
 # =====================================================
 
 $ErrorActionPreference = "SilentlyContinue"
@@ -16,12 +16,13 @@ function H1($t){
 function Sec($t){ Write-Host "`n--- $t ---" -ForegroundColor Cyan }
 function Info($t){ Write-Host "  $t" -ForegroundColor Blue }
 function Bad($t){ Write-Host "  $t" -ForegroundColor Red }
+function Warn($t){ Write-Host "  $t" -ForegroundColor Yellow }
 
 # ---------------- ENTRY ----------------
 function Start-CheatScan {
     Clear-Host
-    H1 "CrystalPVP Cheat Analyser"
-    Info "Made by Main2Packet"
+    H1 "CrystalPVP Cheat Analyser v2.0"
+    Info "Made by Main2Packet | Mit Obfuskations-Erkennung"
     Write-Host ""
 
     # --------- JAVA PROCESS ----------
@@ -29,8 +30,8 @@ function Start-CheatScan {
         Sort-Object StartTime | Select-Object -First 1
 
     if (-not $javaProc) {
-        Bad "✖ Minecraft (Java) not running"
-        Read-Host "Press Enter"
+        Bad "✖ Minecraft (Java) nicht gefunden"
+        Read-Host "Drücke Enter"
         return
     }
 
@@ -38,7 +39,7 @@ function Start-CheatScan {
 
     # --------- UPTIME ----------
     $uptime = (Get-Date) - $javaProc.StartTime
-    Sec "Minecraft Uptime"
+    Sec "Minecraft Laufzeit"
     Info "$($javaProc.Name) PID $($javaProc.Id) | $($uptime.Hours)h $($uptime.Minutes)m $($uptime.Seconds)s"
 
     # --------- JVM ARG SCAN ----------
@@ -47,41 +48,56 @@ function Start-CheatScan {
     if ($jvmFindings.Count -gt 0) {
         $jvmFindings | ForEach-Object { Bad "❌ $_" }
     } else {
-        Info "✔ No suspicious JVM arguments"
+        Info "✔ Keine verdächtigen JVM-Argumente"
     }
 
     # --------- GAME DIR ----------
     $mcPath = Get-RunningMinecraftPath
     if (-not $mcPath) {
-        Bad "✖ Could not determine gameDir"
-        Read-Host "Press Enter"
+        Bad "✖ Minecraft-Verzeichnis nicht gefunden"
+        Read-Host "Drücke Enter"
         return
     }
 
-    Sec "Detected Minecraft Instance"
+    Sec "Erkanntes Minecraft-Verzeichnis"
     Info "$mcPath"
 
     # --------- MOD SCAN ----------
     $modsPath = Join-Path $mcPath "mods"
+    if (-not (Test-Path $modsPath)) {
+        Bad "✖ Mods-Ordner nicht gefunden"
+        Read-Host "Drücke Enter"
+        return
+    }
+
     $mods = Get-ChildItem $modsPath -Force -File -Filter "*.jar" -ErrorAction SilentlyContinue
+    if ($mods.Count -eq 0) {
+        Info "ℹ Keine Mods im Ordner gefunden"
+        Read-Host "Drücke Enter"
+        return
+    }
 
     $flagged=@()
     $clean=@()
     $unknown=@()
+    $suspiciousObfuscated=@()
     $i=0
 
-    # Cheat Strings (Habibi)
+    # Cheat Strings (erweitert)
     $cheatStrings = @(
         "AimAssist","AnchorTweaks","AutoAnchor","AutoCrystal","AutoDoubleHand",
         "AutoHitCrystal","AutoPot","AutoTotem","AutoArmor","InventoryTotem",
         "Hitboxes","JumpReset","LegitTotem","PingSpoof","SelfDestruct",
-        "ShieldBreaker","TriggerBot","Velocity","AxeSpam","WebMacro","FastPlace"
+        "ShieldBreaker","TriggerBot","Velocity","AxeSpam","WebMacro","FastPlace",
+        "KillAura","CrystalAura","Reach","NoSlow","Speed","Fly","Jesus",
+        "Scaffold","Step","FastBreak","XRay","ESP","Tracers","Nametags",
+        "AntiBot","AutoLog","AutoEZ","MiddleClick","Blink","Phase","Freecam"
     )
 
-    Sec "Scanning Mods..."
+    Sec "Scanne Mods..."
     foreach ($m in $mods) {
         $i++
-        Write-Host "`r[~] Scanning $i / $($mods.Count)" -NoNewline -ForegroundColor Cyan
+        Write-Host "`r[~] Scanne $i / $($mods.Count) | $($m.Name)" -NoNewline -ForegroundColor Cyan
 
         # ---------- ANALYZE LOCAL ----------
         $r = Analyze-Mod $m.FullName $m.Name
@@ -100,7 +116,29 @@ function Start-CheatScan {
         if ($stringsFound.Count -gt 0) {
             $r.IsSuspicious = $true
             $r.Hits += $stringsFound
-            $r.Reason += "; Cheat strings detected"
+            $r.Reason += "; Cheat-Strings erkannt"
+        }
+
+        # ---------- OBFUSCATION SCAN ----------
+        $obfuscationResults = Scan-ObfuscationPatterns $m.FullName
+        if ($obfuscationResults.IsObfuscated) {
+            $r.IsObfuscated = $true
+            $r.ObfuscationScore = $obfuscationResults.Score
+            $r.ObfuscationReasons = $obfuscationResults.Reasons
+            
+            if ($obfuscationResults.Score -gt 50 -or -not $r.Verified) {
+                $r.IsSuspicious = $true
+                $r.Reason += "; Starke Obfuskation erkannt (Score: $($obfuscationResults.Score))"
+            }
+        }
+
+        # ---------- BYTECODE ANALYSIS ----------
+        $bytecodeAnalysis = Analyze-BytecodeStructure $m.FullName
+        if ($bytecodeAnalysis.Suspicious) {
+            $r.IsSuspicious = $true
+            $r.Reason += "; Verdächtige Bytecode-Struktur"
+            $r.BytecodeScore = $bytecodeAnalysis.Score
+            $r.BytecodeFeatures = $bytecodeAnalysis.Features
         }
 
         # ---------- Hidden Check ----------
@@ -111,7 +149,14 @@ function Start-CheatScan {
             }
         }
 
-        if ($r.IsSuspicious) { $flagged += $r }
+        # ---------- CLASSIFY ----------
+        if ($r.IsSuspicious) { 
+            if ($r.IsObfuscated) {
+                $suspiciousObfuscated += $r
+            } else {
+                $flagged += $r 
+            }
+        }
         elseif ($r.Verified) { $clean += $r }
         else { $unknown += $r }
     }
@@ -119,41 +164,85 @@ function Start-CheatScan {
 
     # --------- CLEAN MODS ----------
     if ($clean.Count -gt 0) {
-        Sec "Verified / Clean Mods"
+        Sec "Verifizierte / Saubere Mods"
         $clean | ForEach-Object {
             Info "✔ $($_.ModName)"
+            if ($_.IsObfuscated) {
+                Info "   ⚠ Obfuskation erkannt (Score: $($_.ObfuscationScore))"
+            }
         }
     }
 
     # --------- UNKNOWN MODS ----------
     if ($unknown.Count -gt 0) {
-        Sec "Unknown Mods"
+        Sec "Unbekannte Mods"
         $unknown | ForEach-Object {
-            if ($_.Hidden) { Info "⚠ $($_.ModName) (hidden mod)" } 
-            else { Info "➖ $($_.ModName)" }
+            if ($_.Hidden) { 
+                Warn "⚠ $($_.ModName) (versteckte Mod)" 
+                if ($_.IsObfuscated) {
+                    Warn "   ⚠ Obfuskation erkannt (Score: $($_.ObfuscationScore))"
+                }
+            } 
+            else { 
+                Info "➖ $($_.ModName)"
+                if ($_.IsObfuscated) {
+                    Info "   ⚠ Obfuskation erkannt (Score: $($_.ObfuscationScore))"
+                }
+            }
+        }
+    }
+
+    # --------- SUSPICIOUS OBFUSCATED MODS ----------
+    if ($suspiciousObfuscated.Count -gt 0) {
+        Sec "Verdächtige Obfuskierte Mods"
+        $suspiciousObfuscated | ForEach-Object {
+            Bad "🔥 $($_.ModName) - OBFUSKIERT"
+            Bad "   Grund: $($_.Reason)"
+            Bad "   Obfuskation Score: $($_.ObfuscationScore)/100"
+            if ($_.ObfuscationReasons.Count -gt 0) {
+                Bad "   Details: $($_.ObfuscationReasons -join '; ')"
+            }
+            if ($_.Hits.Count -gt 0) { 
+                Bad "   Erkannte Strings: $($_.Hits -join ', ')" 
+            }
+            if ($_.Hidden) { 
+                Bad "   ⚠ Diese Mod wurde versteckt!" 
+            }
+            if ($_.BytecodeScore -gt 0) {
+                Bad "   Bytecode Score: $($_.BytecodeScore)"
+                if ($_.BytecodeFeatures.Count -gt 0) {
+                    Bad "   Bytecode Features: $($_.BytecodeFeatures -join ', ')"
+                }
+            }
         }
     }
 
     # --------- CHEAT MODS ----------
     if ($flagged.Count -gt 0) {
-        Sec "Cheat Mods"
+        Sec "Erkannte Cheat Mods"
         $flagged | ForEach-Object {
             Bad "❌ $($_.ModName)"
-            Bad "   Reason: $($_.Reason)"
-            if ($_.Hits.Count -gt 0) { Bad "   Hits: $($_.Hits -join ', ')" }
-            if ($_.Hidden) { Bad "    Diese Mod wurde versteckt, um ein SS zu umgehen" }
+            Bad "   Grund: $($_.Reason)"
+            if ($_.Hits.Count -gt 0) { Bad "   Erkannte Strings: $($_.Hits -join ', ')" }
+            if ($_.Hidden) { Bad "   ⚠ Diese Mod wurde versteckt!" }
         }
     }
 
     # --------- SUMMARY ----------
-    Sec "Summary"
-    Info "Verified / Clean Mods: $($clean.Count)"
-    Info "Unknown Mods: $($unknown.Count)"
+    Sec "Zusammenfassung"
+    Info "Verifizierte Mods: $($clean.Count)"
+    Info "Unbekannte Mods: $($unknown.Count)"
     Info "Cheat Mods: $($flagged.Count)"
+    Info "Verdächtig Obfuskierte Mods: $($suspiciousObfuscated.Count)"
     Info "JVM Findings: $($jvmFindings.Count)"
+    
+    $totalMods = $clean.Count + $unknown.Count + $flagged.Count + $suspiciousObfuscated.Count
+    $obfuscatedMods = ($clean + $unknown + $flagged + $suspiciousObfuscated | Where-Object { $_.IsObfuscated }).Count
+    Info "Total Mods: $totalMods"
+    Info "Obfuskierte Mods: $obfuscatedMods"
 
-    Write-Host "`nScan finished at $(Get-Date)" -ForegroundColor Blue
-    Read-Host "Press Enter"
+    Write-Host "`nScan abgeschlossen am $(Get-Date)" -ForegroundColor Blue
+    Read-Host "Drücke Enter"
 }
 
 # ---------------- HELPER FUNCTIONS ----------------
@@ -164,7 +253,10 @@ function Scan-JVMArguments($cmd){
         "-Xbootclasspath",
         "DisableAttachMechanism",
         "fabric.development=true",
-        "-Djdk.attach.allowAttachSelf"
+        "-Djdk.attach.allowAttachSelf",
+        "-javaagent:",
+        "-Xverify:none",
+        "-XX:+DisableAttachMechanism"
     )
     $hits=@()
     foreach ($b in $bad) {
@@ -178,7 +270,7 @@ function Scan-NativeDLLs($pid){
     $mods = Get-Process -Id $pid -Module -ErrorAction SilentlyContinue
     foreach ($m in $mods) {
         if ($m.FileName -and $m.FileName -match "\.dll$") {
-            if ($m.FileName -notmatch "System32|Java|jdk|jre") {
+            if ($m.FileName -notmatch "System32|Java|jdk|jre|Windows") {
                 $out += $m.FileName
             }
         }
@@ -211,6 +303,11 @@ function Analyze-Mod($JarPath, $ModName) {
     $reasons=@()
     $hidden=$false
     $verified=$false
+    $isObfuscated=$false
+    $obfuscationScore=0
+    $obfuscationReasons=@()
+    $bytecodeScore=0
+    $bytecodeFeatures=@()
 
     try {
         Add-Type -AssemblyName System.IO.Compression.FileSystem
@@ -221,17 +318,23 @@ function Analyze-Mod($JarPath, $ModName) {
 
         if ($pkg.Hits.Count -gt 0) {
             $sus=$true
-            $reasons+="Known cheat package"
+            $reasons+="Bekanntes Cheat-Package"
             $hits+=$pkg.Hits
         }
 
         if ($cls.Hits.Count -ge 3) {
             $sus=$true
-            $reasons+="Multiple suspicious class names"
+            $reasons+="Mehrere verdächtige Klassennamen"
             $hits+=$cls.Hits
         }
     } catch {
-        $reasons+="Scan error"
+        $reasons+="Scan-Fehler"
+        # Wenn Scan fehlschlägt, könnte es ein protected JAR sein
+        if ($_.Exception.Message -match "corrupt|invalid|not a zip") {
+            $sus=$true
+            $reasons+="Beschädigte/geschützte JAR-Datei"
+            $hits += "Protected/Crypted JAR"
+        }
     } finally {
         Remove-Item $temp -Recurse -Force -ErrorAction SilentlyContinue
     }
@@ -243,6 +346,11 @@ function Analyze-Mod($JarPath, $ModName) {
         Hits=$hits | Select-Object -Unique
         Hidden=$hidden
         Verified=$verified
+        IsObfuscated=$isObfuscated
+        ObfuscationScore=$obfuscationScore
+        ObfuscationReasons=$obfuscationReasons
+        BytecodeScore=$bytecodeScore
+        BytecodeFeatures=$bytecodeFeatures
     }
 }
 
@@ -250,11 +358,15 @@ function Analyze-Mod($JarPath, $ModName) {
 function Scan-CheatPackages {
     param($ExtractPath)
     $hits=@()
-    $cheatIds=@("meteorclient","net.wurst","wurstclient","aristois","futureclient","rusherhack","liquidbounce")
+    $cheatIds=@("meteorclient","net.wurst","wurstclient","aristois","futureclient","rusherhack","liquidbounce","kami","phobos","konas","lambda","salhack","gamesense","pyro","wolfram","tenacity","novoline","rise","vulkan")
     $files=Get-ChildItem $ExtractPath -Recurse -File -ErrorAction SilentlyContinue
     foreach($f in $files){
         $rel=$f.FullName.Substring($ExtractPath.Length).ToLower()
-        foreach($id in $cheatIds){ if($rel -match [regex]::Escape($id)){ $hits+="package:$id" } }
+        foreach($id in $cheatIds){ 
+            if($rel -match [regex]::Escape($id)){
+                $hits+="package:$id"
+            }
+        }
     }
     [PSCustomObject]@{ Hits=$hits | Select-Object -Unique }
 }
@@ -262,25 +374,356 @@ function Scan-CheatPackages {
 function Scan-SuspiciousClasses {
     param($ExtractPath)
     $hits=@()
-    $frags=@("killaura","crystalaura","autoclick","triggerbot","aimassist","autocrystal","clickcrystal",
-             "anchormacro","wtap","tpaura","placecrystal","breakcrystal","autototem","autoinv","playeresp",
-             "storageesp","fastexp","doubleanchor","autoexplode")
+    $frags=@(
+        "killaura","crystalaura","autoclick","triggerbot","aimassist","autocrystal","clickcrystal",
+        "anchormacro","wtap","tpaura","placecrystal","breakcrystal","autototem","autoinv","playeresp",
+        "storageesp","fastexp","doubleanchor","autoexplode","velocity","nofall","speed","fly","jesus",
+        "scaffold","step","xray","esp","tracers","antibot","autolog","freecam","phase","blink","regen",
+        "nuker","autowalk","timer","antiaim","autoez","cheststeal","autodupe","killswitch","lagback"
+    )
     $classes=Get-ChildItem $ExtractPath -Recurse -Filter "*.class" -ErrorAction SilentlyContinue
     foreach($c in $classes){
         try{
             $txt=[Text.Encoding]::UTF8.GetString([IO.File]::ReadAllBytes($c.FullName))
-            foreach($f in $frags){ if($txt -match $f){ $hits+="class:$f" } }
-        }catch{}
+            foreach($f in $frags){ 
+                if($txt -match $f){
+                    $hits+="class:$f"
+                }
+            }
+        } catch {}
     }
     [PSCustomObject]@{ Hits=$hits | Select-Object -Unique }
 }
 
 # ---------------- HABIBI FEATURES ----------------
-function Get-SHA1 { param([string]$filePath); return (Get-FileHash -Path $filePath -Algorithm SHA1).Hash }
-function Get-ZoneIdentifier { param([string]$filePath); $ads = Get-Content -Raw -Stream Zone.Identifier $filePath -ErrorAction SilentlyContinue; if ($ads -match "HostUrl=(.+)") { return $matches[1] } else { return $null } }
-function Fetch-Modrinth { param([string]$hash); try { $resp = Invoke-RestMethod -Uri "https://api.modrinth.com/v2/version_file/$hash" -Method Get -UseBasicParsing -ErrorAction Stop; if ($resp.project_id) { $proj = Invoke-RestMethod -Uri "https://api.modrinth.com/v2/project/$($resp.project_id)" -Method Get -UseBasicParsing -ErrorAction Stop; return @{ Name=$proj.title; Slug=$proj.slug } } } catch {}; return @{ Name=""; Slug="" } }
-function Fetch-Megabase { param([string]$hash); try { $resp = Invoke-RestMethod -Uri "https://megabase.vercel.app/api/query?hash=$hash" -Method Get -UseBasicParsing -ErrorAction Stop; if (-not $resp.error) { return $resp.data } } catch {}; return $null }
-function Check-Strings { param([string]$filePath, [string[]]$cheatStrings); $found=[System.Collections.Generic.HashSet[string]]::new(); $lines=Get-Content -Raw $filePath; foreach ($line in $lines){ foreach ($s in $cheatStrings){ if ($line -match $s) { $found.Add($s)|Out-Null } } }; return $found }
+function Get-SHA1 { 
+    param([string]$filePath)
+    try {
+        return (Get-FileHash -Path $filePath -Algorithm SHA1 -ErrorAction Stop).Hash
+    } catch {
+        return "ERROR"
+    }
+}
+
+function Fetch-Modrinth { 
+    param([string]$hash)
+    try {
+        $resp = Invoke-RestMethod -Uri "https://api.modrinth.com/v2/version_file/$hash" -Method Get -UseBasicParsing -ErrorAction Stop
+        if ($resp.project_id) {
+            $proj = Invoke-RestMethod -Uri "https://api.modrinth.com/v2/project/$($resp.project_id)" -Method Get -UseBasicParsing -ErrorAction Stop
+            return @{ Name=$proj.title; Slug=$proj.slug }
+        }
+    } catch {}
+    return @{ Name=""; Slug="" }
+}
+
+function Fetch-Megabase { 
+    param([string]$hash)
+    try {
+        $resp = Invoke-RestMethod -Uri "https://megabase.vercel.app/api/query?hash=$hash" -Method Get -UseBasicParsing -ErrorAction Stop
+        if (-not $resp.error) {
+            return $resp.data
+        }
+    } catch {}
+    return $null
+}
+
+function Check-Strings { 
+    param([string]$filePath, [string[]]$cheatStrings)
+    
+    $found=[System.Collections.Generic.HashSet[string]]::new()
+    
+    try {
+        # Versuche verschiedene Encodings
+        $encodings = @(
+            [System.Text.Encoding]::UTF8,
+            [System.Text.Encoding]::ASCII,
+            [System.Text.Encoding]::Default
+        )
+        
+        foreach ($encoding in $encodings) {
+            try {
+                $content = Get-Content -Path $filePath -Encoding $encoding -Raw -ErrorAction Stop
+                
+                # Normale Strings
+                foreach ($s in $cheatStrings) {
+                    if ($content -match [regex]::Escape($s)) {
+                        $found.Add($s) | Out-Null
+                    }
+                }
+                
+                # Case-insensitive Suche
+                foreach ($s in $cheatStrings) {
+                    if ($content -match $s -or $content -match $s.ToLower() -or $content -match $s.ToUpper()) {
+                        $found.Add($s) | Out-Null
+                    }
+                }
+                
+            } catch {
+                continue
+            }
+        }
+        
+    } catch {
+        # Fehler ignorieren
+    }
+    
+    return @($found)
+}
+
+# ---------------- OBFUSCATION DETECTION ----------------
+function Scan-ObfuscationPatterns {
+    param([string]$jarPath)
+    
+    $results = @{
+        IsObfuscated = $false
+        Score = 0
+        Reasons = @()
+    }
+    
+    $tempDir = Join-Path $env:TEMP ("obfscan_" + [guid]::NewGuid())
+    
+    try {
+        Add-Type -AssemblyName System.IO.Compression.FileSystem
+        [IO.Compression.ZipFile]::ExtractToDirectory($jarPath, $tempDir)
+        
+        # 1. Zähle Klassen und analysiere Namen
+        $classFiles = Get-ChildItem $tempDir -Recurse -Filter "*.class" -ErrorAction SilentlyContinue
+        $totalClasses = $classFiles.Count
+        
+        if ($totalClasses -eq 0) {
+            $results.Reasons += "Keine Klassen gefunden"
+            Remove-Item $tempDir -Recurse -Force -ErrorAction SilentlyContinue
+            return $results
+        }
+        
+        # 2. Obfuskierte Klassennamen erkennen
+        $obfuscatedClassCount = 0
+        foreach ($classFile in $classFiles) {
+            $className = $classFile.Name
+            $fullPath = $classFile.FullName.Substring($tempDir.Length + 1)
+            
+            # Typische Obfuskations-Muster
+            if ($className -match "^[a-z]\$?\.class$" -or 
+                $className -match "^[a-z]{1,3}\.class$" -or
+                $className -match "^[a-f0-9]{8,}\.class$" -or
+                $className -match "^[A-Z]\$?\.class$" -or
+                $fullPath -match "^[a-z]/[a-z]/[a-z]\.class$" -or
+                $fullPath -match "^[a-z]{1,3}/[a-z]{1,3}/[a-z]{1,3}\.class$") {
+                $obfuscatedClassCount++
+            }
+        }
+        
+        # 3. Berechne Obfuskations-Ratio
+        $obfuscationRatio = if ($totalClasses -gt 0) { $obfuscatedClassCount / $totalClasses } else { 0 }
+        
+        if ($obfuscationRatio -gt 0.3) {
+            $results.IsObfuscated = $true
+            $results.Score += [math]::Round($obfuscationRatio * 40)
+            $results.Reasons += "Obfuskierte Klassen: $obfuscatedClassCount/$totalClasses ($([math]::Round($obfuscationRatio * 100))%)"
+        }
+        
+        # 4. Prüfe auf Obfuskations-Frameworks in MANIFEST
+        $manifestFile = Join-Path $tempDir "META-INF/MANIFEST.MF"
+        if (Test-Path $manifestFile) {
+            $manifestContent = Get-Content $manifestFile -Raw
+            $obfuscators = @("ProGuard", "yGuard", "Allatori", "Zelix", "Stringer", "DashO", "KlassMaster")
+            
+            foreach ($obfuscator in $obfuscators) {
+                if ($manifestContent -match $obfuscator) {
+                    $results.IsObfuscated = $true
+                    $results.Score += 30
+                    $results.Reasons += "Obfuskations-Framework: $obfuscator"
+                    break
+                }
+            }
+        }
+        
+        # 5. Prüfe auf fehlende Lesbarkeit
+        $textFiles = Get-ChildItem $tempDir -Recurse -Include "*.txt", "*.json", "*.mcmeta", "*.properties", "*.md", "README" -ErrorAction SilentlyContinue
+        if ($textFiles.Count -eq 0 -and $totalClasses -gt 5) {
+            $results.IsObfuscated = $true
+            $results.Score += 20
+            $results.Reasons += "Keine lesbaren Dateien gefunden"
+        }
+        
+        # 6. Prüfe auf verschlüsselte Strings (hohe Entropie)
+        $allFiles = Get-ChildItem $tempDir -Recurse -File -ErrorAction SilentlyContinue | Select-Object -First 50
+        $highEntropyCount = 0
+        
+        foreach ($file in $allFiles) {
+            try {
+                $bytes = [IO.File]::ReadAllBytes($file.FullName)
+                if ($bytes.Length -gt 100) {
+                    $content = [System.Text.Encoding]::UTF8.GetString($bytes)
+                    
+                    # Base64-ähnliche Strings
+                    if ($content -match "[A-Za-z0-9+/=]{20,}") {
+                        $highEntropyCount++
+                    }
+                    
+                    # Hex-Strings
+                    if ($content -match "[0-9a-fA-F]{16,}") {
+                        $highEntropyCount++
+                    }
+                }
+            } catch {
+                continue
+            }
+        }
+        
+        if ($highEntropyCount -gt 5) {
+            $results.IsObfuscated = $true
+            $results.Score += 15
+            $results.Reasons += "Hohe Entropie in Dateien"
+        }
+        
+        # 7. Prüfe auf sehr kurze Methodennamen in .class Dateien (nur Stichprobe)
+        $sampleClasses = $classFiles | Select-Object -First 10
+        $shortMethodCount = 0
+        
+        foreach ($classFile in $sampleClasses) {
+            try {
+                $content = [IO.File]::ReadAllBytes($classFile.FullName)
+                $text = [System.Text.Encoding]::UTF8.GetString($content)
+                
+                # Suche nach sehr kurzen Methodennamen (a, b, c, etc.)
+                if ($text -match "\(\)[VLZIBSJFD]a;" -or $text -match "\(\)[VLZIBSJFD]b;" -or $text -match "\(\)[VLZIBSJFD]c;") {
+                    $shortMethodCount++
+                }
+            } catch {
+                continue
+            }
+        }
+        
+        if ($shortMethodCount -gt 3) {
+            $results.IsObfuscated = $true
+            $results.Score += 10
+            $results.Reasons += "Kurzbenannte Methoden erkannt"
+        }
+        
+    } catch {
+        $results.Reasons += "Obfuskations-Scan-Fehler: $($_.Exception.Message)"
+    } finally {
+        # Cleanup
+        if (Test-Path $tempDir) {
+            Remove-Item $tempDir -Recurse -Force -ErrorAction SilentlyContinue
+        }
+    }
+    
+    # Begrenze Score auf 100
+    $results.Score = [math]::Min($results.Score, 100)
+    
+    return $results
+}
+
+function Analyze-BytecodeStructure {
+    param([string]$jarPath)
+    
+    $results = @{
+        Suspicious = $false
+        Score = 0
+        Features = @()
+    }
+    
+    $tempDir = Join-Path $env:TEMP ("bytecode_" + [guid]::NewGuid())
+    
+    try {
+        Add-Type -AssemblyName System.IO.Compression.FileSystem
+        [IO.Compression.ZipFile]::ExtractToDirectory($jarPath, $tempDir)
+        
+        $classFiles = Get-ChildItem $tempDir -Recurse -Filter "*.class" -ErrorAction SilentlyContinue
+        $totalClasses = $classFiles.Count
+        
+        if ($totalClasses -eq 0) {
+            Remove-Item $tempDir -Recurse -Force -ErrorAction SilentlyContinue
+            return $results
+        }
+        
+        # Analysiere eine Stichprobe von Klassen
+        $sampleSize = [math]::Min($totalClasses, 20)
+        $sampleClasses = $classFiles | Get-Random -Count $sampleSize
+        
+        $cheatPatternsFound = 0
+        $minecraftHooksFound = 0
+        
+        foreach ($classFile in $sampleClasses) {
+            try {
+                $content = [IO.File]::ReadAllBytes($classFile.FullName)
+                $text = [System.Text.Encoding]::UTF8.GetString($content)
+                
+                # Suche nach Minecraft-spezifischen Hooks
+                $minecraftHooks = @(
+                    "onUpdate", "onTick", "onLivingUpdate", "attackEntity", "rightClickMouse",
+                    "sendPacket", "receivePacket", "onPacket", "onRender", "renderNameTag",
+                    "getDistanceToEntity", "getRotationYaw", "getRotationPitch",
+                    "isSprinting", "isSneaking", "getHeldItem", "getPosition"
+                )
+                
+                foreach ($hook in $minecraftHooks) {
+                    if ($text -match $hook) {
+                        $minecraftHooksFound++
+                        $results.Features += $hook
+                        break
+                    }
+                }
+                
+                # Suche nach Cheat-spezifischen Patterns
+                $cheatPatterns = @(
+                    "KillAura", "CrystalAura", "AutoCrystal", "Velocity", "NoFall",
+                    "Speed", "Fly", "Jesus", "Scaffold", "Step", "FastBreak",
+                    "XRay", "ESP", "Tracers", "Nametags", "AntiBot", "AutoLog"
+                )
+                
+                foreach ($pattern in $cheatPatterns) {
+                    if ($text -match $pattern) {
+                        $cheatPatternsFound++
+                        $results.Features += $pattern
+                        break
+                    }
+                }
+                
+                # Suche nach Reflection (oft in Cheats verwendet)
+                if ($text -match "java/lang/reflect" -or $text -match "invoke\(\)") {
+                    $results.Score += 5
+                    $results.Features += "Reflection"
+                }
+                
+                # Suche nach Native Methoden
+                if ($text -match "native " -or $text -match "JNI") {
+                    $results.Score += 10
+                    $results.Features += "Native Methods"
+                }
+                
+            } catch {
+                continue
+            }
+        }
+        
+        # Bewertung basierend auf Funden
+        if ($cheatPatternsFound -gt 0) {
+            $results.Suspicious = $true
+            $results.Score += $cheatPatternsFound * 15
+        }
+        
+        if ($minecraftHooksFound -gt 5) {
+            $results.Suspicious = $true
+            $results.Score += 20
+        }
+        
+        # Entferne Duplikate
+        $results.Features = $results.Features | Select-Object -Unique
+        
+    } catch {
+        # Ignoriere Fehler
+    } finally {
+        if (Test-Path $tempDir) {
+            Remove-Item $tempDir -Recurse -Force -ErrorAction SilentlyContinue
+        }
+    }
+    
+    return $results
+}
 
 # ---------------- RUN ----------------
 Start-CheatScan
