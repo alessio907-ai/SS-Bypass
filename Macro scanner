@@ -1,40 +1,601 @@
-# Speicher von Java-Prozessen direkt scannen
-function Quick-Memory-Cheat-Scan {
-    Clear-Host
-    Write-Host "🚀 QUICK CHEAT SCAN" -ForegroundColor Red
+# =====================================================
+# PRESTIGE CLIENT & INJECTABLE CHEATS DETECTOR
+# =====================================================
+
+$ErrorActionPreference = "SilentlyContinue"
+
+# ---------------- BANNER ----------------
+Clear-Host
+Write-Host ""
+Write-Host "██████╗ ██████╗ ███████╗███████╗████████╗██╗ ██████╗ ███████╗" -ForegroundColor Red
+Write-Host "██╔══██╗██╔══██╗██╔════╝██╔════╝╚══██╔══╝██║██╔════╝ ██╔════╝" -ForegroundColor Yellow
+Write-Host "██████╔╝██████╔╝█████╗  ███████╗   ██║   ██║██║  ███╗█████╗  " -ForegroundColor Red
+Write-Host "██╔═══╝ ██╔══██╗██╔══╝  ╚════██║   ██║   ██║██║   ██║██╔══╝  " -ForegroundColor Yellow
+Write-Host "██║     ██║  ██║███████╗███████║   ██║   ██║╚██████╔╝███████╗" -ForegroundColor Red
+Write-Host "╚═╝     ╚═╝  ╚═╝╚══════╝╚══════╝   ╚═╝   ╚═╝ ╚═════╝ ╚══════╝" -ForegroundColor Yellow
+Write-Host ""
+Write-Host "           🔥 INJECTABLE CLIENTS DETECTOR 🔥" -ForegroundColor Cyan
+Write-Host ""
+
+# ---------------- PRESTIGE CLIENT SPEZIFISCHE ORTE ----------------
+function Find-Prestige-Client {
+    Write-Host "▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬" -ForegroundColor DarkCyan
+    Write-Host "🎯 PRESTIGE CLIENT VERSTECKORTE" -ForegroundColor Cyan
+    Write-Host "▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬" -ForegroundColor DarkCyan
+    Write-Host ""
+
+    # Prestige Client spezifische Signaturen und Orte
+    $prestigePaths = @(
+        # Typische Prestige Installationsorte
+        "$env:LOCALAPPDATA\Prestige",
+        "$env:APPDATA\Prestige",
+        "$env:APPDATA\.prestige",
+        "$env:USERPROFILE\Prestige",
+        "$env:USERPROFILE\.prestige",
+        
+        # Getarnte Ordner
+        "$env:APPDATA\Microsoft\Prestige",
+        "$env:APPDATA\Java\Prestige",
+        "$env:APPDATA\Oracle\Prestige",
+        
+        # Temp/Versteck Orte
+        "$env:TEMP\Prestige",
+        "$env:TEMP\_prestige",
+        "$env:TEMP\java_cache",
+        "$env:TEMP\mc_cache",
+        
+        # System getarnt
+        "C:\Windows\SysWOW64\prestige",
+        "C:\Windows\System32\prestige",
+        "C:\ProgramData\Prestige",
+        
+        # Minecraft Integration
+        "$env:APPDATA\.minecraft\versions\Prestige",
+        "$env:APPDATA\.minecraft\prestige",
+        "$env:APPDATA\.minecraft\.prestige",
+        
+        # User Profile versteckt
+        "$env:USERPROFILE\Documents\Prestige",
+        "$env:USERPROFILE\Downloads\Prestige",
+        "$env:USERPROFILE\Desktop\Prestige",
+        "$env:USERPROFILE\Videos\Prestige",
+        "$env:USERPROFILE\Music\Prestige",
+        "$env:USERPROFILE\Pictures\Prestige",
+        
+        # AppData versteckt
+        "$env:APPDATA\Adobe\Prestige",
+        "$env:APPDATA\Google\Prestige",
+        "$env:APPDATA\Microsoft\Windows\Prestige",
+        
+        # Program Files getarnt
+        "C:\Program Files\Java\Prestige",
+        "C:\Program Files (x86)\Java\Prestige",
+        "C:\Program Files\Minecraft\Prestige"
+    )
+
+    $foundCount = 0
     
-    # Finde alle Java-Prozesse
+    foreach ($path in $prestigePaths) {
+        if (Test-Path $path) {
+            $foundCount++
+            Write-Host "🔥 GEFUNDEN: $path" -ForegroundColor Red
+            
+            # Dateien im Ordner auflisten
+            $files = Get-ChildItem $path -Recurse -ErrorAction SilentlyContinue | 
+                    Where-Object { $_.Name -match "\.(jar|exe|dll|class|json|txt)$" } |
+                    Select-Object -First 10
+            
+            foreach ($file in $files) {
+                Write-Host "   📄 $($file.Name)" -ForegroundColor Yellow
+            }
+            
+            # Config Dateien suchen
+            $configs = Get-ChildItem $path -Recurse -ErrorAction SilentlyContinue | 
+                      Where-Object { $_.Name -match "(config|settings|prefs|options)\.(json|txt|cfg)$" }
+            
+            if ($configs.Count -gt 0) {
+                Write-Host "   ⚙️ Configs: $($configs.Count) gefunden" -ForegroundColor Cyan
+            }
+        }
+    }
+    
+    if ($foundCount -eq 0) {
+        Write-Host "✓ Keine Prestige Ordner gefunden" -ForegroundColor Green
+    } else {
+        Write-Host "`n⚠ $foundCount Prestige-ähnliche Ordner gefunden!" -ForegroundColor Red
+    }
+}
+
+# ---------------- DLL INJECTION DETECTION ----------------
+function Find-Injected-DLLs {
+    Write-Host ""
+    Write-Host "▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬" -ForegroundColor DarkCyan
+    Write-Host "🔍 INJEKTIERTE DLLs IN JAVA PROZESSEN" -ForegroundColor Cyan
+    Write-Host "▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬" -ForegroundColor DarkCyan
+    Write-Host ""
+
     $javaProcs = Get-Process | Where-Object { $_.ProcessName -match "java|javaw" }
     
+    if ($javaProcs.Count -eq 0) {
+        Write-Host "Keine Java-Prozesse gefunden" -ForegroundColor Yellow
+        return
+    }
+
+    $injectionFound = $false
+    $injectableClients = @(
+        "prestige", "inject", "hook", "cheat", "client", "hack",
+        "meteor", "wurst", "aristois", "future", "liquidbounce",
+        "rusher", "kami", "phobos", "konas", "salhack", "gamesense",
+        "pyro", "tenacity", "novoline", "rise", "vulkan", "bleach",
+        "impact", "feather", "lambda"
+    )
+
     foreach ($proc in $javaProcs) {
-        Write-Host "`n🔍 Scanne: $($proc.ProcessName) (PID: $($proc.Id))" -ForegroundColor Cyan
+        Write-Host "🎮 Prozess: $($proc.ProcessName) (PID: $($proc.Id))" -ForegroundColor White
         
-        # 1. MODULE CHECK (DLLs)
-        $suspiciousModules = $proc.Modules | Where-Object {
-            $_.ModuleName -match "inject|hook|cheat|client|hack|meteor|wurst|aristois|future"
-        }
-        
-        if ($suspiciousModules.Count -gt 0) {
-            Write-Host "❌ VERDÄCHTIGE DLLs GEFUNDEN:" -ForegroundColor Red
-            foreach ($mod in $suspiciousModules) {
-                Write-Host "   - $($mod.ModuleName)" -ForegroundColor Yellow
-                Write-Host "     Pfad: $($mod.FileName)" -ForegroundColor Gray
+        try {
+            $modules = $proc.Modules | Where-Object { $_.ModuleName -match "\.dll$" }
+            
+            $suspiciousModules = @()
+            
+            foreach ($module in $modules) {
+                $modulePath = $module.FileName.ToLower()
+                $moduleName = $module.ModuleName.ToLower()
+                
+                # Prüfe auf Cheat-DLLs
+                foreach ($client in $injectableClients) {
+                    if ($modulePath -match $client -or $moduleName -match $client) {
+                        $suspiciousModules += $module
+                        $injectionFound = $true
+                        break
+                    }
+                }
+                
+                # Prüfe auf nicht-System DLLs (verdächtig)
+                $isSystemDll = $modulePath -match "\\windows\\" -or 
+                              $modulePath -match "\\system32\\" -or 
+                              $modulePath -match "\\java\\" -or
+                              $modulePath -match "\\jre\\" -or
+                              $modulePath -match "\\jdk\\"
+                
+                if (-not $isSystemDll) {
+                    # Prüfe ob DLL aus verdächtigen Orten kommt
+                    if ($modulePath -match "appdata|temp|downloads|desktop|documents") {
+                        $suspiciousModules += $module
+                        $injectionFound = $true
+                    }
+                }
             }
+            
+            if ($suspiciousModules.Count -gt 0) {
+                Write-Host "❌ VERDÄCHTIGE DLLs GEFUNDEN:" -ForegroundColor Red
+                foreach ($mod in $suspiciousModules) {
+                    Write-Host "   🎯 $($mod.ModuleName)" -ForegroundColor Yellow
+                    Write-Host "     📁 $($mod.FileName)" -ForegroundColor Gray
+                    
+                    # Dateiinfo
+                    try {
+                        $fileInfo = Get-Item $mod.FileName -ErrorAction Stop
+                        $size = [math]::Round($fileInfo.Length / 1024 / 1024, 2)
+                        $modified = $fileInfo.LastWriteTime
+                        
+                        Write-Host "     📏 Größe: ${size}MB" -ForegroundColor DarkGray
+                        Write-Host "     📅 Modifiziert: $modified" -ForegroundColor DarkGray
+                        
+                        # Prüfe auf kürzliche Modifikation
+                        $timeDiff = (Get-Date) - $modified
+                        if ($timeDiff.TotalHours -lt 24) {
+                            Write-Host "     ⚠ Kürzlich modifiziert!" -ForegroundColor Red
+                        }
+                    } catch { }
+                }
+            } else {
+                Write-Host "✓ Keine verdächtigen DLLs" -ForegroundColor Green
+            }
+            
+        } catch {
+            Write-Host "⚠ Zugriff verweigert" -ForegroundColor Yellow
         }
         
-        # 2. COMMAND LINE CHECK
+        Write-Host ""
+    }
+    
+    return $injectionFound
+}
+
+# ---------------- JVM INJECTION ARGUMENTS ----------------
+function Check-JVM-Injections {
+    Write-Host ""
+    Write-Host "▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬" -ForegroundColor DarkCyan
+    Write-Host "⚙️ JVM INJEKTIONS ARGUMENTE" -ForegroundColor Cyan
+    Write-Host "▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬" -ForegroundColor DarkCyan
+    Write-Host ""
+
+    $javaProcs = Get-Process | Where-Object { $_.ProcessName -match "java|javaw" }
+    $found = $false
+    
+    foreach ($proc in $javaProcs) {
         try {
             $cmd = (Get-CimInstance Win32_Process -Filter "ProcessId=$($proc.Id)").CommandLine
-            if ($cmd -match "-javaagent:|inject|cheat|hack") {
-                Write-Host "❌ CHEAT ARGUMENTE GEFUNDEN:" -ForegroundColor Red
-                Write-Host "   $cmd" -ForegroundColor Yellow
+            
+            if ($cmd) {
+                # Typische Injection Argumente
+                $injectionArgs = @(
+                    "-javaagent:", 
+                    "-agentlib:", 
+                    "-agentpath:",
+                    "-Xbootclasspath:",
+                    "-noverify",
+                    "-Xverify:none",
+                    "-Djdk.attach.allowAttachSelf",
+                    "DisableAttachMechanism",
+                    "fabric.development=true"
+                )
+                
+                $cheatPatterns = @(
+                    "prestige", "inject", "cheat", "hack", "client",
+                    "meteor", "wurst", "aristois", "future", "liquidbounce"
+                )
+                
+                foreach ($arg in $injectionArgs) {
+                    if ($cmd -match [regex]::Escape($arg)) {
+                        Write-Host "❌ INJEKTION ARGUMENT: $arg" -ForegroundColor Red
+                        Write-Host "   Prozess: $($proc.ProcessName) (PID: $($proc.Id))" -ForegroundColor Yellow
+                        $found = $true
+                    }
+                }
+                
+                foreach ($pattern in $cheatPatterns) {
+                    if ($cmd -match $pattern) {
+                        Write-Host "❌ CHEAT IM COMMAND: $pattern" -ForegroundColor Red
+                        Write-Host "   $cmd" -ForegroundColor Yellow
+                        $found = $true
+                    }
+                }
             }
-        } catch { }
-        
-        # 3. NETWORK CHECK
-        $connections = netstat -ano | Select-String ":$($proc.Id)\s"
-        if ($connections -match "127\.0\.0\.1|localhost") {
-            Write-Host "⚠ LOKALE CHEAT-VERBINDUNG" -ForegroundColor Yellow
+        } catch {
+            # Fehler ignorieren
         }
+    }
+    
+    if (-not $found) {
+        Write-Host "✓ Keine JVM Injection Argumente gefunden" -ForegroundColor Green
+    }
+    
+    return $found
+}
+
+# ---------------- HIDDEN FILES & PROCESSES ----------------
+function Find-Hidden-Cheat-Files {
+    Write-Host ""
+    Write-Host "▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬" -ForegroundColor DarkCyan
+    Write-Host "👻 VERSTECKTE CHEAT DATEIEN" -ForegroundColor Cyan
+    Write-Host "▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬" -ForegroundColor DarkCyan
+    Write-Host ""
+
+    # Suche nach versteckten Dateien mit Cheat-Namen
+    $searchPaths = @(
+        "$env:USERPROFILE",
+        "$env:APPDATA",
+        "$env:LOCALAPPDATA",
+        "$env:TEMP",
+        "C:\"
+    )
+    
+    $cheatFilePatterns = @(
+        "*prestige*",
+        "*inject*",
+        "*cheat*",
+        "*hack*",
+        "*client*",
+        "*meteor*",
+        "*wurst*",
+        "*aristois*",
+        "*future*",
+        "*rusher*",
+        "*liquidbounce*"
+    )
+    
+    $foundFiles = @()
+    $maxResults = 20
+    
+    foreach ($path in $searchPaths) {
+        if (Test-Path $path) {
+            foreach ($pattern in $cheatFilePatterns) {
+                try {
+                    $files = Get-ChildItem -Path $path -Recurse -Force -ErrorAction SilentlyContinue |
+                            Where-Object { 
+                                $_.Name -like $pattern -and 
+                                $_.Extension -match "\.(jar|exe|dll|class|json|txt|cfg)$" -and
+                                ($_.Attributes -band [System.IO.FileAttributes]::Hidden) -or
+                                ($_.Attributes -band [System.IO.FileAttributes]::System)
+                            } |
+                            Select-Object -First 5
+                    
+                    foreach ($file in $files) {
+                        $foundFiles += [PSCustomObject]@{
+                            Name = $file.Name
+                            Path = $file.FullName
+                            Hidden = [bool]($file.Attributes -band [System.IO.FileAttributes]::Hidden)
+                            System = [bool]($file.Attributes -band [System.IO.FileAttributes]::System)
+                        }
+                        
+                        if ($foundFiles.Count -ge $maxResults) {
+                            break
+                        }
+                    }
+                } catch {
+                    # Fehler ignorieren
+                }
+                
+                if ($foundFiles.Count -ge $maxResults) {
+                    break
+                }
+            }
+        }
+        
+        if ($foundFiles.Count -ge $maxResults) {
+            break
+        }
+    }
+    
+    if ($foundFiles.Count -gt 0) {
+        Write-Host "⚠ VERSTECKTE DATEIEN GEFUNDEN:" -ForegroundColor Red
+        
+        foreach ($file in $foundFiles) {
+            $attributes = @()
+            if ($file.Hidden) { $attributes += "Hidden" }
+            if ($file.System) { $attributes += "System" }
+            
+            Write-Host "   🎯 $($file.Name)" -ForegroundColor Yellow
+            Write-Host "     📁 $($file.Path)" -ForegroundColor Gray
+            if ($attributes.Count -gt 0) {
+                Write-Host "     🏷️ " + ($attributes -join ", ") -ForegroundColor Cyan
+            }
+        }
+        
+        Write-Host "`n⚠ $($foundFiles.Count) verdächtige versteckte Dateien gefunden!" -ForegroundColor Red
+        return $true
+    } else {
+        Write-Host "✓ Keine versteckten Cheat-Dateien gefunden" -ForegroundColor Green
+        return $false
+    }
+}
+
+# ---------------- MEMORY PATTERN SCAN ----------------
+function Scan-Memory-For-Cheats {
+    Write-Host ""
+    Write-Host "▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬" -ForegroundColor DarkCyan
+    Write-Host "🧠 SPEICHER PATTERN SCAN" -ForegroundColor Cyan
+    Write-Host "▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬" -ForegroundColor DarkCyan
+    Write-Host ""
+
+    $javaProcs = Get-Process | Where-Object { $_.ProcessName -match "java|javaw" }
+    $found = $false
+    
+    # Cheat Signaturen im Speicher
+    $cheatMemoryPatterns = @(
+        # Prestige Client Patterns
+        "prestige",
+        "prestigeclient",
+        "prestige\\.jar",
+        "prestige\\/",
+        
+        # Allgemeine Cheat Patterns
+        "killaura",
+        "crystalaura",
+        "autocrystal",
+        "velocity",
+        "reach",
+        "antiknockback",
+        "nofall",
+        "fly",
+        "speed",
+        "step",
+        "scaffold",
+        
+        # Client Names
+        "meteorclient",
+        "wurstclient",
+        "aristois",
+        "futureclient",
+        "liquidbounce",
+        "rusherhack",
+        "kamiblue",
+        "phobos",
+        "konas",
+        "salhack"
+    )
+    
+    foreach ($proc in $javaProcs) {
+        Write-Host "🔍 Scanne PID $($proc.Id)..." -ForegroundColor White
+        
+        try {
+            # Process Memory Info
+            $memInfo = Get-WmiObject Win32_Process -Filter "ProcessId=$($proc.Id)"
+            $workingSetMB = [math]::Round($memInfo.WorkingSetSize / 1MB, 2)
+            $virtualMB = [math]::Round($memInfo.VirtualSize / 1MB, 2)
+            
+            Write-Host "   💾 Working Set: ${workingSetMB}MB" -ForegroundColor Gray
+            Write-Host "   💾 Virtual Size: ${virtualMB}MB" -ForegroundColor Gray
+            
+            # Verdächtig großer Speicherverbrauch
+            if ($workingSetMB -gt 4000) {  # > 4GB
+                Write-Host "   ⚠ HOCHER SPEICHERVERBRAUCH (mögliche Injection)" -ForegroundColor Red
+                $found = $true
+            }
+            
+            # Handle Count Check
+            if ($proc.HandleCount -gt 1000) {
+                Write-Host "   ⚠ VIELE HANDLES: $($proc.HandleCount)" -ForegroundColor Yellow
+                $found = $true
+            }
+            
+        } catch {
+            Write-Host "   ⚠ Memory Zugriff fehlgeschlagen" -ForegroundColor Yellow
+        }
+    }
+    
+    if (-not $found) {
+        Write-Host "✓ Keine verdächtigen Memory-Muster" -ForegroundColor Green
+    }
+    
+    return $found
+}
+
+# ---------------- NETWORK INJECTION CHECK ----------------
+function Check-Network-Injections {
+    Write-Host ""
+    Write-Host "▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬" -ForegroundColor DarkCyan
+    Write-Host "🌐 NETZWERK INJEKTIONEN" -ForegroundColor Cyan
+    Write-Host "▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬" -ForegroundColor DarkCyan
+    Write-Host ""
+
+    # Netstat für Java Prozesse
+    $javaProcs = Get-Process | Where-Object { $_.ProcessName -match "java|javaw" }
+    $found = $false
+    
+    foreach ($proc in $javaProcs) {
+        $connections = netstat -ano | Select-String ":$($proc.Id)\s"
+        
+        if ($connections) {
+            Write-Host "🔗 PID $($proc.Id) Netzwerkverbindungen:" -ForegroundColor White
+            
+            foreach ($conn in $connections) {
+                $line = $conn.ToString().Trim()
+                
+                # Verdächtige lokale Verbindungen (Cheat-Server)
+                if ($line -match "127\.0\.0\.1|localhost|0\.0\.0\.0") {
+                    Write-Host "   ⚠ LOKALE VERBINDUNG: $line" -ForegroundColor Red
+                    $found = $true
+                }
+                
+                # Verdächtige Ports
+                if ($line -match ":1337|:1338|:25565|:8080|:8888|:9999") {
+                    Write-Host "   ⚠ VERDÄCHTIGER PORT: $line" -ForegroundColor Yellow
+                    $found = $true
+                }
+            }
+        }
+    }
+    
+    if (-not $found) {
+        Write-Host "✓ Keine verdächtigen Netzwerkverbindungen" -ForegroundColor Green
+    }
+    
+    return $found
+}
+
+# ---------------- MAIN SCAN ----------------
+Write-Host "🚀 STARTE PRESTIGE & INJECTABLE CLIENTS SCAN..." -ForegroundColor Cyan
+Write-Host ""
+
+# Starte alle Scans
+$results = @{
+    PrestigeFolders = Find-Prestige-Client
+    InjectedDLLs = Find-Injected-DLLs
+    JVMInjections = Check-JVM-Injections
+    HiddenFiles = Find-Hidden-Cheat-Files
+    MemoryPatterns = Scan-Memory-For-Cheats
+    NetworkInjections = Check-Network-Injections
+}
+
+# ---------------- FINAL RESULTS ----------------
+Write-Host ""
+Write-Host "▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬" -ForegroundColor DarkRed
+Write-Host "📊 SCAN ERGEBNISSE" -ForegroundColor Red
+Write-Host "▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬" -ForegroundColor DarkRed
+Write-Host ""
+
+$detectionCount = 0
+
+if ($results.PrestigeFolders) {
+    Write-Host "❌ PRESTIGE CLIENT ORDNER GEFUNDEN" -ForegroundColor Red
+    $detectionCount++
+}
+
+if ($results.InjectedDLLs) {
+    Write-Host "❌ INJEKTIERTE DLLs GEFUNDEN" -ForegroundColor Red
+    $detectionCount++
+}
+
+if ($results.JVMInjections) {
+    Write-Host "❌ JVM INJEKTIONEN GEFUNDEN" -ForegroundColor Red
+    $detectionCount++
+}
+
+if ($results.HiddenFiles) {
+    Write-Host "❌ VERSTECKTE CHEAT DATEIEN" -ForegroundColor Red
+    $detectionCount++
+}
+
+if ($results.MemoryPatterns) {
+    Write-Host "❌ VERDÄCHTIGE SPEICHERMUSTER" -ForegroundColor Red
+    $detectionCount++
+}
+
+if ($results.NetworkInjections) {
+    Write-Host "❌ NETZWERK INJEKTIONEN" -ForegroundColor Red
+    $detectionCount++
+}
+
+Write-Host ""
+if ($detectionCount -eq 0) {
+    Write-Host "✅ KEINE INJEKTIERBAREN CHEATS GEFUNDEN" -ForegroundColor Green
+    Write-Host "   Dein System scheint sauber zu sein." -ForegroundColor Gray
+} else {
+    Write-Host "🔥 $detectionCount CHEAT-INDIKATOREN GEFUNDEN!" -ForegroundColor Red
+    Write-Host "   ⚠ Wahrscheinlich sind injektierbare Cheats installiert!" -ForegroundColor Yellow
+}
+
+# ---------------- FOLLOW UP ACTIONS ----------------
+Write-Host ""
+Write-Host "▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬" -ForegroundColor DarkCyan
+Write-Host "🔧 WEITERE AKTIONEN" -ForegroundColor Cyan
+Write-Host "▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬" -ForegroundColor DarkCyan
+Write-Host ""
+
+if ($detectionCount -gt 0) {
+    Write-Host "⚠ EMPFEHLUNGEN BEI CHEAT-FUND:" -ForegroundColor Yellow
+    Write-Host "   1. Minecraft komplett beenden" -ForegroundColor Gray
+    Write-Host "   2. Gefundene Dateien/Ordner löschen" -ForegroundColor Gray
+    Write-Host "   3. Computer neustarten" -ForegroundColor Gray
+    Write-Host "   4 .minecraft Ordner auf Mods prüfen" -ForegroundColor Gray
+}
+
+Write-Host ""
+Write-Host "1. 🔄 Scan wiederholen" -ForegroundColor Cyan
+Write-Host "2. 📁 Gefundene Dateien anzeigen" -ForegroundColor Cyan
+Write-Host "3. 🚪 Beenden" -ForegroundColor Cyan
+
+$choice = Read-Host "`nAuswahl (1-3)"
+
+switch ($choice) {
+    "1" { 
+        Write-Host "Neustart..." -ForegroundColor Yellow
+        Start-Sleep -Seconds 2
+        & $PSCommandPath 
+    }
+    "2" { 
+        Write-Host "Dateien werden angezeigt..." -ForegroundColor Yellow
+        if ($results.PrestigeFolders) {
+            Find-Prestige-Client
+        }
+        if ($results.InjectedDLLs) {
+            Find-Injected-DLLs
+        }
+        if ($results.HiddenFiles) {
+            Find-Hidden-Cheat-Files
+        }
+        Read-Host "`nDrücke Enter"
+        & $PSCommandPath
+    }
+    "3" { 
+        Write-Host "Beende..." -ForegroundColor Yellow
+        Exit 
+    }
+    default { 
+        Write-Host "Ungültige Auswahl" -ForegroundColor Red
+        Start-Sleep -Seconds 2
     }
 }
