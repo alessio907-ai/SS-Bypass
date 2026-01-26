@@ -1,524 +1,783 @@
 # =====================================================
-# Recently Deleted JAR Files Scanner
-# Zeigt alle in den letzten 10 Minuten gelöschten JAR-Dateien
+# INJECTABLE CHEATS DETECTOR - ULTIMATE
+# Findet injektierte Cheats in Java/Minecraft Prozessen
 # =====================================================
 
 $ErrorActionPreference = "SilentlyContinue"
+[Console]::OutputEncoding = [System.Text.Encoding]::UTF8
 
 # ---------------- UI HELPERS ----------------
-function H1($t){
+function Show-Banner {
+    Clear-Host
     Write-Host ""
-    Write-Host "═══════════════════════════════════════" -ForegroundColor DarkBlue
-    Write-Host " $t" -ForegroundColor Cyan
-    Write-Host "═══════════════════════════════════════" -ForegroundColor DarkBlue
+    Write-Host "╔══════════════════════════════════════════════════════════════╗" -ForegroundColor Red
+    Write-Host "║" -NoNewline -ForegroundColor Red
+    Write-Host "      🎯 INJECTABLE CHEATS DETECTOR - ULTIMATE              " -NoNewline -ForegroundColor Yellow
+    Write-Host "║" -ForegroundColor Red
+    Write-Host "║" -NoNewline -ForegroundColor Red
+    Write-Host "      Findet injektierte Cheats in Minecraft Prozessen      " -NoNewline -ForegroundColor Cyan
+    Write-Host "║" -ForegroundColor Red
+    Write-Host "╚══════════════════════════════════════════════════════════════╝" -ForegroundColor Red
     Write-Host ""
 }
-function Sec($t){ Write-Host "`n--- $t ---" -ForegroundColor Cyan }
-function Info($t){ Write-Host "  $t" -ForegroundColor Blue }
-function Bad($t){ Write-Host "  $t" -ForegroundColor Red }
-function Warn($t){ Write-Host "  $t" -ForegroundColor Yellow }
-function Good($t){ Write-Host "  $t" -ForegroundColor Green }
 
-# ---------------- ENTRY ----------------
-function Start-JarDeletionScan {
-    Clear-Host
-    H1 "Recently Deleted JAR Files Scanner"
-    Info "Zeigt alle in den letzten 10 Minuten gelöschten JAR-Dateien"
+function Show-Result($text, $type) {
+    switch ($type) {
+        "BAD" { Write-Host "  ❌ $text" -ForegroundColor Red }
+        "WARN" { Write-Host "  ⚠ $text" -ForegroundColor Yellow }
+        "INFO" { Write-Host "  ℹ $text" -ForegroundColor Blue }
+        "GOOD" { Write-Host "  ✓ $text" -ForegroundColor Green }
+        "DETECTED" { Write-Host "  🔥 $text" -ForegroundColor Magenta }
+    }
+}
+
+function Show-Section($title) {
+    Write-Host ""
+    Write-Host "▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬" -ForegroundColor DarkCyan
+    Write-Host " $title" -ForegroundColor Cyan
+    Write-Host "▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬" -ForegroundColor DarkCyan
+    Write-Host ""
+}
+
+# ---------------- MAIN ENTRY ----------------
+function Start-InjectableCheatScan {
+    Show-Banner
+    
+    Write-Host "  👤 Benutzer: $env:USERNAME" -ForegroundColor Gray
+    Write-Host "  💻 Computer: $env:COMPUTERNAME" -ForegroundColor Gray
+    Write-Host "  🕐 Zeit: $(Get-Date -Format 'HH:mm:ss')" -ForegroundColor Gray
     Write-Host ""
     
-    # --------- SYSTEM INFO ----------
-    $computerName = $env:COMPUTERNAME
-    $userName = $env:USERNAME
-    $timeNow = Get-Date
+    # --------- MINECRAFT PROZESSE FINDEN ----------
+    Show-Section "🎮 MINECRAFT PROZESSE ERKENNEN"
     
-    Sec "System Information"
-    Info "Computer: $computerName"
-    Info "Benutzer: $userName"
-    Info "Aktuelle Zeit: $timeNow"
+    $minecraftProcesses = Get-Process | Where-Object {
+        $_.ProcessName -match "^(java|javaw|minecraft|bedrock|tlauncher|lunar|feather)" -and
+        $_.MainWindowTitle -match "Minecraft|Lunar|Badlion|TLauncher" -or
+        $_.Path -match "minecraft"
+    } | Sort-Object StartTime
     
-    # --------- SCAN PARAMETERS ----------
-    $minutesBack = 10
-    $startTime = $timeNow.AddMinutes(-$minutesBack)
+    if ($minecraftProcesses.Count -eq 0) {
+        Show-Result "Keine Minecraft/Java Prozesse gefunden" "WARN"
+        Write-Host ""
+        Read-Host "Drücke Enter zum Neustarten"
+        Start-InjectableCheatScan
+        return
+    }
     
-    Sec "Scan Parameter"
-    Info "Zeitraum: Letzte $minutesBack Minuten (seit $startTime)"
-    Info "Suche nach: *.jar Dateien im gesamten System"
+    Show-Result "Gefundene Prozesse: $($minecraftProcesses.Count)" "INFO"
     
-    # --------- SCAN FOR RECENTLY DELETED JARS ----------
-    Sec "Scanning for recently deleted JAR files..."
+    $totalCheatScore = 0
+    $detectedInjections = @()
     
-    # 1. ERSTE METHODE: Event Log Analyse (Windows Ereignisprotokolle)
-    $deletedJarsFromEvents = @()
-    
-    try {
-        Write-Host "`n[1/3] Prüfe Windows Ereignisprotokolle..." -ForegroundColor Cyan
+    foreach ($proc in $minecraftProcesses) {
+        Write-Host ""
+        Write-Host "  🔍 Analysiere: " -NoNewline -ForegroundColor Cyan
+        Write-Host "$($proc.ProcessName) (PID: $($proc.Id))" -ForegroundColor White
         
-        # PowerShell 5.1+ Methode
-        $events = Get-WinEvent -FilterHashtable @{
-            LogName = 'Security'
-            ID = 4663
-            StartTime = $startTime
-        } -ErrorAction SilentlyContinue | Where-Object {
-            $_.Properties[6].Value -like "*.jar" -and
-            $_.Properties[2].Value -eq "%%1537"  # DELETE Zugriff
+        # --------- 1. JVM ARGUMENTE ANALYSE ----------
+        $jvmScore = Scan-JVM-For-Injections $proc.Id
+        if ($jvmScore -gt 0) {
+            $totalCheatScore += $jvmScore
+            $detectedInjections += "JVM Injection (Score: $jvmScore)"
         }
         
-        foreach ($event in $events) {
-            $filePath = $event.Properties[6].Value
+        # --------- 2. MEMORY MODULE ANALYSE ----------
+        $memoryScore = Scan-Memory-Modules $proc.Id
+        if ($memoryScore -gt 0) {
+            $totalCheatScore += $memoryScore
+            $detectedInjections += "Memory Module (Score: $memoryScore)"
+        }
+        
+        # --------- 3. DLL INJECTION DETECTION ----------
+        $dllScore = Scan-DLL-Injections $proc.Id
+        if ($dllScore -gt 0) {
+            $totalCheatScore += $dllScore
+            $detectedInjections += "DLL Injection (Score: $dllScore)"
+        }
+        
+        # --------- 4. NETWORK CONNECTION CHECK ----------
+        $networkScore = Scan-Network-Connections $proc.Id
+        if ($networkScore -gt 0) {
+            $totalCheatScore += $networkScore
+            $detectedInjections += "Suspicious Network (Score: $networkScore)"
+        }
+        
+        # --------- 5. PROCESS HOOK DETECTION ----------
+        $hookScore = Scan-Process-Hooks $proc.Id
+        if ($hookScore -gt 0) {
+            $totalCheatScore += $hookScore
+            $detectedInjections += "Process Hooks (Score: $hookScore)"
+        }
+    }
+    
+    # --------- ERGEBNISSE ----------
+    Show-Section "📊 SCAN ERGEBNISSE"
+    
+    if ($totalCheatScore -eq 0) {
+        Show-Result "KEINE injektierbaren Cheats erkannt!" "GOOD"
+        Write-Host ""
+        Show-Result "Dein Minecraft scheint sauber zu sein." "INFO"
+    } else {
+        Show-Result "🚨 INJEKTIERBARE CHEATS ERKANNT!" "DETECTED"
+        Write-Host ""
+        Show-Result "Total Cheat Score: $totalCheatScore/100" "BAD"
+        
+        if ($totalCheatScore -gt 70) {
+            Show-Result "⚠ HOHE WAHRSCHEINLICHKEIT FÜR CHEATS!" "DETECTED"
+        } elseif ($totalCheatScore -gt 40) {
+            Show-Result "⚠ VERDÄCHTIGE AKTIVITÄTEN ERKANNT!" "WARN"
+        }
+        
+        Write-Host ""
+        Show-Result "Erkannte Injection-Typen:" "INFO"
+        foreach ($injection in $detectedInjections) {
+            Write-Host "    • $injection" -ForegroundColor Yellow
+        }
+    }
+    
+    # --------- DETAILLIERTE ANALYSE OPTIONEN ----------
+    Show-Section "🔧 DETAILLIERTE ANALYSE"
+    
+    Write-Host "  1. 🔍 DLL Injection Details anzeigen" -ForegroundColor Cyan
+    Write-Host "  2. 🧠 Memory Scan durchführen" -ForegroundColor Cyan
+    Write-Host "  3. 🌐 Netzwerkverbindungen prüfen" -ForegroundColor Cyan
+    Write-Host "  4. 🕵️‍♂️ Versteckte Prozesse finden" -ForegroundColor Cyan
+    Write-Host "  5. 📝 Event Log analysieren" -ForegroundColor Cyan
+    Write-Host "  6. 🔄 Erneut scannen" -ForegroundColor Cyan
+    Write-Host "  7. 🚪 Beenden" -ForegroundColor Cyan
+    
+    $choice = Read-Host "`nAuswahl (1-7)"
+    
+    switch ($choice) {
+        "1" { Show-DLL-Details }
+        "2" { Run-Memory-Scan }
+        "3" { Show-Network-Details }
+        "4" { Find-Hidden-Processes }
+        "5" { Analyze-Event-Logs }
+        "6" { Start-InjectableCheatScan }
+        "7" { return }
+        default { Start-InjectableCheatScan }
+    }
+}
+
+# ---------------- DETECTION FUNCTIONS ----------------
+
+function Scan-JVM-For-Injections($pid) {
+    $score = 0
+    
+    try {
+        $proc = Get-CimInstance Win32_Process -Filter "ProcessId=$pid"
+        $cmdLine = $proc.CommandLine
+        
+        # Typische Injection-Argumente
+        $injectionPatterns = @(
+            "-javaagent:", "-agentlib:", "-agentpath:",
+            "-Xbootclasspath:", "-noverify", "-Xverify:none",
+            "-Djdk.attach.allowAttachSelf=true",
+            "-XX:+DisableAttachMechanism",
+            "-Djava.system.class.loader=",
+            "-Dcom.sun.tools.attach.attachTimeout="
+        )
+        
+        $cheatAgents = @(
+            "injection", "injekt", "cheat", "client", "hack",
+            "meteor", "wurst", "aristois", "future", "liquidbounce",
+            "rusher", "kami", "phobos", "konas", "salhack"
+        )
+        
+        foreach ($pattern in $injectionPatterns) {
+            if ($cmdLine -match [regex]::Escape($pattern)) {
+                $score += 15
+                Write-Host "    ❌ JVM Arg: $pattern" -ForegroundColor Red
+            }
+        }
+        
+        foreach ($agent in $cheatAgents) {
+            if ($cmdLine -match $agent) {
+                $score += 20
+                Write-Host "    ❌ Cheat Agent: $agent" -ForegroundColor Red
+            }
+        }
+        
+    } catch {
+        # Fehler ignorieren
+    }
+    
+    return $score
+}
+
+function Scan-Memory-Modules($pid) {
+    $score = 0
+    
+    try {
+        $modules = Get-Process -Id $pid -Module -ErrorAction SilentlyContinue
+        
+        $suspiciousModules = @()
+        
+        foreach ($module in $modules) {
+            $moduleName = $module.ModuleName.ToLower()
+            $modulePath = $module.FileName.ToLower()
+            
+            # Verdächtige Module-Namen
+            $suspiciousNames = @(
+                "inject", "hook", "cheat", "hack", "client", "loader",
+                "bypass", "ghost", "stealth", "undetectable", "hidden",
+                "meter", "wrst", "arst", "future", "liquid", "rusher",
+                "phobos", "konas", "salhack", "gamesense", "pyro"
+            )
+            
+            # Nicht-System DLL Pfade
+            $nonSystemPaths = @(
+                "appdata", "temp", "downloads", "desktop", "documents",
+                "minecraft", "mods", "versions", ".cache", "roaming"
+            )
+            
+            foreach ($susName in $suspiciousNames) {
+                if ($moduleName -match $susName -or $modulePath -match $susName) {
+                    $score += 25
+                    $suspiciousModules += $module.FileName
+                    Write-Host "    ❌ Verdächtiges Modul: $($module.ModuleName)" -ForegroundColor Red
+                    break
+                }
+            }
+            
+            # Prüfe ob DLL nicht aus System-Ordnern kommt
+            $isSystemDll = $modulePath -match "\\windows\\" -or 
+                          $modulePath -match "\\system32\\" -or 
+                          $modulePath -match "\\java\\" -or
+                          $modulePath -match "\\jre\\" -or
+                          $modulePath -match "\\jdk\\"
+            
+            if (-not $isSystemDll) {
+                foreach ($nonSysPath in $nonSystemPaths) {
+                    if ($modulePath -match $nonSysPath) {
+                        $score += 15
+                        Write-Host "    ⚠ Nicht-System DLL: $($module.ModuleName)" -ForegroundColor Yellow
+                        Write-Host "      Pfad: $($module.FileName)" -ForegroundColor Gray
+                        break
+                    }
+                }
+            }
+        }
+        
+        if ($suspiciousModules.Count -gt 0) {
+            Write-Host "    📌 Verdächtige Module gefunden: $($suspiciousModules.Count)" -ForegroundColor Yellow
+        }
+        
+    } catch {
+        # Fehler ignorieren
+    }
+    
+    return $score
+}
+
+function Scan-DLL-Injections($pid) {
+    $score = 0
+    
+    try {
+        # Verwende Process Explorer ähnliche Techniken
+        $proc = Get-Process -Id $pid -ErrorAction Stop
+        
+        # 1. Remote Thread Detection
+        $threads = Get-WmiObject Win32_Thread -Filter "ProcessHandle=$($proc.Handle)" -ErrorAction SilentlyContinue
+        if ($threads.Count -gt 50) {  # Ungewöhnlich viele Threads
+            $score += 10
+            Write-Host "    ⚠ Viele Threads: $($threads.Count)" -ForegroundColor Yellow
+        }
+        
+        # 2. Handle Count Check
+        if ($proc.HandleCount -gt 1000) {  # Sehr viele Handles
+            $score += 10
+            Write-Host "    ⚠ Viele Handles: $($proc.HandleCount)" -ForegroundColor Yellow
+        }
+        
+        # 3. Loaded DLLs with suspicious timestamps
+        $dlls = $proc.Modules | Where-Object { $_.ModuleName -like "*.dll" }
+        foreach ($dll in $dlls) {
+            try {
+                $dllFile = Get-Item $dll.FileName -ErrorAction Stop
+                $timeDiff = (Get-Date) - $dllFile.LastWriteTime
+                
+                # DLL wurde kürzlich modifiziert (während Minecraft läuft)
+                if ($timeDiff.TotalMinutes -lt 10 -and $dllFile.LastWriteTime -gt $proc.StartTime) {
+                    $score += 20
+                    Write-Host "    ❌ Kürzlich geladene DLL: $($dll.ModuleName)" -ForegroundColor Red
+                    Write-Host "      Modifiziert: $($dllFile.LastWriteTime)" -ForegroundColor Gray
+                }
+            } catch {
+                continue
+            }
+        }
+        
+    } catch {
+        # Fehler ignorieren
+    }
+    
+    return $score
+}
+
+function Scan-Network-Connections($pid) {
+    $score = 0
+    
+    try {
+        # Netstat alternative für PowerShell
+        $connections = netstat -ano | Select-String ":$pid\s"
+        
+        $suspiciousPorts = @(1337, 1338, 25565, 8080, 8888, 9999)
+        $suspiciousIPs = @()
+        
+        foreach ($conn in $connections) {
+            $line = $conn.ToString()
+            
+            # Prüfe auf verdächtige Ports
+            foreach ($port in $suspiciousPorts) {
+                if ($line -match ":$port\s") {
+                    $score += 15
+                    Write-Host "    ⚠ Verdächtiger Port: $port" -ForegroundColor Yellow
+                    Write-Host "      Verbindung: $line" -ForegroundColor Gray
+                }
+            }
+            
+            # Prüfe auf lokale Verbindungen (möglicher Cheat-Server)
+            if ($line -match "127\.0\.0\.1|localhost|0\.0\.0\.0") {
+                $score += 10
+                Write-Host "    ⚠ Lokale Verbindung erkannt" -ForegroundColor Yellow
+            }
+        }
+        
+    } catch {
+        # Fehler ignorieren
+    }
+    
+    return $score
+}
+
+function Scan-Process-Hooks($pid) {
+    $score = 0
+    
+    try {
+        # Process Hacker API ähnliche Checks
+        $proc = Get-Process -Id $pid -ErrorAction Stop
+        
+        # 1. Check for debug privileges
+        $token = Get-WmiObject Win32_Process -Filter "ProcessId=$pid" | 
+                 Select-Object @{Name="Token";Expression={$_.GetOwnerSid()}}
+        
+        # 2. Check for unusual parent processes
+        $parentPid = (Get-CimInstance Win32_Process -Filter "ProcessId=$pid").ParentProcessId
+        $parentProc = Get-Process -Id $parentPid -ErrorAction SilentlyContinue
+        
+        if ($parentProc -and $parentProc.ProcessName -notmatch "explorer|javaw|java") {
+            $score += 15
+            Write-Host "    ⚠ Ungewöhnlicher Parent: $($parentProc.ProcessName)" -ForegroundColor Yellow
+        }
+        
+        # 3. Check for handle duplication (Injection Technik)
+        $handles = Get-WmiObject Win32_Handle -Filter "ProcessId=$pid" -ErrorAction SilentlyContinue
+        if ($handles -and $handles.Count -gt 200) {
+            $score += 10
+            Write-Host "    ⚠ Viele Handles (mögliche Injection)" -ForegroundColor Yellow
+        }
+        
+    } catch {
+        # Fehler ignorieren
+    }
+    
+    return $score
+}
+
+# ---------------- DETAILED ANALYSIS FUNCTIONS ----------------
+
+function Show-DLL-Details {
+    Show-Banner
+    Show-Section "🔍 DLL INJECTION DETAILS"
+    
+    $allDLLs = @()
+    
+    $processes = Get-Process | Where-Object { $_.ProcessName -match "^(java|javaw)" }
+    
+    foreach ($proc in $processes) {
+        Write-Host "`n  🎮 Prozess: $($proc.ProcessName) (PID: $($proc.Id))" -ForegroundColor Cyan
+        
+        try {
+            $modules = $proc.Modules | Where-Object { $_.ModuleName -like "*.dll" }
+            
+            foreach ($module in $modules) {
+                $isSuspicious = $false
+                $suspicionReasons = @()
+                
+                # Suspicion Checks
+                $modulePath = $module.FileName.ToLower()
+                
+                if ($modulePath -match "temp|appdata|downloads|desktop") {
+                    $isSuspicious = $true
+                    $suspicionReasons += "Nicht-System Pfad"
+                }
+                
+                if ($module.ModuleName -match "inject|hook|cheat|client") {
+                    $isSuspicious = $true
+                    $suspicionReasons += "Verdächtiger Name"
+                }
+                
+                try {
+                    $fileInfo = Get-Item $module.FileName -ErrorAction Stop
+                    $signature = Get-AuthenticodeSignature $module.FileName -ErrorAction SilentlyContinue
+                    
+                    if ($signature.Status -ne "Valid") {
+                        $isSuspicious = $true
+                        $suspicionReasons += "Nicht signiert"
+                    }
+                } catch {
+                    $isSuspicious = $true
+                    $suspicionReasons += "Keine Signatur info"
+                }
+                
+                $dllInfo = [PSCustomObject]@{
+                    Process = $proc.ProcessName
+                    PID = $proc.Id
+                    DLLName = $module.ModuleName
+                    Path = $module.FileName
+                    IsSuspicious = $isSuspicious
+                    Reasons = $suspicionReasons -join ", "
+                    Size = "$([math]::Round($module.FileSize / 1KB, 2)) KB"
+                }
+                
+                $allDLLs += $dllInfo
+                
+                if ($isSuspicious) {
+                    Write-Host "    ❌ $($module.ModuleName)" -ForegroundColor Red
+                    Write-Host "      Pfad: $($module.FileName)" -ForegroundColor Gray
+                    Write-Host "      Grund: $($suspicionReasons -join ', ')" -ForegroundColor Yellow
+                } else {
+                    Write-Host "    ✓ $($module.ModuleName)" -ForegroundColor Green
+                }
+            }
+            
+        } catch {
+            Write-Host "    ⚠ Zugriff verweigert" -ForegroundColor Yellow
+        }
+    }
+    
+    $suspiciousCount = ($allDLLs | Where-Object { $_.IsSuspicious }).Count
+    
+    Write-Host ""
+    Show-Result "Total DLLs: $($allDLLs.Count)" "INFO"
+    Show-Result "Verdächtige DLLs: $suspiciousCount" $(if ($suspiciousCount -gt 0) { "WARN" } else { "GOOD" })
+    
+    if ($suspiciousCount -gt 0) {
+        Write-Host ""
+        Show-Result "Verdächtige DLL Details:" "INFO"
+        $allDLLs | Where-Object { $_.IsSuspicious } | ForEach-Object {
+            Write-Host "    • $($_.DLLName) in $($_.Process) (PID: $($_.PID))" -ForegroundColor Yellow
+            Write-Host "      Pfad: $($_.Path)" -ForegroundColor Gray
+            Write-Host "      Grund: $($_.Reasons)" -ForegroundColor DarkGray
+        }
+    }
+    
+    Read-Host "`nDrücke Enter um fortzufahren"
+    Start-InjectableCheatScan
+}
+
+function Run-Memory-Scan {
+    Show-Banner
+    Show-Section "🧠 MEMORY SCAN"
+    
+    Write-Host "  🔍 Scanne Java-Prozess Speicher auf Cheat-Signaturen..." -ForegroundColor Cyan
+    Write-Host ""
+    
+    $cheatPatterns = @{
+        # Memory Signaturen bekannter Cheats
+        "Meteor Client" = @("meteorclient", "minegame159", "meteor\\/client")
+        "Wurst Client" = @("wurstclient", "net\\.wurst", "Wurst\\ Client")
+        "Aristois" = @("aristois", "me\\.aristois", "Aristois\\ Client")
+        "Future Client" = @("futureclient", "future\\/client")
+        "LiquidBounce" = @("liquidbounce", "net\\.ccbluex")
+        "AutoCrystal" = @("autocrystal", "crystalaura", "placecrystal")
+        "KillAura" = @("killaura", "entityaura", "multiaura")
+        "Reach" = @("reach", "attackrange", "hitrange")
+        "Velocity" = @("velocity", "knockback", "antiknockback")
+    }
+    
+    $processes = Get-Process | Where-Object { $_.ProcessName -match "^(java|javaw)" }
+    
+    $foundPatterns = @()
+    
+    foreach ($proc in $processes) {
+        Write-Host "  📊 Prozess: $($proc.ProcessName) (PID: $($proc.Id))" -ForegroundColor White
+        
+        try {
+            # Versuche Memory zu lesen (begrenzte Bereiche)
+            $memoryInfo = Get-WmiObject Win32_Process -Filter "ProcessId=$($proc.Id)"
+            $workingSet = [math]::Round($memoryInfo.WorkingSetSize / 1MB, 2)
+            
+            Write-Host "    💾 Working Set: ${workingSet}MB" -ForegroundColor Gray
+            
+            # Check for suspicious memory regions
+            if ($workingSet -gt 4000) {  # > 4GB für Minecraft ist verdächtig
+                Write-Host "    ⚠ Hoher Speicherverbrauch (mögliche Injection)" -ForegroundColor Yellow
+                $foundPatterns += "Hoher Speicherverbrauch in PID $($proc.Id)"
+            }
+            
+            # Prüfe auf verdächtige Handle-Typen
+            $handles = Get-WmiObject Win32_Process -Filter "ProcessId=$($proc.Id)" | 
+                      Select-Object HandleCount, ThreadCount
+            
+            if ($handles.HandleCount -gt 1500) {
+                Write-Host "    ⚠ Viele Handles: $($handles.HandleCount)" -ForegroundColor Yellow
+                $foundPatterns += "Viele Handles in PID $($proc.Id)"
+            }
+            
+        } catch {
+            Write-Host "    ⚠ Memory Zugriff verweigert" -ForegroundColor Yellow
+        }
+    }
+    
+    Write-Host ""
+    
+    if ($foundPatterns.Count -eq 0) {
+        Show-Result "Keine verdächtigen Memory-Muster gefunden" "GOOD"
+    } else {
+        Show-Result "Verdächtige Memory-Muster gefunden!" "WARN"
+        Write-Host ""
+        foreach ($pattern in $foundPatterns) {
+            Write-Host "    • $pattern" -ForegroundColor Yellow
+        }
+    }
+    
+    Read-Host "`nDrücke Enter um fortzufahren"
+    Start-InjectableCheatScan
+}
+
+function Show-Network-Details {
+    Show-Banner
+    Show-Section "🌐 NETZWERKVERBINDUNGEN"
+    
+    Write-Host "  🔍 Analysiere Netzwerkverbindungen von Java-Prozessen..." -ForegroundColor Cyan
+    Write-Host ""
+    
+    # Verwende netstat für bessere Details
+    $netstatOutput = netstat -ano | Select-String "ESTABLISHED|LISTENING"
+    
+    $javaConnections = @()
+    $suspiciousConnections = @()
+    
+    foreach ($line in $netstatOutput) {
+        if ($line -match ":(\d+)\s+(\S+):(\d+)\s+(\w+)\s+(\d+)") {
+            $localPort = $matches[1]
+            $remoteAddr = $matches[2]
+            $remotePort = $matches[3]
+            $state = $matches[4]
+            $pid = $matches[5]
+            
+            $proc = Get-Process -Id $pid -ErrorAction SilentlyContinue
+            
+            if ($proc -and $proc.ProcessName -match "java|javaw") {
+                $connInfo = [PSCustomObject]@{
+                    PID = $pid
+                    Process = $proc.ProcessName
+                    LocalPort = $localPort
+                    RemoteAddress = $remoteAddr
+                    RemotePort = $remotePort
+                    State = $state
+                }
+                
+                $javaConnections += $connInfo
+                
+                # Verdächtige Verbindungen erkennen
+                $isSuspicious = $false
+                $suspicionReason = ""
+                
+                # Lokaler Cheat-Server
+                if ($remoteAddr -match "127\.0\.0\.1|localhost") {
+                    $isSuspicious = $true
+                    $suspicionReason = "Lokale Verbindung"
+                }
+                
+                # Bekannte Cheat-Ports
+                $cheatPorts = @(1337, 1338, 25566, 8080, 8888, 9999, 25565)
+                if ($cheatPorts -contains $remotePort) {
+                    $isSuspicious = $true
+                    $suspicionReason = "Verdächtiger Port: $remotePort"
+                }
+                
+                # Viele Verbindungen vom gleichen Prozess
+                $connCount = ($javaConnections | Where-Object { $_.PID -eq $pid }).Count
+                if ($connCount -gt 10) {
+                    $isSuspicious = $true
+                    $suspicionReason = "Viele Verbindungen: $connCount"
+                }
+                
+                if ($isSuspicious) {
+                    $suspiciousConnections += $connInfo
+                    Write-Host "    ⚠ PID $pid -> $remoteAddr:$remotePort ($state)" -ForegroundColor Yellow
+                    Write-Host "      Grund: $suspicionReason" -ForegroundColor Gray
+                } else {
+                    Write-Host "    ✓ PID $pid -> $remoteAddr:$remotePort ($state)" -ForegroundColor Green
+                }
+            }
+        }
+    }
+    
+    Write-Host ""
+    Show-Result "Total Java Verbindungen: $($javaConnections.Count)" "INFO"
+    Show-Result "Verdächtige Verbindungen: $($suspiciousConnections.Count)" $(if ($suspiciousConnections.Count -gt 0) { "WARN" } else { "GOOD" })
+    
+    if ($suspiciousConnections.Count -gt 0) {
+        Write-Host ""
+        Show-Result "Verdächtige Verbindungen Details:" "INFO"
+        $suspiciousConnections | Group-Object PID | ForEach-Object {
+            $proc = Get-Process -Id $_.Name -ErrorAction SilentlyContinue
+            Write-Host "    • PID $($_.Name) ($($proc.ProcessName)): $($_.Count) verdächtige Verbindungen" -ForegroundColor Yellow
+        }
+    }
+    
+    Read-Host "`nDrücke Enter um fortzufahren"
+    Start-InjectableCheatScan
+}
+
+function Find-Hidden-Processes {
+    Show-Banner
+    Show-Section "🕵️‍♂️ VERSTECKTE PROZESSE"
+    
+    Write-Host "  🔍 Suche nach versteckten/unsichtbaren Prozessen..." -ForegroundColor Cyan
+    Write-Host ""
+    
+    $allProcesses = Get-Process
+    $hiddenProcesses = @()
+    
+    # 1. Prozesse ohne MainWindowHandle (unsichtbar)
+    $noWindowProcesses = $allProcesses | Where-Object { 
+        $_.MainWindowHandle -eq 0 -and 
+        $_.ProcessName -notmatch "^(svchost|dllhost|conhost|background)" -and
+        $_.ProcessName -match "java|inject|hook|cheat|client"
+    }
+    
+    foreach ($proc in $noWindowProcesses) {
+        Write-Host "    ⚠ Versteckter Prozess: $($proc.ProcessName) (PID: $($proc.Id))" -ForegroundColor Yellow
+        Write-Host "      Speicher: $([math]::Round($proc.WorkingSet64 / 1MB, 2))MB" -ForegroundColor Gray
+        
+        $hiddenProcesses += [PSCustomObject]@{
+            Name = $proc.ProcessName
+            PID = $proc.Id
+            Type = "Kein Fenster"
+            Memory = "$([math]::Round($proc.WorkingSet64 / 1MB, 2))MB"
+        }
+    }
+    
+    # 2. Prozesse mit verdächtigen Parent-Processes
+    $allPids = $allProcesses | Select-Object -ExpandProperty Id
+    
+    foreach ($pid in $allPids) {
+        try {
+            $proc = Get-CimInstance Win32_Process -Filter "ProcessId=$pid"
+            $parentPid = $proc.ParentProcessId
+            
+            if ($parentPid -ne 0) {
+                $parentProc = Get-Process -Id $parentPid -ErrorAction SilentlyContinue
+                
+                # Verdächtige Parent-Kombinationen
+                if ($parentProc -and $proc.Name -match "java" -and $parentProc.ProcessName -match "cmd|powershell|rundll32") {
+                    Write-Host "    ⚠ Verdächtiger Parent: $($proc.Name) (Kind von $($parentProc.ProcessName))" -ForegroundColor Yellow
+                    
+                    $hiddenProcesses += [PSCustomObject]@{
+                        Name = $proc.Name
+                        PID = $pid
+                        Type = "Verdächtiger Parent"
+                        Memory = "N/A"
+                    }
+                }
+            }
+        } catch {
+            continue
+        }
+    }
+    
+    Write-Host ""
+    
+    if ($hiddenProcesses.Count -eq 0) {
+        Show-Result "Keine versteckten Prozesse gefunden" "GOOD"
+    } else {
+        Show-Result "Versteckte Prozesse gefunden: $($hiddenProcesses.Count)" "WARN"
+        Write-Host ""
+        $hiddenProcesses | ForEach-Object {
+            Write-Host "    • $($_.Name) (PID: $($_.PID)) - $($_.Type)" -ForegroundColor Yellow
+        }
+    }
+    
+    Read-Host "`nDrücke Enter um fortzufahren"
+    Start-InjectableCheatScan
+}
+
+function Analyze-Event-Logs {
+    Show-Banner
+    Show-Section "📝 EVENT LOG ANALYSE"
+    
+    Write-Host "  🔍 Analysiere Windows Ereignisprotokolle auf Injection-Aktivitäten..." -ForegroundColor Cyan
+    Write-Host ""
+    
+    $injectionEvents = @()
+    $startTime = (Get-Date).AddHours(-1)  # Letzte Stunde
+    
+    # 1. Process Creation Events
+    try {
+        $processEvents = Get-WinEvent -FilterHashtable @{
+            LogName = 'Security'
+            ID = 4688  # New Process
+            StartTime = $startTime
+        } -MaxEvents 50 -ErrorAction SilentlyContinue | Where-Object {
+            $_.Properties[5].Value -match "java|javaw|inject|dll"
+        }
+        
+        foreach ($event in $processEvents) {
+            $procName = $event.Properties[5].Value
             $user = $event.Properties[1].Value
             $time = $event.TimeCreated
             
-            $deletedJarsFromEvents += [PSCustomObject]@{
-                FilePath = $filePath
+            Write-Host "    ⏰ $time" -ForegroundColor Gray
+            Write-Host "      👤 $user startete: $procName" -ForegroundColor White
+            
+            $injectionEvents += [PSCustomObject]@{
+                Time = $time
                 User = $user
-                TimeDeleted = $time
-                Source = "Event Log"
+                Event = "Process Created: $procName"
+                Type = "Process Creation"
             }
         }
-        
-        Info "  Ereignisprotokolle durchsucht: $($events.Count) relevante Einträge"
     } catch {
-        Warn "  Ereignisprotokolle nicht verfügbar: $($_.Exception.Message)"
+        Write-Host "    ⚠ Event Log Zugriff fehlgeschlagen" -ForegroundColor Yellow
     }
     
-    # 2. ZWEITE METHODE: Volume Shadow Copy (VSS) - Gelöschte Dateien wiederherstellen
-    $deletedJarsFromShadow = @()
-    
+    # 2. DLL Load Events
     try {
-        Write-Host "`n[2/3] Prüfe Volume Shadow Copies..." -ForegroundColor Cyan
-        
-        # Liste aller Laufwerke
-        $drives = Get-PSDrive -PSProvider FileSystem | Where-Object Root
-        
-        foreach ($drive in $drives) {
-            $driveLetter = $drive.Root.TrimEnd('\')
-            
-            try {
-                # Versuche VSS Snapshots zu listen
-                $vssAdmin = cmd /c "vssadmin list shadows /for=$driveLetter 2>nul"
-                
-                if ($vssAdmin -match "Shadow Copy Volume:") {
-                    # Suche nach JAR Dateien in VSS
-                    $shadowPath = "\\?\GLOBALROOT\Device\HarddiskVolumeShadowCopy"
-                    
-                    # Einfache Suche in typischen Minecraft/Mod-Ordnern
-                    $commonPaths = @(
-                        "$driveLetter\Users\$userName\AppData\Roaming\.minecraft\mods",
-                        "$driveLetter\Users\$userName\AppData\Roaming\.minecraft\versions",
-                        "$driveLetter\Program Files (x86)\Minecraft",
-                        "$driveLetter\Program Files\Minecraft",
-                        "$driveLetter\Users\$userName\Desktop",
-                        "$driveLetter\Users\$userName\Downloads",
-                        "$driveLetter\Users\$userName\Documents"
-                    )
-                    
-                    foreach ($path in $commonPaths) {
-                        $shadowPathFull = $path -replace "^$driveLetter", $shadowPath
-                        if (Test-Path $shadowPathFull -ErrorAction SilentlyContinue) {
-                            $oldJars = Get-ChildItem -Path $shadowPathFull -Filter "*.jar" -Recurse -ErrorAction SilentlyContinue
-                            
-                            foreach ($jar in $oldJars) {
-                                $currentPath = $jar.FullName -replace [regex]::Escape($shadowPath), $driveLetter
-                                
-                                # Prüfe ob Datei aktuell nicht existiert (gelöscht)
-                                if (-not (Test-Path $currentPath -ErrorAction SilentlyContinue)) {
-                                    $deletedJarsFromShadow += [PSCustomObject]@{
-                                        FilePath = $currentPath
-                                        User = $userName
-                                        TimeDeleted = "Unbekannt (VSS)"
-                                        Source = "Volume Shadow Copy"
-                                        OriginalPath = $jar.FullName
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            } catch {
-                # Ignoriere Fehler bei diesem Laufwerk
-            }
-        }
-        
-        Info "  Shadow Copies durchsucht: $($deletedJarsFromShadow.Count) gelöschte JARs gefunden"
-    } catch {
-        Warn "  Shadow Copy Zugriff nicht möglich"
-    }
-    
-    # 3. DRITTE METHODE: Prefetch und Temp Dateien Analyse
-    $deletedJarsFromTemp = @()
-    
-    try {
-        Write-Host "`n[3/3] Prüfe temporäre Dateien und Prefetch..." -ForegroundColor Cyan
-        
-        # Prefetch Dateien (enthält geladene Programme)
-        $prefetchPath = "C:\Windows\Prefetch"
-        if (Test-Path $prefetchPath) {
-            $prefetchFiles = Get-ChildItem -Path $prefetchPath -Filter "*.pf" -ErrorAction SilentlyContinue | 
-                Where-Object LastWriteTime -gt $startTime
-            
-            foreach ($pf in $prefetchFiles) {
-                # Versuche Java/Minecraft bezogene Prefetch zu finden
-                $content = Get-Content $pf.FullName -Raw -ErrorAction SilentlyContinue
-                if ($content -match "java\.exe|javaw\.exe|minecraft") {
-                    # Extrahierte Pfade aus Prefetch könnten gelöschte JARs enthalten
-                    $deletedJarsFromTemp += [PSCustomObject]@{
-                        FilePath = "Prefetch Hinweis: $($pf.Name)"
-                        User = $userName
-                        TimeDeleted = $pf.LastWriteTime
-                        Source = "Prefetch Analysis"
-                        Note = "Java/Minecraft Aktivität erkannt"
-                    }
-                }
-            }
-        }
-        
-        # Temp Verzeichnisse
-        $tempPaths = @(
-            $env:TEMP,
-            "C:\Windows\Temp",
-            "C:\Users\$userName\AppData\Local\Temp"
-        )
-        
-        foreach ($tempPath in $tempPaths) {
-            if (Test-Path $tempPath) {
-                # Suche nach kürzlich gelöschten JARs in Temp (durch Namen)
-                $tempFiles = Get-ChildItem -Path $tempPath -Filter "*.jar" -Recurse -ErrorAction SilentlyContinue |
-                    Where-Object LastWriteTime -gt $startTime
-                
-                foreach ($tempFile in $tempFiles) {
-                    $deletedJarsFromTemp += [PSCustomObject]@{
-                        FilePath = $tempFile.FullName
-                        User = $userName
-                        TimeDeleted = $tempFile.LastWriteTime
-                        Source = "Temp Directory"
-                        Note = "Möglicherweise gelöschte/r verschobene/r JAR"
-                    }
-                }
-            }
-        }
-        
-        Info "  Temp/Prefetch analysiert: $($deletedJarsFromTemp.Count) Hinweise"
-    } catch {
-        Warn "  Temp/Prefetch Analyse fehlgeschlagen"
-    }
-    
-    # --------- GESAMTERGEBNISSE ----------
-    $allDeletedJars = $deletedJarsFromEvents + $deletedJarsFromShadow + $deletedJarsFromTemp
-    
-    Sec "ERGEBNISSE: Gelöschte JAR-Dateien (letzte $minutesBack Minuten)"
-    
-    if ($allDeletedJars.Count -eq 0) {
-        Good "✔ Keine gelöschten JAR-Dateien in den letzten $minutesBack Minuten gefunden."
-    } else {
-        # Gruppiere nach Quelle
-        $groupedResults = $allDeletedJars | Group-Object Source
-        
-        foreach ($group in $groupedResults) {
-            Sec "$($group.Name) - $($group.Count) Datei(en)"
-            
-            foreach ($jar in $group.Group | Sort-Object TimeDeleted -Descending) {
-                $timeAgo = if ($jar.TimeDeleted -ne "Unbekannt (VSS)") {
-                    $ago = $timeNow - $jar.TimeDeleted
-                    "$([math]::Round($ago.TotalMinutes, 1)) Minuten her"
-                } else {
-                    "Unbekannt"
-                }
-                
-                Write-Host "  📄 " -NoNewline -ForegroundColor Cyan
-                Write-Host "$(Split-Path $jar.FilePath -Leaf)" -NoNewline -ForegroundColor White
-                Write-Host " (" -NoNewline
-                Write-Host "$timeAgo" -NoNewline -ForegroundColor Yellow
-                Write-Host ")" -NoNewline
-                
-                if ($jar.Note) {
-                    Write-Host " - $($jar.Note)" -ForegroundColor Gray
-                } else {
-                    Write-Host ""
-                }
-                
-                Write-Host "      Pfad: " -NoNewline -ForegroundColor DarkGray
-                Write-Host "$($jar.FilePath)" -ForegroundColor Gray
-                
-                if ($jar.User) {
-                    Write-Host "      Benutzer: $($jar.User)" -ForegroundColor DarkGray
-                }
-            }
-        }
-        
-        # STATISTIK
-        Sec "STATISTIK"
-        Info "Total gelöschte JARs: $($allDeletedJars.Count)"
-        Info "Aus Event Log: $($deletedJarsFromEvents.Count)"
-        Info "Aus Shadow Copies: $($deletedJarsFromShadow.Count)"
-        Info "Aus Temp/Prefetch: $($deletedJarsFromTemp.Count)"
-        
-        # VERDÄCHTIGE DATEIEN FILTERN
-        $suspiciousPatterns = @(
-            "cheat", "hack", "client", "aura", "crystal", "trigger", 
-            "auto", "reach", "velocity", "xray", "esp", "meteor",
-            "wurst", "aristois", "future", "rusher", "liquidbounce"
-        )
-        
-        $suspiciousJars = $allDeletedJars | Where-Object {
-            $fileName = Split-Path $_.FilePath -Leaf
-            foreach ($pattern in $suspiciousPatterns) {
-                if ($fileName -match $pattern) {
-                    return $true
-                }
-            }
-            return $false
-        }
-        
-        if ($suspiciousJars.Count -gt 0) {
-            Sec "⚠ VERDÄCHTIGE GELÖSCHTE DATEIEN"
-            foreach ($jar in $suspiciousJars) {
-                Warn "  ⚠ $($jar.FilePath)"
-                Warn "    Grund: Name enthält verdächtige Schlüsselwörter"
-            }
-        }
-    }
-    
-    # --------- EMPFEHLUNGEN ----------
-    Sec "EMPFEHLUNGEN"
-    
-    if ($allDeletedJars.Count -gt 5) {
-        Warn "  🔍 Viele JAR-Dateien wurden kürzlich gelöscht ($($allDeletedJars.Count))"
-        Warn "    Möglicherweise wurden Cheats vor einem Screenshot entfernt"
-    }
-    
-    if ($suspiciousJars.Count -gt 0) {
-        Bad "  ⚠ Verdächtige JAR-Namen gefunden!"
-        Bad "    Wahrscheinlich wurden Cheat-Mods entfernt"
-    }
-    
-    Info "  📁 Tipp: Überprüfe den Papierkorb auf gelöschte Dateien"
-    Info "  🔄 Starte den Scan erneut, um neue Löschungen zu finden"
-    
-    # --------- WEITERE OPTIONEN ----------
-    Sec "WEITERE AKTIONEN"
-    Write-Host "  1. Papierkorb durchsuchen" -ForegroundColor Cyan
-    Write-Host "  2. Erneut scannen (andere Zeit)" -ForegroundColor Cyan
-    Write-Host "  3. Event Log detailliert anzeigen" -ForegroundColor Cyan
-    Write-Host "  4. Beenden" -ForegroundColor Cyan
-    
-    $choice = Read-Host "`nAuswahl (1-4)"
-    
-    switch ($choice) {
-        "1" { Search-RecycleBin }
-        "2" { 
-            $newMinutes = Read-Host "Wie viele Minuten zurück suchen? (Standard: 10)"
-            if ($newMinutes -match '^\d+$') {
-                $minutesBack = [int]$newMinutes
-                Start-JarDeletionScan
-            }
-        }
-        "3" { Show-EventLogDetails }
-        "4" { return }
-        default { Write-Host "Ungültige Auswahl" -ForegroundColor Red }
-    }
-}
-
-# ---------------- HELPER FUNCTIONS ----------------
-function Search-RecycleBin {
-    Clear-Host
-    H1 "Papierkorb durchsuchen"
-    
-    Info "Suche nach JAR-Dateien im Papierkorb..."
-    
-    # PowerShell 5.1+ Shell.Application Methode
-    $shell = New-Object -ComObject Shell.Application
-    $recycleBin = $shell.Namespace(0xA)  # Recycle Bin
-    
-    $jarFiles = @()
-    
-    foreach ($item in $recycleBin.Items()) {
-        if ($item.Path -like "*.jar") {
-            $jarFiles += [PSCustomObject]@{
-                Name = $item.Name
-                OriginalLocation = $item.ExtendedProperty("DateCreated")  # Nicht immer verfügbar
-                Size = "{0:N2} MB" -f ($item.Size / 1MB)
-                DateDeleted = $item.ModifyDate
-                Path = $item.Path
-            }
-        }
-    }
-    
-    if ($jarFiles.Count -eq 0) {
-        Good "✔ Keine JAR-Dateien im Papierkorb gefunden."
-    } else {
-        Sec "JAR-Dateien im Papierkorb: $($jarFiles.Count)"
-        
-        foreach ($jar in $jarFiles | Sort-Object DateDeleted -Descending) {
-            Write-Host "  🗑️ " -NoNewline -ForegroundColor Yellow
-            Write-Host "$($jar.Name)" -ForegroundColor White
-            Write-Host "    Gelöscht am: $($jar.DateDeleted)" -ForegroundColor Gray
-            Write-Host "    Größe: $($jar.Size)" -ForegroundColor Gray
-            
-            # Versuche, die Datei zu analysieren
-            if (Test-Path $jar.Path) {
-                $fileInfo = Get-Item $jar.Path -ErrorAction SilentlyContinue
-                if ($fileInfo) {
-                    $hash = Get-FileHash $jar.Path -Algorithm SHA1 -ErrorAction SilentlyContinue
-                    if ($hash) {
-                        Write-Host "    SHA1: $($hash.Hash)" -ForegroundColor DarkGray
-                    }
-                }
-            }
-        }
-    }
-    
-    Read-Host "`nDrücke Enter um fortzufahren"
-    Start-JarDeletionScan
-}
-
-function Show-EventLogDetails {
-    Clear-Host
-    H1 "Detaillierte Event Log Analyse"
-    
-    Sec "Suche nach Datei-Lösch-Ereignissen..."
-    
-    $startTime = (Get-Date).AddMinutes(-10)
-    
-    try {
-        # Erweiterte Event Log Suche
-        $events = Get-WinEvent -FilterHashtable @{
-            LogName = 'Security'
-            ID = 4663  # File Delete
+        $dllEvents = Get-WinEvent -FilterHashtable @{
+            LogName = 'Microsoft-Windows-Diagnostics-Performance/Operational'
+            ID = 100  # DLL Load
             StartTime = $startTime
-        } -MaxEvents 50 -ErrorAction SilentlyContinue
+        } -MaxEvents 30 -ErrorAction SilentlyContinue
         
-        $fileEvents = @()
-        
-        foreach ($event in $events) {
-            $properties = $event.Properties
-            
-            $filePath = $properties[6].Value
-            $user = $properties[1].Value
-            $process = $properties[5].Value
-            $accessMask = $properties[2].Value
-            
-            # Nur DELETE Operationen (0x10000)
-            if ($accessMask -eq "%%1537" -or $filePath -like "*.jar") {
-                $fileEvents += [PSCustomObject]@{
+        foreach ($event in $dllEvents) {
+            if ($event.Message -match "java|inject|cheat") {
+                Write-Host "    📦 DLL Load Event: $($event.TimeCreated)" -ForegroundColor Gray
+                Write-Host "      $($event.Message.Split("`n")[0])" -ForegroundColor White
+                
+                $injectionEvents += [PSCustomObject]@{
                     Time = $event.TimeCreated
-                    User = $user
-                    Process = Split-Path $process -Leaf
-                    FilePath = $filePath
-                    EventID = $event.Id
+                    User = "System"
+                    Event = "DLL Loaded"
+                    Type = "DLL Activity"
                 }
             }
         }
-        
-        if ($fileEvents.Count -eq 0) {
-            Info "Keine Datei-Lösch-Ereignisse in den letzten 10 Minuten gefunden."
-        } else {
-            Sec "Datei-Lösch-Ereignisse (letzte 10 Minuten): $($fileEvents.Count)"
-            
-            $jarEvents = $fileEvents | Where-Object { $_.FilePath -like "*.jar" }
-            $otherEvents = $fileEvents | Where-Object { $_.FilePath -notlike "*.jar" }
-            
-            if ($jarEvents.Count -gt 0) {
-                Write-Host "`nJAR-Datei Löschungen:" -ForegroundColor Cyan
-                foreach ($event in $jarEvents | Sort-Object Time -Descending) {
-                    Write-Host "  ⏰ $($event.Time)" -ForegroundColor Yellow
-                    Write-Host "    📄 $(Split-Path $event.FilePath -Leaf)" -ForegroundColor White
-                    Write-Host "    👤 $($event.User)" -ForegroundColor Gray
-                    Write-Host "    ⚙️ $($event.Process)" -ForegroundColor DarkGray
-                    Write-Host "    📁 $($event.FilePath)" -ForegroundColor DarkGray
-                }
-            }
-            
-            if ($otherEvents.Count -gt 0) {
-                Write-Host "`nAndere Datei-Löschungen:" -ForegroundColor Cyan
-                foreach ($event in $otherEvents | Sort-Object Time -Descending | Select-Object -First 10) {
-                    Write-Host "  $($event.Time) - $(Split-Path $event.FilePath -Leaf)" -ForegroundColor Gray
-                }
-                if ($otherEvents.Count -gt 10) {
-                    Write-Host "    ... und $($otherEvents.Count - 10) weitere" -ForegroundColor DarkGray
-                }
-            }
-        }
-        
     } catch {
-        Bad "Event Log Zugriff fehlgeschlagen: $($_.Exception.Message)"
+        # Event Log möglicherweise nicht verfügbar
     }
     
-    Read-Host "`nDrücke Enter um fortzufahren"
-    Start-JarDeletionScan
-}
-
-# ---------------- ERWEITERTE FUNKTIONEN ----------------
-function Check-JavaProcessHistory {
-    Sec "Java Prozess Historie"
+    Write-Host ""
     
-    # Prüfe auf kürzlich beendete Java-Prozesse
-    $recentJavaProcesses = Get-WinEvent -FilterHashtable @{
-        LogName = 'System'
-        ID = 4689  # Process Termination
-        StartTime = (Get-Date).AddMinutes(-10)
-    } -ErrorAction SilentlyContinue | Where-Object {
-        $_.Properties[5].Value -match "java(\.exe|w\.exe)?"
-    }
-    
-    if ($recentJavaProcesses.Count -gt 0) {
-        Warn "  Java wurde kürzlich $($recentJavaProcesses.Count) mal beendet"
-        foreach ($proc in $recentJavaProcesses | Select-Object -First 3) {
-            Write-Host "    ⏰ $($proc.TimeCreated) - $($proc.Properties[0].Value)" -ForegroundColor Gray
-        }
+    if ($injectionEvents.Count -eq 0) {
+        Show-Result "Keine verdächtigen Event Log Einträge gefunden" "GOOD"
     } else {
-        Info "  Keine kürzlichen Java-Prozess-Beendigungen"
-    }
-}
-
-function Monitor-RealTimeDeletions {
-    Clear-Host
-    H1 "Echtzeit Überwachung von JAR Löschungen"
-    Info "Überwacht das System auf JAR Datei-Löschungen..."
-    Write-Host "Drücke Ctrl+C zum Beenden`n"
-    
-    $monitorTime = 300  # 5 Minuten
-    $endTime = (Get-Date).AddSeconds($monitorTime)
-    
-    Write-Host "Überwachung läuft für $($monitorTime/60) Minuten..." -ForegroundColor Cyan
-    
-    $deletionCount = 0
-    
-    while ((Get-Date) -lt $endTime) {
-        $currentTime = Get-Date -Format "HH:mm:ss"
-        Write-Host "`r[$currentTime] Überwache... (Noch $([math]::Round(($endTime - (Get-Date)).TotalSeconds))s)" -NoNewline -ForegroundColor DarkGray
-        
-        # Prüfe Event Log für neue Löschungen
-        try {
-            $newEvents = Get-WinEvent -FilterHashtable @{
-                LogName = 'Security'
-                ID = 4663
-                StartTime = (Get-Date).AddSeconds(-5)
-            } -ErrorAction SilentlyContinue | Where-Object {
-                $_.Properties[6].Value -like "*.jar"
-            }
-            
-            foreach ($event in $newEvents) {
-                $deletionCount++
-                Write-Host "`n  ⚠ JAR gelöscht: $($event.Properties[6].Value)" -ForegroundColor Red
-                Write-Host "    Zeit: $($event.TimeCreated)" -ForegroundColor Yellow
-            }
-        } catch {
-            # Ignoriere Fehler
-        }
-        
-        Start-Sleep -Seconds 2
-    }
-    
-    Write-Host "`n`nÜberwachung beendet." -ForegroundColor Cyan
-    if ($deletionCount -gt 0) {
-        Warn "  $deletionCount JAR-Löschungen während der Überwachung erkannt!"
-    } else {
-        Good "  Keine JAR-Löschungen während der Überwachung erkannt."
-    }
-    
-    Read-Host "`nDrücke Enter um fortzufahren"
-    Start-JarDeletionScan
-}
-
-# ---------------- RUN ----------------
-Start-JarDeletionScan
+        Show-Result "Verdächtige Event Log Einträge: $($injectionEvents.Count)" "WARN"
+        Write-Host ""
+       
