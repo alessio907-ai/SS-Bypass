@@ -10,10 +10,10 @@ function Show-Header {
     Write-Host ""
     Write-Host "╔══════════════════════════════════════════════════════════╗" -ForegroundColor Cyan
     Write-Host "║" -NoNewline -ForegroundColor Cyan
-    Write-Host "         🔍 INJECTABLE CHEAT DETECTOR v2.0            " -NoNewline -ForegroundColor Yellow
+    Write-Host "         🔍 INJECTABLE CHEAT DETECTOR           " -NoNewline -ForegroundColor Yellow
     Write-Host "║" -ForegroundColor Cyan
     Write-Host "║" -NoNewline -ForegroundColor Cyan
-    Write-Host "          Detaillierte Analyse & Report              " -NoNewline -ForegroundColor White
+    Write-Host "          Made by Main2Packet              " -NoNewline -ForegroundColor White
     Write-Host "║" -ForegroundColor Cyan
     Write-Host "╚══════════════════════════════════════════════════════════╝" -ForegroundColor Cyan
     Write-Host ""
