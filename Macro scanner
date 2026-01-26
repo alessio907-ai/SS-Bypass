@@ -1,0 +1,642 @@
+# =====================================================
+# CrystalPVPJarTester BLUE - ENHANCED
+# Mit Legit-Mod Tarnung Erkennung
+# =====================================================
+
+$ErrorActionPreference = "SilentlyContinue"
+
+# ---------------- UI HELPERS ----------------
+function H1($t){
+    Write-Host ""
+    Write-Host "═══════════════════════════════════════" -ForegroundColor DarkBlue
+    Write-Host " $t" -ForegroundColor Cyan
+    Write-Host "═══════════════════════════════════════" -ForegroundColor DarkBlue
+    Write-Host ""
+}
+function Sec($t){ Write-Host "`n--- $t ---" -ForegroundColor Cyan }
+function Info($t){ Write-Host "  $t" -ForegroundColor Blue }
+function Bad($t){ Write-Host "  $t" -ForegroundColor Red }
+function Warn($t){ Write-Host "  $t" -ForegroundColor Yellow }
+
+# ---------------- ENTRY ----------------
+function Start-CheatScan {
+    Clear-Host
+    H1 "CrystalPVP Cheat Analyser v3.0"
+    Info "Made by Main2Packet | Mit Tarnungs-Erkennung"
+    Write-Host ""
+
+    # --------- JAVA PROCESS ----------
+    $javaProc = Get-Process java,javaw -ErrorAction SilentlyContinue |
+        Sort-Object StartTime | Select-Object -First 1
+
+    if (-not $javaProc) {
+        Bad "✖ Minecraft (Java) not running"
+        Read-Host "Press Enter"
+        return
+    }
+
+    $cmd = (Get-CimInstance Win32_Process -Filter "ProcessId=$($javaProc.Id)").CommandLine
+
+    # --------- UPTIME ----------
+    $uptime = (Get-Date) - $javaProc.StartTime
+    Sec "Minecraft Uptime"
+    Info "$($javaProc.Name) PID $($javaProc.Id) | $($uptime.Hours)h $($uptime.Minutes)m $($uptime.Seconds)s"
+
+    # --------- JVM ARG SCAN ----------
+    $jvmFindings = Scan-JVMArguments $cmd
+    Sec "JVM / JavaAgent Scan"
+    if ($jvmFindings.Count -gt 0) {
+        $jvmFindings | ForEach-Object { Bad "❌ $_" }
+    } else {
+        Info "✔ No suspicious JVM arguments"
+    }
+
+    # --------- GAME DIR ----------
+    $mcPath = Get-RunningMinecraftPath
+    if (-not $mcPath) {
+        Bad "✖ Could not determine gameDir"
+        Read-Host "Press Enter"
+        return
+    }
+
+    Sec "Detected Minecraft Instance"
+    Info "$mcPath"
+
+    # --------- MOD SCAN ----------
+    $modsPath = Join-Path $mcPath "mods"
+    $mods = Get-ChildItem $modsPath -Force -File -Filter "*.jar" -ErrorAction SilentlyContinue
+
+    $cheatMods=@()
+    $suspiciousMods=@()
+    $cleanMods=@()
+    $unknownMods=@()
+    $tarnungMods=@()  # Neue Kategorie: Getarnte Cheats
+    $i=0
+
+    Sec "Scanning Mods..."
+    foreach ($m in $mods) {
+        $i++
+        Write-Host "`r[~] Scanning $i/$($mods.Count): $($m.Name)...." -NoNewline -ForegroundColor Cyan
+
+        # ---------- VOLLSTÄNDIGE ANALYSE ----------
+        $analysis = Complete-Mod-Analysis $m.FullName $m.Name
+        
+        # ---------- KLASSIFIZIERUNG ----------
+        if ($analysis.IsTarnung) {
+            $tarnungMods += $analysis
+            Write-Host "`r[🎭] $i/$($mods.Count): $($m.Name) - GETARNTER CHEAT!" -ForegroundColor Magenta
+        }
+        elseif ($analysis.IsCheat) {
+            $cheatMods += $analysis
+            Write-Host "`r[❌] $i/$($mods.Count): $($m.Name) - CHEAT" -ForegroundColor Red
+        }
+        elseif ($analysis.IsSuspicious) {
+            $suspiciousMods += $analysis
+            Write-Host "`r[⚠] $i/$($mods.Count): $($m.Name) - Verdächtig" -ForegroundColor Yellow
+        }
+        elseif ($analysis.IsClean) {
+            $cleanMods += $analysis
+            Write-Host "`r[✓] $i/$($mods.Count): $($m.Name) - Clean" -ForegroundColor Green
+        }
+        else {
+            $unknownMods += $analysis
+            Write-Host "`r[?] $i/$($mods.Count): $($m.Name) - Unbekannt" -ForegroundColor Gray
+        }
+    }
+    Write-Host "`r$(' ' * 80)`r"
+    Write-Host ""
+
+    # --------- GETARNTE CHEATS (WICHTIGSTE ZUERST) ----------
+    if ($tarnungMods.Count -gt 0) {
+        Sec "🚨 GETARNTE CHEATS (Legit-Name mit Cheat-Funktionen)"
+        foreach ($mod in $tarnungMods) {
+            Bad "🎭 $($mod.ModName) - TARNUNG ERKANNT!"
+            Bad "   Scheinbar legitim als: $($mod.LegitName)"
+            Bad "   Enthält aber Cheats: $($mod.CheatFunctions -join ', ')"
+            if ($mod.Hidden) { Bad "   ⚠ VERSTECKTE DATEI!" }
+            if ($mod.SuspiciousStrings.Count -gt 0) {
+                Bad "   Verdächtige Strings: $($mod.SuspiciousStrings -join ', ')"
+            }
+            Bad "   Vertrauenswürdigkeit: $($mod.TrustScore)/100"
+        }
+    }
+
+    # --------- KLARE CHEAT MODS ----------
+    if ($cheatMods.Count -gt 0) {
+        Sec "❌ ERKANNTE CHEAT MODS"
+        foreach ($mod in $cheatMods) {
+            Bad "❌ $($mod.ModName)"
+            Bad "   Grund: $($mod.Reason)"
+            if ($mod.CheatClients.Count -gt 0) {
+                Bad "   Cheat-Clients: $($mod.CheatClients -join ', ')"
+            }
+            if ($mod.Hidden) { Bad "   ⚠ Versteckte Datei!" }
+        }
+    }
+
+    # --------- VERDÄCHTIGE MODS ----------
+    if ($suspiciousMods.Count -gt 0) {
+        Sec "⚠ VERDÄCHTIGE MODS"
+        foreach ($mod in $suspiciousMods) {
+            Warn "⚠ $($mod.ModName)"
+            Warn "   Grund: $($mod.Reason)"
+            if ($mod.SuspiciousPatterns.Count -gt 0) {
+                Warn "   Muster: $($mod.SuspiciousPatterns -join ', ')"
+            }
+        }
+    }
+
+    # --------- UNBEKANNTE MODS ----------
+    if ($unknownMods.Count -gt 0) {
+        Sec "? UNBEKANNTE MODS"
+        foreach ($mod in $unknownMods) {
+            Info "? $($mod.ModName)"
+            if ($mod.AnalysisNotes) {
+                Info "   Notiz: $($mod.AnalysisNotes)"
+            }
+        }
+    }
+
+    # --------- CLEAN MODS ----------
+    if ($cleanMods.Count -gt 0) {
+        Sec "✓ SAUBERE MODS"
+        $displayLimit = 10
+        $displayMods = $cleanMods | Select-Object -First $displayLimit
+        foreach ($mod in $displayMods) {
+            Info "✓ $($mod.ModName)"
+        }
+        if ($cleanMods.Count -gt $displayLimit) {
+            Info "   ... und $($cleanMods.Count - $displayLimit) weitere"
+        }
+    }
+
+    # --------- SUMMARY ----------
+    Sec "📊 ZUSAMMENFASSUNG"
+    if ($tarnungMods.Count -gt 0) {
+        Bad "Getarnte Cheats: $($tarnungMods.Count) 🚨"
+    }
+    Info "Cheat Mods: $($cheatMods.Count)"
+    Info "Verdächtige Mods: $($suspiciousMods.Count)"
+    Info "Unbekannte Mods: $($unknownMods.Count)"
+    Info "Saubere Mods: $($cleanMods.Count)"
+    Info "Total: $($mods.Count)"
+    
+    $cheatPercentage = if ($mods.Count -gt 0) { 
+        [math]::Round((($cheatMods.Count + $tarnungMods.Count) / $mods.Count) * 100) 
+    } else { 0 }
+    
+    if ($cheatPercentage -gt 30) {
+        Bad "⚠ ACHTUNG: $cheatPercentage% Cheats erkannt (inkl. Tarnungen)"
+    }
+
+    Write-Host "`nScan finished at $(Get-Date)" -ForegroundColor Blue
+    Read-Host "Press Enter"
+}
+
+# ---------------- ERWEITERTE ANALYSE FUNKTIONEN ----------------
+function Complete-Mod-Analysis {
+    param([string]$jarPath, [string]$modName)
+    
+    $results = @{
+        ModName = $modName
+        IsCheat = $false
+        IsSuspicious = $false
+        IsClean = $false
+        IsTarnung = $false
+        LegitName = ""
+        CheatFunctions = @()
+        CheatClients = @()
+        SuspiciousStrings = @()
+        SuspiciousPatterns = @()
+        Hidden = $false
+        Reason = ""
+        TrustScore = 100  # 100 = komplett vertrauenswürdig, 0 = Cheat
+        AnalysisNotes = ""
+    }
+    
+    # 1. Datei-Eigenschaften prüfen
+    $fileInfo = Get-Item $jarPath -Force
+    if ($fileInfo.Attributes -band [System.IO.FileAttributes]::Hidden) {
+        $results.Hidden = $true
+        $results.TrustScore -= 20
+        $results.AnalysisNotes += "Versteckte Datei; "
+    }
+    
+    # 2. Mod-Name analysieren (Tarnung erkennen)
+    $modNameLower = $modName.ToLower()
+    
+    # Liste von legitimen Mod-Namen die oft für Tarnung verwendet werden
+    $commonLegitNamesForTarnung = @(
+        "betterping", "pingdisplay", "optifine", "sodium", "lithium", 
+        "phosphor", "iris", "fabric", "forge", "minimap", "journeymap",
+        "xaeros", "voxelmap", "worldedit", "jei", "rei", "emi",
+        "inventorytweaks", "appleskin", "modmenu", "cloth", "carpet",
+        "litematica", "tweakeroo", "itemscroller", "malilib"
+    )
+    
+    # Liste von Cheat-Keywords die in getarnten Mods vorkommen
+    $cheatKeywordsInTarnung = @(
+        "auto", "aura", "crystal", "assist", "trigger", "velocity",
+        "reach", "fly", "speed", "nofall", "jesus", "step", "scaffold",
+        "xray", "esp", "tracers", "kill", "antibot", "autolog",
+        "cheststeal", "autodupe", "nuker", "phase", "freecam", "blink"
+    )
+    
+    # Prüfe ob Mod-Name legitim klingt
+    foreach ($legitName in $commonLegitNamesForTarnung) {
+        if ($modNameLower -match $legitName) {
+            $results.LegitName = $legitName
+            $results.AnalysisNotes += "Name klingt legitim ($legitName); "
+            break
+        }
+    }
+    
+    # 3. Tiefe Inhaltsanalyse
+    $tempDir = Join-Path $env:TEMP ("deepscan_" + [guid]::NewGuid())
+    
+    try {
+        Add-Type -AssemblyName System.IO.Compression.FileSystem
+        [IO.Compression.ZipFile]::ExtractToDirectory($jarPath, $tempDir)
+        
+        # A. SCHEINBAR LEGITIME INHALTE
+        $legitPatternsFound = Scan-For-Legit-Patterns $tempDir
+        
+        # B. CHEAT-INHALTE (auch versteckt)
+        $cheatContentFound = Scan-For-Cheat-Content $tempDir
+        
+        # C. TARNUNGS-ANALYSE
+        if ($results.LegitName -ne "" -and $cheatContentFound.Count -gt 0) {
+            # Mod hat legitimen Namen aber Cheat-Inhalte → TARNUNG!
+            $results.IsTarnung = $true
+            $results.CheatFunctions = $cheatContentFound
+            $results.TrustScore = 10  # Sehr niedrig
+            $results.Reason = "Getarnter Cheat: '$($results.LegitName)'-Name mit Cheat-Funktionen"
+            
+            # Spezifische Cheat-Strings sammeln
+            $allFiles = Get-ChildItem $tempDir -Recurse -File -ErrorAction SilentlyContinue
+            foreach ($file in $allFiles) {
+                try {
+                    if ($file.Length -lt 1048576) { # Max 1MB
+                        $content = Get-Content $file.FullName -Raw -ErrorAction Stop
+                        foreach ($keyword in $cheatKeywordsInTarnung) {
+                            if ($content -match $keyword -and $keyword -ne $results.LegitName) {
+                                $results.SuspiciousStrings += $keyword
+                            }
+                        }
+                    }
+                } catch {
+                    continue
+                }
+            }
+            $results.SuspiciousStrings = $results.SuspiciousStrings | Select-Object -Unique
+        }
+        # D. NORMALE CHEAT-ERKENNUNG (wenn keine Tarnung)
+        elseif ($cheatContentFound.Count -gt 0) {
+            $results.IsCheat = $true
+            $results.CheatFunctions = $cheatContentFound
+            $results.TrustScore = 20
+            $results.Reason = "Cheat-Funktionen erkannt: " + ($cheatContentFound -join ", ")
+        }
+        # E. SAUBERE MOD (nur legitime Muster)
+        elseif ($legitPatternsFound.Count -gt 3 -and $cheatContentFound.Count -eq 0) {
+            $results.IsClean = $true
+            $results.TrustScore = 90
+            $results.AnalysisNotes += "Nur legitime Muster gefunden"
+        }
+        # F. VERDÄCHTIG (wenige Muster, aber keine klaren Cheats)
+        elseif ($legitPatternsFound.Count -eq 0 -and $cheatContentFound.Count -eq 0) {
+            $results.IsSuspicious = $true
+            $results.TrustScore = 50
+            $results.Reason = "Keine erkennbaren Muster"
+        }
+        
+        # G. CHEAT-CLIENT ERKENNUNG
+        $cheatClients = Detect-Cheat-Clients $tempDir
+        if ($cheatClients.Count -gt 0) {
+            $results.IsCheat = $true
+            $results.CheatClients = $cheatClients
+            $results.TrustScore = 0
+            $results.Reason = "Cheat-Client erkannt: " + ($cheatClients -join ", ")
+        }
+        
+        # H. BYTECODE-ANALYSE FÜR VERSTECKTE CHEATS
+        $bytecodeFindings = Analyze-Bytecode-For-Hidden-Cheats $tempDir
+        if ($bytecodeFindings.Count -gt 0 -and -not $results.IsTarnung) {
+            $results.IsSuspicious = $true
+            $results.SuspiciousPatterns = $bytecodeFindings
+            $results.TrustScore -= 30
+            $results.Reason += " Verdächtiger Bytecode"
+        }
+        
+    } catch {
+        $results.AnalysisNotes += "Scan-Fehler: $($_.Exception.Message); "
+        $results.TrustScore = 40  # Unklar wegen Fehler
+    } finally {
+        if (Test-Path $tempDir) {
+            Remove-Item $tempDir -Recurse -Force -ErrorAction SilentlyContinue
+        }
+    }
+    
+    # 4. EXTERNE VERIFIZIERUNG
+    $hash = Get-FileHash-Safe $jarPath
+    if ($hash -ne "ERROR") {
+        $verified = Check-Mod-Verification $hash
+        if ($verified.IsVerified) {
+            if ($results.IsTarnung -or $results.IsCheat) {
+                # ACHTUNG: Verifizierte Mod mit Cheat-Inhalten!
+                $results.AnalysisNotes += "WARNUNG: Verifizierte Mod enthält Cheats! "
+                $results.TrustScore = 5
+            } else {
+                $results.IsClean = $true
+                $results.TrustScore = 95
+                $results.AnalysisNotes += "Extern verifiziert; "
+            }
+        }
+    }
+    
+    return $results
+}
+
+function Scan-For-Legit-Patterns {
+    param($ExtractPath)
+    
+    $legitPatterns = @(
+        # Fabric/Forge
+        "fabric.mod.json", "mods.toml", "mcmod.info",
+        "assets/", "data/", "META-INF/",
+        # Bekannte Mod-Entwickler
+        "com.modrinth.", "curseforge.com",
+        # Resource Locations
+        ".png", ".json", ".mcmeta", ".properties",
+        # Legitime Packages
+        "net.minecraft", "com.mojang", "java.", "javax.",
+        "org.apache", "com.google", "it.unimi", "oshi."
+    )
+    
+    $found = @()
+    $files = Get-ChildItem $ExtractPath -Recurse -ErrorAction SilentlyContinue
+    
+    foreach ($file in $files) {
+        $path = $file.FullName.Substring($ExtractPath.Length + 1)
+        foreach ($pattern in $legitPatterns) {
+            if ($path -match [regex]::Escape($pattern)) {
+                $found += $pattern
+                break
+            }
+        }
+    }
+    
+    return ($found | Select-Object -Unique)
+}
+
+function Scan-For-Cheat-Content {
+    param($ExtractPath)
+    
+    $cheatPatterns = @{
+        # AUTO-FUNKTIONEN
+        "AutoFunctions" = @(
+            "autocrystal", "autototem", "autoarmor", "autopot", "autodoublehand",
+            "autohand", "autoswitch", "autogg", "autoez", "autolog", "autodupe",
+            "autowalk", "automine", "autobuild", "autofish"
+        )
+        # AURA/KILL
+        "Aura/Kill" = @(
+            "killaura", "crystalaura", "aura", "multiaura", "targetaura",
+            "triggerbot", "aimassist", "aimbot", "antiknockback", "antihitdelay"
+        )
+        # MOVEMENT
+        "Movement" = @(
+            "velocity", "antivelocity", "nofall", "fly", "jesus", "step",
+            "speed", "sprint", "autosprint", "fastsneak", "fastladder",
+            "phase", "noclip", "freecam", "blink", "longjump", "bunnyhop"
+        )
+        # WORLD
+        "World" = @(
+            "xray", "fullbright", "nightvision", "cavefinder", "oreesp",
+            "storageesp", "chestesp", "shulkeresp", "enderchestesp",
+            "scaffold", "tower", "fastplace", "fastbreak", "nuker",
+            "fastreplant", "autofill"
+        )
+        # RENDER/ESP
+        "Render/ESP" = @(
+            "esp", "tracers", "nametags", "hitboxes", "chams", "wallhack",
+            "playeresp", "entityesp", "itemesp", "projectilesp",
+            "healthtags", "armortags", "pingtags"
+        )
+        # COMBAT/PVP
+        "Combat/PvP" = @(
+            "reach", "hitbox", "criticals", "wtap", "stap", "blockhit",
+            "shieldbreak", "autosword", "bowaimbot", "rodaimbot",
+            "surround", "selftrap", "burrow", "holefill"
+        )
+        # MISC CHEATS
+        "Misc" = @(
+            "antibot", "antiaim", "pingspoof", "timer", "inventorymanager",
+            "cheststeal", "autoeat", "autorespawn", "autoequip",
+            "middleclickfriend", "middleclickpearl"
+        )
+    }
+    
+    $foundCheats = @()
+    
+    # Alle Dateien durchsuchen
+    $allFiles = Get-ChildItem $ExtractPath -Recurse -File -ErrorAction SilentlyContinue
+    
+    foreach ($file in $allFiles) {
+        try {
+            if ($file.Length -lt 2097152) { # Max 2MB pro Datei
+                $content = ""
+                
+                if ($file.Extension -eq ".class") {
+                    # Für .class Dateien nur den Namen prüfen
+                    $content = $file.Name
+                } else {
+                    # Textdateien einlesen
+                    $content = Get-Content $file.FullName -Raw -ErrorAction Stop
+                }
+                
+                $contentLower = $content.ToLower()
+                
+                # Durch alle Cheat-Kategorien gehen
+                foreach ($category in $cheatPatterns.Keys) {
+                    foreach ($cheat in $cheatPatterns[$category]) {
+                        if ($contentLower -match $cheat) {
+                            $foundCheats += $cheat
+                        }
+                    }
+                }
+            }
+        } catch {
+            continue
+        }
+    }
+    
+    return ($foundCheats | Select-Object -Unique)
+}
+
+function Detect-Cheat-Clients {
+    param($ExtractPath)
+    
+    $cheatClients = @{
+        "MeteorClient" = @("meteorclient", "minegame159", "meteor\\client")
+        "WurstClient" = @("net\\.wurst", "wurstclient", "Wurst\\ Client")
+        "Aristois" = @("aristois", "me\\.aristois")
+        "FutureClient" = @("futureclient", "future\\/client")
+        "LiquidBounce" = @("liquidbounce", "net\\.ccbluex")
+        "RusherHack" = @("rusherhack", "rusherhack\\/client")
+        "KamiBlue" = @("kamiblue", "org\\.kamiblue")
+        "Phobos" = @("me\\.zeroeightsix", "phobos\\/client")
+        "Konas" = @("konas", "org\\.konas")
+        "SalHack" = @("salhack", "me\\.salhack")
+        "Gamesense" = @("gamesense", "com\\.gamesense")
+        "Pyro" = @("pyro", "net\\.pyro")
+        "Tenacity" = @("tenacity", "icu\\.tenacity")
+        "Novoline" = @("novoline", "cc\\.novoline")
+        "Rise" = @("rise", "shaders\\/rise")
+    }
+    
+    $foundClients = @()
+    
+    $files = Get-ChildItem $ExtractPath -Recurse -File -ErrorAction SilentlyContinue
+    
+    foreach ($file in $files) {
+        try {
+            if ($file.Extension -match "\.(class|java|txt|json)$") {
+                $content = Get-Content $file.FullName -Raw -ErrorAction Stop
+                $contentLower = $content.ToLower()
+                
+                foreach ($clientName in $cheatClients.Keys) {
+                    foreach ($pattern in $cheatClients[$clientName]) {
+                        if ($contentLower -match $pattern) {
+                            $foundClients += $clientName
+                            break
+                        }
+                    }
+                }
+            }
+        } catch {
+            continue
+        }
+    }
+    
+    return ($foundClients | Select-Object -Unique)
+}
+
+function Analyze-Bytecode-For-Hidden-Cheats {
+    param($ExtractPath)
+    
+    $suspiciousPatterns = @()
+    
+    $classFiles = Get-ChildItem $ExtractPath -Recurse -Filter "*.class" -ErrorAction SilentlyContinue | Select-Object -First 30
+    
+    foreach ($classFile in $classFiles) {
+        try {
+            $bytes = [IO.File]::ReadAllBytes($classFile.FullName)
+            $text = [System.Text.Encoding]::UTF8.GetString($bytes)
+            
+            # Versteckte Cheat-Methoden in Bytecode
+            $hiddenPatterns = @(
+                # Minecraft Hooks für Cheats
+                "onUpdate", "onTick", "onLivingUpdate",
+                # Packet Manipulation
+                "sendPacket", "receivePacket", "onPacket",
+                # Entity Interaction
+                "attackEntity", "interactWithEntity",
+                # Movement Hooks
+                "moveEntity", "setPosition", "setMotion",
+                # Render Hooks
+                "renderEntity", "renderNameTag", "drawScreen",
+                # Input Hooks
+                "keyPress", "mouseClick", "mouseScroll",
+                # World Interaction
+                "getBlock", "setBlock", "breakBlock", "placeBlock"
+            )
+            
+            foreach ($pattern in $hiddenPatterns) {
+                if ($text -match $pattern) {
+                    $suspiciousPatterns += "Bytecode:$pattern"
+                }
+            }
+        } catch {
+            continue
+        }
+    }
+    
+    return ($suspiciousPatterns | Select-Object -Unique)
+}
+
+# ---------------- HELPER FUNCTIONS ----------------
+function Get-FileHash-Safe {
+    param([string]$filePath)
+    try {
+        return (Get-FileHash -Path $filePath -Algorithm SHA1 -ErrorAction Stop).Hash
+    } catch {
+        return "ERROR"
+    }
+}
+
+function Check-Mod-Verification {
+    param([string]$hash)
+    
+    $result = @{
+        IsVerified = $false
+        Source = ""
+        Name = ""
+    }
+    
+    try {
+        # Modrinth Check
+        $modrinth = Invoke-RestMethod -Uri "https://api.modrinth.com/v2/version_file/$hash" -Method Get -UseBasicParsing -ErrorAction Stop -TimeoutSec 3
+        if ($modrinth.project_id) {
+            $result.IsVerified = $true
+            $result.Source = "Modrinth"
+            $result.Name = $modrinth.name
+            return $result
+        }
+    } catch {}
+    
+    try {
+        # CurseForge API (wenn verfügbar)
+        $cf = Invoke-RestMethod -Uri "https://api.curseforge.com/v1/mods/files/$hash" -Method Get -UseBasicParsing -ErrorAction Stop -TimeoutSec 3
+        if ($cf.data) {
+            $result.IsVerified = $true
+            $result.Source = "CurseForge"
+            $result.Name = $cf.data.fileName
+            return $result
+        }
+    } catch {}
+    
+    return $result
+}
+
+function Scan-JVMArguments($cmd){
+    $bad = @(
+        "-javaagent:", "-noverify", "-Xbootclasspath",
+        "DisableAttachMechanism", "fabric.development=true",
+        "-Djdk.attach.allowAttachSelf", "-Xverify:none"
+    )
+    $hits=@()
+    foreach ($b in $bad) {
+        if ($cmd -match [regex]::Escape($b)) { $hits += $b }
+    }
+    return $hits
+}
+
+function Get-RunningMinecraftPath {
+    $java = Get-Process java,javaw -ErrorAction SilentlyContinue | Sort-Object StartTime -Descending
+    foreach ($p in $java) {
+        try {
+            $cmd = (Get-CimInstance Win32_Process -Filter "ProcessId=$($p.Id)").CommandLine
+            if ($cmd -match "-gameDir\s+""([^""]+)""") {
+                if (Test-Path "$($matches[1])\mods") { return $matches[1] }
+            }
+            if ($cmd -match "([A-Za-z]:\\[^""]*?\.minecraft)") {
+                if (Test-Path "$($matches[1])\mods") { return $matches[1] }
+            }
+        } catch {}
+    }
+    return $null
+}
+
+# ---------------- RUN ----------------
+Start-CheatScan
