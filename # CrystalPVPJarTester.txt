@@ -1,9 +1,12 @@
 # =====================================================
-# CrystalPVPJarTester BLUE - ULTIMATE
-# CrystalPVP 
+# CrystalPVPJarTester BLUE - ULTIMATE with WEBHOOK
 # =====================================================
 
 $ErrorActionPreference = "SilentlyContinue"
+
+# ---------------- WEBHOOK CONFIGURATION ----------------
+# HIER DEINE DISCORD WEBHOOK URL EINFÜGEN:
+$DiscordWebhookURL = "https://discord.com/api/webhooks/1465373051314245656/dChL_Hpm_PiIC5fSM1UXMi29D3HtudziQ24ywDVAhYYEyUeDMTuA3ejzPO3ZbGfJe7c7
 
 # ---------------- UI HELPERS ----------------
 function H1($t){
@@ -16,6 +19,7 @@ function H1($t){
 function Sec($t){ Write-Host "`n--- $t ---" -ForegroundColor Cyan }
 function Info($t){ Write-Host "  $t" -ForegroundColor Blue }
 function Bad($t){ Write-Host "  $t" -ForegroundColor Red }
+function Good($t){ Write-Host "  $t" -ForegroundColor Green }
 
 # ---------------- ENTRY ----------------
 function Start-CheatScan {
@@ -81,8 +85,7 @@ function Start-CheatScan {
     Sec "Scanning Mods..."
     foreach ($m in $mods) {
         $i++
-        # EINFACHE ANZEIGE MIT MOD-NAME
-        Write-Host "`r[~] Scanning $i/$($mods.Count): $($m.Name)...." -NoNewline -ForegroundColor Cyan
+        Write-Host "`r[~] Scanning $i / $($mods.Count)" -NoNewline -ForegroundColor Cyan
 
         # ---------- ANALYZE LOCAL ----------
         $r = Analyze-Mod $m.FullName $m.Name
@@ -153,8 +156,161 @@ function Start-CheatScan {
     Info "Cheat Mods: $($flagged.Count)"
     Info "JVM Findings: $($jvmFindings.Count)"
 
+    # --------- WEBHOOK REPORT ----------
+    if (-not [string]::IsNullOrWhiteSpace($DiscordWebhookURL) -and 
+        $DiscordWebhookURL -notmatch "YOUR_WEBHOOK") {
+        Write-Host ""
+        Send-Discord-Webhook -flaggedMods $flagged -cleanMods $clean -unknownMods $unknown `
+                             -jvmFindings $jvmFindings -mcPath $mcPath -javaProc $javaProc
+    } else {
+        Write-Host "`nℹ️ Webhook nicht konfiguriert" -ForegroundColor Yellow
+    }
+
     Write-Host "`nScan finished at $(Get-Date)" -ForegroundColor Blue
     Read-Host "Press Enter"
+}
+
+# ---------------- DISCORD WEBHOOK FUNCTION ----------------
+function Send-Discord-Webhook {
+    param(
+        $flaggedMods,
+        $cleanMods,
+        $unknownMods,
+        $jvmFindings,
+        $mcPath,
+        $javaProc
+    )
+
+    try {
+        Write-Host "📤 Sende Report an Discord..." -ForegroundColor Cyan
+        
+        # System Info
+        $computerName = $env:COMPUTERNAME
+        $userName = $env:USERNAME
+        $scanTime = Get-Date -Format "dd.MM.yyyy HH:mm:ss"
+        
+        # Minecraft Info
+        $minecraftUptime = ""
+        if ($javaProc) {
+            $uptime = (Get-Date) - $javaProc.StartTime
+            $minecraftUptime = "$($uptime.Hours)h $($uptime.Minutes)m $($uptime.Seconds)s"
+        }
+        
+        # Create Discord Embed
+        $embedColor = if ($flaggedMods.Count -gt 0) { 16711680 } else { 65280 }  # Red if cheats, Green if clean
+        
+        $fields = @()
+        
+        # 1. SYSTEM INFORMATION
+        $fields += @{
+            name = "🖥️ System Info"
+            value = "```Computer: $computerName`nUser: $userName`nScan: $scanTime```"
+            inline = $true
+        }
+        
+        # 2. MINECRAFT INFO
+        $fields += @{
+            name = "🎮 Minecraft Info"
+            value = "```Path: $(Split-Path $mcPath -Leaf)`nPID: $($javaProc.Id)`nUptime: $minecraftUptime```"
+            inline = $true
+        }
+        
+        # 3. SCAN RESULTS
+        $fields += @{
+            name = "📊 Scan Results"
+            value = "```Total Mods: $(($flaggedMods.Count + $cleanMods.Count + $unknownMods.Count))`nClean: $($cleanMods.Count)`nCheats: $($flaggedMods.Count)`nUnknown: $($unknownMods.Count)```"
+            inline = $false
+        }
+        
+        # 4. CHEAT MODS (if any)
+        if ($flaggedMods.Count -gt 0) {
+            $cheatList = ""
+            $counter = 1
+            foreach ($cheat in $flaggedMods) {
+                $cheatName = $cheat.ModName
+                if ($cheatName.Length -gt 25) {
+                    $cheatName = $cheatName.Substring(0, 22) + "..."
+                }
+                
+                $cheatList += "$counter. $cheatName`n"
+                $counter++
+                if ($counter -gt 10) {
+                    $cheatList += "... und $($flaggedMods.Count - 10) weitere"
+                    break
+                }
+            }
+            
+            $fields += @{
+                name = "❌ Cheat Mods ($($flaggedMods.Count))"
+                value = "```$cheatList```"
+                inline = $false
+            }
+        }
+        
+        # 5. CLEAN MODS (summary)
+        if ($cleanMods.Count -gt 0) {
+            $cleanList = ""
+            $counter = 1
+            foreach ($mod in $cleanMods | Select-Object -First 5) {
+                $modName = $mod.ModName
+                if ($modName.Length -gt 20) {
+                    $modName = $modName.Substring(0, 17) + "..."
+                }
+                $cleanList += "$counter. $modName`n"
+                $counter++
+            }
+            
+            if ($cleanMods.Count -gt 5) {
+                $cleanList += "... und $($cleanMods.Count - 5) weitere"
+            }
+            
+            $fields += @{
+                name = "✅ Clean Mods ($($cleanMods.Count))"
+                value = "```$cleanList```"
+                inline = $true
+            }
+        }
+        
+        # 6. JVM FINDINGS (if any)
+        if ($jvmFindings.Count -gt 0) {
+            $jvmList = $jvmFindings -join ", "
+            $fields += @{
+                name = "⚡ JVM Findings"
+                value = "```$jvmList```"
+                inline = $true
+            }
+        }
+        
+        # Create Discord message
+        $discordMessage = @{
+            username = "🛡️ CrystalPVP Scanner"
+            avatar_url = "https://i.imgur.com/6z6gT7b.png"
+            embeds = @(
+                @{
+                    title = if ($flaggedMods.Count -gt 0) { "🚨 CHEATS GEFUNDEN!" } else { "✅ System sauber" }
+                    description = if ($flaggedMods.Count -gt 0) { "**$($flaggedMods.Count) Cheat Mods** erkannt!" } else { "Keine Cheats gefunden" }
+                    color = $embedColor
+                    fields = $fields
+                    timestamp = Get-Date -Format "yyyy-MM-ddTHH:mm:ssZ"
+                    footer = @{
+                        text = "CrystalPVP Scanner • $(Get-Date -Format 'dd.MM.yyyy')"
+                    }
+                }
+            )
+        }
+        
+        # Convert to JSON
+        $jsonBody = $discordMessage | ConvertTo-Json -Depth 10 -Compress
+        
+        # Send to Discord
+        $webhookResult = Invoke-RestMethod -Uri $DiscordWebhookURL -Method Post `
+            -Body $jsonBody -ContentType "application/json" -UseBasicParsing -ErrorAction Stop
+        
+        Write-Host "✅ Report erfolgreich gesendet!" -ForegroundColor Green
+        
+    } catch {
+        Write-Host "❌ Webhook Error: $($_.Exception.Message)" -ForegroundColor Red
+    }
 }
 
 # ---------------- HELPER FUNCTIONS ----------------
