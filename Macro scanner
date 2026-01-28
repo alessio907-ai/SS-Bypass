@@ -1,662 +1,151 @@
-# =====================================================
-# MINECRAFT ANCHOR & CRYSTAL CHEAT DETECTOR
-# =====================================================
+# Achtung: Dieses Skript löscht Dateien dauerhaft!
+# Bitte vorher mit -WhatIf testen
 
-$ErrorActionPreference = "SilentlyContinue"
+param(
+    [switch]$WhatIf,
+    [switch]$Verbose
+)
 
-# ---------------- UI DESIGN ----------------
-function Show-Header {
-    Clear-Host
+# Suchmuster für Dateien und Ordner
+$searchPatterns = @(
+    "*clickcrystal*",
+    "*krypton*", 
+    "*argon*",
+    "*system.b1.6*"
+)
+
+# Erweiterungen, die durchsucht werden sollen (anpassbar)
+$extensions = @("*.exe", "*.dll", "*.zip", "*.rar", "*.7z", "*.msi", "*.bat", "*.ps1", "*.cmd")
+
+# Verzeichnisse, die durchsucht werden sollen (mit Ausnahmen)
+$searchPaths = @(
+    $env:USERPROFILE,
+    "C:\Program Files",
+    "C:\Program Files (x86)",
+    "$env:USERPROFILE\Downloads",
+    "$env:USERPROFILE\Desktop"
+)
+
+# Auszuschließende Verzeichnisse (Systemverzeichnisse)
+$excludedPaths = @(
+    "C:\Windows",
+    "C:\ProgramData",
+    "$env:USERPROFILE\AppData\Local\Temp"
+)
+
+$deletedItems = @()
+$errors = @()
+
+Write-Host "=== Dateien löschen Skript ===" -ForegroundColor Cyan
+Write-Host "Suche nach: clickcrystal, krypton, argon, system.b1.6"
+Write-Host ""
+
+if ($WhatIf) {
+    Write-Host "TESTMODUS: Es wird nichts gelöscht (WhatIf aktiviert)" -ForegroundColor Yellow
     Write-Host ""
-    Write-Host "╔══════════════════════════════════════════════════════════╗" -ForegroundColor DarkRed
-    Write-Host "║" -NoNewline -ForegroundColor DarkRed
-    Write-Host "        ⚔️  ANCHOR & CRYSTAL CHEAT DETECTOR         " -NoNewline -ForegroundColor Red
-    Write-Host "║" -ForegroundColor DarkRed
-    Write-Host "║" -NoNewline -ForegroundColor DarkRed
-    Write-Host "       Speziell für CrystalPVP & Anchor Cheats       " -NoNewline -ForegroundColor Yellow
-    Write-Host "║" -ForegroundColor DarkRed
-    Write-Host "╚══════════════════════════════════════════════════════════╝" -ForegroundColor DarkRed
-    Write-Host ""
 }
 
-function Show-Section($title) {
-    Write-Host ""
-    Write-Host "┌──────────────────────────────────────────────────────┐" -ForegroundColor DarkCyan
-    Write-Host "│ $title" -ForegroundColor Cyan
-    Write-Host "└──────────────────────────────────────────────────────┘" -ForegroundColor DarkCyan
-    Write-Host ""
-}
-
-# ---------------- ANCHOR & CRYSTAL SIGNATURE DATABASE ----------------
-$anchorCrystalSignatures = @{
-    # ANCHOR CHEATS
-    "AnchorAura" = @{
-        Patterns = @(
-            "anchorAura",
-            "autoAnchor",
-            "anchorPlace",
-            "breakAnchor",
-            "anchorExploit",
-            "anchorTimer",
-            "anchorPredict",
-            "anchorTarget"
-        )
-        Description = "Automatisches Platzieren/Brechen von Anchors"
-        RiskLevel = "HIGH"
-        Category = "Anchor Exploit"
+foreach ($path in $searchPaths) {
+    if (-not (Test-Path $path)) {
+        Write-Verbose "Pfad existiert nicht: $path"
+        continue
     }
     
-    "AnchorMacro" = @{
-        Patterns = @(
-            "anchorMacro",
-            "doubleAnchor",
-            "anchorCombo",
-            "anchorSwitch",
-            "anchorSpam",
-            "fastAnchor"
-        )
-        Description = "Makro für Anchor-Kombinationen"
-        RiskLevel = "MEDIUM"
-        Category = "Anchor Automation"
-    }
-    
-    "AnchorTweaks" = @{
-        Patterns = @(
-            "anchorTweak",
-            "anchorDelay",
-            "anchorRange",
-            "anchorAngle",
-            "anchorBypass",
-            "anchorOptimize"
-        )
-        Description = "Modifikation der Anchor-Mechanik"
-        RiskLevel = "HIGH"
-        Category = "Anchor Modification"
-    }
-    
-    # CRYSTAL CHEATS
-    "CrystalAura" = @{
-        Patterns = @(
-            "crystalAura",
-            "autoCrystal",
-            "crystalPlace",
-            "breakCrystal",
-            "crystalPredict",
-            "crystalTimer",
-            "crystalTarget",
-            "crystalRange"
-        )
-        Description = "Automatisches Platzieren/Brechen von Crystals"
-        RiskLevel = "CRITICAL"
-        Category = "Crystal Automation"
-    }
-    
-    "AutoCrystal" = @{
-        Patterns = @(
-            "autoCrystal",
-            "crystalBot",
-            "crystalAssist",
-            "smartCrystal",
-            "crystalHelper",
-            "crystalCalculator"
-        )
-        Description = "Automatische Crystal-Berechnung & Ausführung"
-        RiskLevel = "CRITICAL"
-        Category = "Crystal Bot"
-    }
-    
-    "CrystalOptimizer" = @{
-        Patterns = @(
-            "crystalOptimize",
-            "crystalSpeed",
-            "crystalDelay",
-            "crystalRotation",
-            "perfectCrystal",
-            "crystalPredict"
-        )
-        Description = "Optimierung der Crystal-Geschwindigkeit"
-        RiskLevel = "HIGH"
-        Category = "Crystal Enhancement"
-    }
-    
-    # COMBINATION CHEATS
-    "AnchorCrystalCombo" = @{
-        Patterns = @(
-            "anchorCrystal",
-            "comboAura",
-            "doubleCombo",
-            "comboBot",
-            "comboMacro",
-            "anchorCrystalSwitch"
-        )
-        Description = "Kombination aus Anchor und Crystal Automatisierung"
-        RiskLevel = "CRITICAL"
-        Category = "Combo Automation"
-    }
-    
-    "CrystalPredict" = @{
-        Patterns = @(
-            "crystalPredict",
-            "predictPlace",
-            "predictBreak",
-            "futureCrystal",
-            "predictionBot",
-            "crystalCalculator"
-        )
-        Description = "Vorhersage von Crystal-Platzierungen"
-        RiskLevel = "HIGH"
-        Category = "Prediction"
-    }
-    
-    # BYPASS METHODS
-    "AntiAnchor" = @{
-        Patterns = @(
-            "antiAnchor",
-            "anchorBypass",
-            "ignoreAnchor",
-            "anchorResist",
-            "anchorImmunity"
-        )
-        Description = "Bypass von Anchor-Schaden"
-        RiskLevel = "CRITICAL"
-        Category = "Bypass"
-    }
-    
-    "AntiCrystal" = @{
-        Patterns = @(
-            "antiCrystal",
-            "crystalBypass",
-            "crystalResist",
-            "ignoreCrystal",
-            "crystalImmunity"
-        )
-        Description = "Bypass von Crystal-Schaden"
-        RiskLevel = "CRITICAL"
-        Category = "Bypass"
-    }
-}
-
-# ---------------- SCAN FUNCTIONS ----------------
-function Scan-For-AnchorCrystal-Signatures {
-    Show-Section "🔍 SCAN NACH ANCHOR & CRYSTAL CHEATS"
-    
-    Write-Host "  📊 Lade Cheat-Signaturen..." -ForegroundColor White
-    Write-Host "     └─ Anchor Cheats: " -NoNewline -ForegroundColor DarkGray
-    Write-Host ($anchorCrystalSignatures.Keys | Where-Object { $_ -match "Anchor" }).Count -ForegroundColor Yellow
-    
-    Write-Host "     └─ Crystal Cheats: " -NoNewline -ForegroundColor DarkGray
-    Write-Host ($anchorCrystalSignatures.Keys | Where-Object { $_ -match "Crystal" }).Count -ForegroundColor Yellow
-    
-    Write-Host "     └─ Total Signaturen: " -NoNewline -ForegroundColor DarkGray
-    Write-Host $anchorCrystalSignatures.Count -ForegroundColor White
-    
-    Write-Host ""
-    
-    # Finde Minecraft Ordner
-    $minecraftPath = "$env:APPDATA\.minecraft"
-    if (-not (Test-Path $minecraftPath)) {
-        Write-Host "  ❌ Minecraft Ordner nicht gefunden!" -ForegroundColor Red
-        return @()
-    }
-    
-    Write-Host "  📁 Scanne Minecraft Ordner..." -ForegroundColor Cyan
-    Write-Host "     └─ Pfad: $minecraftPath" -ForegroundColor Gray
-    
-    $foundCheats = @()
-    $scanPaths = @(
-        "$minecraftPath\mods",
-        "$minecraftPath\versions", 
-        "$minecraftPath\libraries",
-        "$minecraftPath\shaderpacks"
-    )
-    
-    foreach ($path in $scanPaths) {
-        if (Test-Path $path) {
-            Write-Host ""
-            Write-Host "     🔎 Scanne: $(Split-Path $path -Leaf)" -ForegroundColor DarkCyan
-            
-            # Scan JAR files
-            $jarFiles = Get-ChildItem -Path $path -Filter "*.jar" -Recurse -ErrorAction SilentlyContinue
-            
-            $scannedCount = 0
-            $foundInPath = 0
-            
-            foreach ($jarFile in $jarFiles) {
-                $scannedCount++
-                if ($scannedCount % 50 -eq 0) {
-                    Write-Host "       📊 Gescannt: $scannedCount Dateien" -ForegroundColor DarkGray
-                }
-                
-                $jarFindings = Scan-Jar-For-Signatures $jarFile.FullName
-                
-                if ($jarFindings.Count -gt 0) {
-                    $foundInPath++
-                    foreach ($finding in $jarFindings) {
-                        $foundCheats += $finding
-                    }
-                }
-            }
-            
-            if ($foundInPath -gt 0) {
-                Write-Host "       ⚠️  Gefunden: $foundInPath verdächtige Dateien" -ForegroundColor Yellow
-            } else {
-                Write-Host "       ✅ Keine Cheats gefunden" -ForegroundColor Green
-            }
-        }
-    }
-    
-    return $foundCheats
-}
-
-function Scan-Jar-For-Signatures($jarPath) {
-    $jarFindings = @()
-    $tempDir = Join-Path $env:TEMP ("mcscan_" + [guid]::NewGuid())
-    
-    try {
-        # Extract JAR
-        Add-Type -AssemblyName System.IO.Compression.FileSystem
-        [System.IO.Compression.ZipFile]::ExtractToDirectory($jarPath, $tempDir)
-        
-        # Scan all files in JAR
-        $allFiles = Get-ChildItem -Path $tempDir -Recurse -File -ErrorAction SilentlyContinue
-        
-        foreach ($file in $allFiles) {
-            # Only scan certain file types
-            if ($file.Extension -match "\.(class|java|txt|json|yml|yaml|properties|cfg)$") {
-                try {
-                    $content = Get-Content $file.FullName -Raw -ErrorAction Stop
-                    $contentLower = $content.ToLower()
-                    
-                    # Check against all signatures
-                    foreach ($cheatName in $anchorCrystalSignatures.Keys) {
-                        $cheatInfo = $anchorCrystalSignatures[$cheatName]
-                        
-                        foreach ($pattern in $cheatInfo.Patterns) {
-                            if ($contentLower -match $pattern.ToLower()) {
-                                # Found a match!
-                                $jarFindings += [PSCustomObject]@{
-                                    CheatName = $cheatName
-                                    FileName = $file.Name
-                                    JarPath = $jarPath
-                                    FullPath = $file.FullName
-                                    Pattern = $pattern
-                                    Description = $cheatInfo.Description
-                                    RiskLevel = $cheatInfo.RiskLevel
-                                    Category = $cheatInfo.Category
-                                    Context = Extract-Context $content $pattern
-                                }
-                                break
-                            }
-                        }
-                    }
-                } catch {
-                    # Could not read file, skip
-                    continue
-                }
-            }
-        }
-        
-    } catch {
-        # Extraction failed
-    } finally {
-        # Cleanup
-        if (Test-Path $tempDir) {
-            Remove-Item -Path $tempDir -Recurse -Force -ErrorAction SilentlyContinue
-        }
-    }
-    
-    return $jarFindings
-}
-
-function Extract-Context($content, $pattern) {
-    # Extract 50 chars before and after the match
-    $index = $content.ToLower().IndexOf($pattern.ToLower())
-    
-    if ($index -ne -1) {
-        $start = [math]::Max(0, $index - 50)
-        $end = [math]::Min($content.Length, $index + $pattern.Length + 50)
-        
-        $context = $content.Substring($start, $end - $start)
-        $context = $context -replace "[\r\n\t]", " "
-        $context = $context.Trim()
-        
-        if ($context.Length -gt 100) {
-            $context = $context.Substring(0, 97) + "..."
-        }
-        
-        return $context
-    }
-    
-    return "Context not available"
-}
-
-# ---------------- MEMORY SCAN FÜR AKTIVE CHEATS ----------------
-function Scan-Memory-For-Active-Cheats {
-    Show-Section "🧠 AKTIVE CHEATS IM SPEICHER SCANNEN"
-    
-    $javaProcesses = Get-Process | Where-Object { $_.ProcessName -match "java|javaw" }
-    
-    if ($javaProcesses.Count -eq 0) {
-        Write-Host "  ℹ️ Keine Java-Prozesse gefunden" -ForegroundColor Yellow
-        return @()
-    }
-    
-    Write-Host "  🔍 Scanne $($javaProcesses.Count) Java-Prozesse..." -ForegroundColor White
-    
-    $activeFindings = @()
-    
-    foreach ($proc in $javaProcesses) {
-        Write-Host ""
-        Write-Host "    🎮 Prozess: " -NoNewline -ForegroundColor Cyan
-        Write-Host "$($proc.ProcessName)" -NoNewline -ForegroundColor White
-        Write-Host " (PID: " -NoNewline -ForegroundColor DarkGray
-        Write-Host "$($proc.Id)" -ForegroundColor White
-        Write-Host ")" -ForegroundColor DarkGray
-        
+    foreach ($pattern in $searchPatterns) {
         try {
-            # Check loaded modules/DLLs
-            $modules = $proc.Modules | Where-Object { $_.ModuleName -match "\.(dll|jar|class)$" }
+            # Suche nach Dateien mit den Mustern
+            $files = Get-ChildItem -Path $path -Recurse -Force -ErrorAction SilentlyContinue | 
+                    Where-Object { 
+                        $_.Name -like $pattern -or 
+                        $_.Name -like "*$pattern*" -or
+                        $_.FullName -like "*$pattern*"
+                    }
             
-            $cheatModules = @()
-            
-            foreach ($module in $modules) {
-                $moduleName = $module.ModuleName.ToLower()
-                $modulePath = $module.FileName.ToLower()
+            foreach ($file in $files) {
+                $skip = $false
                 
-                # Check for Anchor/Crystal related modules
-                foreach ($cheatName in $anchorCrystalSignatures.Keys) {
-                    $cheatInfo = $anchorCrystalSignatures[$cheatName]
-                    
-                    foreach ($pattern in $cheatInfo.Patterns) {
-                        $patternLower = $pattern.ToLower()
-                        
-                        if ($moduleName -match $patternLower -or $modulePath -match $patternLower) {
-                            $cheatModules += [PSCustomObject]@{
-                                ModuleName = $module.ModuleName
-                                Path = $module.FileName
-                                CheatName = $cheatName
-                                Pattern = $pattern
-                                RiskLevel = $cheatInfo.RiskLevel
-                            }
-                            break
+                # Überprüfe, ob Datei in ausgeschlossenem Pfad liegt
+                foreach ($excluded in $excludedPaths) {
+                    if ($file.FullName -like "$excluded*") {
+                        $skip = $true
+                        Write-Verbose "Überspringe (ausgeschlossen): $($file.FullName)"
+                        break
+                    }
+                }
+                
+                if (-not $skip) {
+                    if ($WhatIf) {
+                        Write-Host "[WHATIF] Würde löschen: $($file.FullName)" -ForegroundColor Gray
+                        $deletedItems += $file.FullName
+                    } else {
+                        try {
+                            Remove-Item -Path $file.FullName -Force -Recurse -ErrorAction Stop
+                            Write-Host "[GELÖSCHT] $($file.FullName)" -ForegroundColor Red
+                            $deletedItems += $file.FullName
+                        } catch {
+                            $errors += "Fehler beim Löschen von $($file.FullName): $_"
+                            Write-Host "[FEHLER] $($file.FullName)" -ForegroundColor Yellow
                         }
                     }
                 }
             }
             
-            if ($cheatModules.Count -gt 0) {
-                Write-Host "      🔥 AKTIVE CHEATS GEFUNDEN!" -ForegroundColor Red
+            # Suche auch in bestimmten Registry-Pfaden (optional)
+            if (-not $WhatIf) {
+                $registryPaths = @(
+                    "HKCU:\Software",
+                    "HKLM:\SOFTWARE"
+                )
                 
-                foreach ($cheatModule in $cheatModules) {
-                    Write-Host "        🔴 $($cheatModule.CheatName)" -ForegroundColor Red
-                    Write-Host "          └─ Module: $($cheatModule.ModuleName)" -ForegroundColor Yellow
-                    Write-Host "          └─ Pfad: $($cheatModule.Path)" -ForegroundColor Gray
-                    Write-Host "          └─ Risiko: $($cheatModule.RiskLevel)" -ForegroundColor $(
-                        if ($cheatModule.RiskLevel -eq "CRITICAL") { "Red" } 
-                        elseif ($cheatModule.RiskLevel -eq "HIGH") { "Yellow" }
-                        else { "White" }
-                    )
-                    
-                    $activeFindings += $cheatModule
+                foreach ($regPath in $registryPaths) {
+                    if (Test-Path $regPath) {
+                        $regKeys = Get-ChildItem -Path $regPath -Recurse -ErrorAction SilentlyContinue | 
+                                  Where-Object { $_.Name -like "*$pattern*" }
+                        
+                        foreach ($key in $regKeys) {
+                            try {
+                                Remove-Item -Path $key.PSPath -Force -Recurse -ErrorAction Stop
+                                Write-Host "[REGISTRY] Gelöscht: $($key.Name)" -ForegroundColor Magenta
+                            } catch {
+                                # Registry-Einträge können geschützt sein
+                            }
+                        }
+                    }
                 }
-            } else {
-                Write-Host "      ✅ Keine aktiven Cheats" -ForegroundColor Green
             }
             
         } catch {
-            Write-Host "      ⚠️  Zugriff verweigert" -ForegroundColor Yellow
+            $errors += "Fehler beim Durchsuchen von $path nach $pattern : $_"
         }
-    }
-    
-    return $activeFindings
-}
-
-# ---------------- DETAILED REPORT ----------------
-function Show-Detailed-Report($fileFindings, $memoryFindings) {
-    Show-Section "📋 DETAILLIERTER CHEAT REPORT"
-    
-    $totalFindings = $fileFindings.Count + $memoryFindings.Count
-    
-    if ($totalFindings -eq 0) {
-        Write-Host "  ✅ KEINE ANCHOR/CRYSTAL CHEATS GEFUNDEN!" -ForegroundColor Green
-        Write-Host ""
-        Write-Host "     Deine Minecraft Installation scheint sauber zu sein." -ForegroundColor Gray
-        Write-Host "     Keine bekannten Anchor/Crystal Cheats erkannt." -ForegroundColor Gray
-        return
-    }
-    
-    # Statistik
-    Write-Host "  📊 SCAN STATISTIK:" -ForegroundColor Cyan
-    
-    $byCategory = $fileFindings | Group-Object Category
-    $byRisk = $fileFindings | Group-Object RiskLevel
-    
-    Write-Host "     └─ Total Funde: " -NoNewline -ForegroundColor DarkGray
-    Write-Host "$totalFindings" -ForegroundColor White
-    
-    Write-Host "     └─ Datei-Funde: " -NoNewline -ForegroundColor DarkGray
-    Write-Host "$($fileFindings.Count)" -ForegroundColor White
-    
-    Write-Host "     └─ Aktive Cheats: " -NoNewline -ForegroundColor DarkGray
-    Write-Host "$($memoryFindings.Count)" -ForegroundColor $(if ($memoryFindings.Count -gt 0) { "Red" } else { "White" })
-    
-    Write-Host ""
-    
-    # Gruppierte Anzeige
-    if ($fileFindings.Count -gt 0) {
-        Write-Host "  📁 GEFUNDENE CHEAT DATEIEN:" -ForegroundColor Yellow
-        
-        $groupedFiles = $fileFindings | Group-Object CheatName | Sort-Object Count -Descending
-        
-        foreach ($group in $groupedFiles) {
-            $cheatInfo = $anchorCrystalSignatures[$group.Name]
-            $riskColor = if ($cheatInfo.RiskLevel -eq "CRITICAL") { "Red" } 
-                        elseif ($cheatInfo.RiskLevel -eq "HIGH") { "Yellow" } 
-                        else { "White" }
-            
-            Write-Host ""
-            Write-Host "    ⚔️ $($group.Name)" -ForegroundColor $riskColor
-            Write-Host "      └─ Beschreibung: $($cheatInfo.Description)" -ForegroundColor Gray
-            Write-Host "      └─ Kategorie: $($cheatInfo.Category)" -ForegroundColor Gray
-            Write-Host "      └─ Risiko: $($cheatInfo.RiskLevel)" -ForegroundColor $riskColor
-            Write-Host "      └─ Funde: $($group.Count) Dateien" -ForegroundColor White
-            
-            # Show example files
-            $exampleFiles = $group.Group | Select-Object -First 3
-            foreach ($file in $exampleFiles) {
-                $fileName = Split-Path $file.JarPath -Leaf
-                Write-Host "        📄 $fileName" -ForegroundColor DarkGray
-                Write-Host "          └─ Pattern: $($file.Pattern)" -ForegroundColor DarkGray
-                if ($file.Context) {
-                    Write-Host "          └─ Kontext: $($file.Context)" -ForegroundColor DarkGray
-                }
-            }
-        }
-    }
-    
-    if ($memoryFindings.Count -gt 0) {
-        Write-Host ""
-        Write-Host "  🔥 AKTIV LAUFENDE CHEATS:" -ForegroundColor Red
-        
-        $groupedMemory = $memoryFindings | Group-Object CheatName
-        
-        foreach ($group in $groupedMemory) {
-            $cheatInfo = $anchorCrystalSignatures[$group.Name]
-            
-            Write-Host ""
-            Write-Host "    🚨 $($group.Name) - AKTIV!" -ForegroundColor Red
-            Write-Host "      └─ Prozesse: $($group.Count)" -ForegroundColor Yellow
-            
-            foreach ($finding in $group.Group) {
-                Write-Host "        📦 $($finding.ModuleName)" -ForegroundColor Yellow
-                Write-Host "          └─ Pfad: $(Split-Path $finding.Path -Leaf)" -ForegroundColor Gray
-            }
-        }
-        
-        Write-Host ""
-        Write-Host "  ⚠️  WARNUNG: Aktive Cheats erkannt!" -ForegroundColor Red
-        Write-Host "     Diese werden aktuell in Minecraft verwendet!" -ForegroundColor Yellow
-    }
-    
-    # Recommendations
-    Write-Host ""
-    Show-Section "🔧 EMPFEHLUNGEN"
-    
-    if ($memoryFindings.Count -gt 0) {
-        Write-Host "  🔴 SOFORTIGE AKTIONEN:" -ForegroundColor Red
-        Write-Host "     1. 🛑 Minecraft sofort beenden" -ForegroundColor Yellow
-        Write-Host "     2. 🗑️ Gefundene Cheat-Dateien löschen" -ForegroundColor Yellow
-        Write-Host "     3. 🔄 Computer neustarten" -ForegroundColor Yellow
-        Write-Host "     4. 📁 .minecraft/mods Ordner überprüfen" -ForegroundColor Yellow
-    }
-    
-    if ($fileFindings.Count -gt 0) {
-        Write-Host ""
-        Write-Host "  🟡 ALLGEMEINE EMPFEHLUNGEN:" -ForegroundColor Yellow
-        Write-Host "     1. Nur vertrauenswürdige Mods installieren" -ForegroundColor White
-        Write-Host "     2. Regelmäßig auf Cheats scannen" -ForegroundColor White
-        Write-Host "     3. Verdächtige Mods entfernen" -ForegroundColor White
     }
 }
 
-# ---------------- MAIN EXECUTION ----------------
-Show-Header
-
-Write-Host "  👤 Benutzer: " -NoNewline -ForegroundColor DarkGray
-Write-Host "$env:USERNAME" -ForegroundColor White
-
-Write-Host "  🎮 Minecraft: " -NoNewline -ForegroundColor DarkGray
-Write-Host "$env:APPDATA\.minecraft" -ForegroundColor White
-
-Write-Host "  🕐 Scanzeit: " -NoNewline -ForegroundColor DarkGray
-Write-Host "$(Get-Date -Format 'HH:mm:ss')" -ForegroundColor White
-
+# Zusammenfassung
 Write-Host ""
+Write-Host "=== ZUSAMMENFASSUNG ===" -ForegroundColor Cyan
 
-# Scan for file-based cheats
-$fileCheats = Scan-For-AnchorCrystal-Signatures
-
-# Scan for active/memory cheats  
-$activeCheats = Scan-Memory-For-Active-Cheats
-
-# Show detailed report
-Show-Detailed-Report $fileCheats $activeCheats
-
-# ---------------- ACTION MENU ----------------
-Write-Host ""
-Show-Section "📝 AKTIONEN"
-
-if (($fileCheats.Count + $activeCheats.Count) -gt 0) {
-    Write-Host "  1. 🗑️ Cheat-Dateien löschen" -ForegroundColor Cyan
-    Write-Host "  2. 🛑 Minecraft Prozesse beenden" -ForegroundColor Cyan
-    Write-Host "  3. 🔍 Nochmal scannen" -ForegroundColor Cyan
-    Write-Host "  4. 💾 Report speichern" -ForegroundColor Cyan
-    Write-Host "  5. 🚪 Beenden" -ForegroundColor Cyan
+if ($deletedItems.Count -gt 0) {
+    Write-Host "Gefundene/gelöschte Elemente: $($deletedItems.Count)" -ForegroundColor White
+    
+    if ($Verbose) {
+        foreach ($item in $deletedItems) {
+            Write-Host "  - $item" -ForegroundColor Gray
+        }
+    }
 } else {
-    Write-Host "  1. 🔍 Scan wiederholen" -ForegroundColor Cyan
-    Write-Host "  2. 📊 Detaillierte Systemanalyse" -ForegroundColor Cyan
-    Write-Host "  3. 🚪 Beenden" -ForegroundColor Cyan
+    Write-Host "Keine passenden Elemente gefunden." -ForegroundColor Green
 }
 
-$choice = Read-Host "`n  Auswahl"
+if ($errors.Count -gt 0) {
+    Write-Host ""
+    Write-Host "Fehler aufgetreten: $($errors.Count)" -ForegroundColor Yellow
+    foreach ($error in $errors) {
+        Write-Host "  - $error" -ForegroundColor Yellow
+    }
+}
 
-switch ($choice) {
-    "1" {
-        if (($fileCheats.Count + $activeCheats.Count) -gt 0) {
-            # Delete found cheats
-            $deleted = 0
-            foreach ($cheat in $fileCheats) {
-                if (Test-Path $cheat.JarPath) {
-                    try {
-                        Remove-Item $cheat.JarPath -Force -ErrorAction Stop
-                        Write-Host "  ✅ Gelöscht: $(Split-Path $cheat.JarPath -Leaf)" -ForegroundColor Green
-                        $deleted++
-                    } catch {
-                        Write-Host "  ❌ Fehler: $($cheat.JarPath)" -ForegroundColor Red
-                    }
-                }
-            }
-            
-            Write-Host ""
-            Write-Host "  📊 $deleted Dateien gelöscht" -ForegroundColor White
-        } else {
-            # Rescan
-            Write-Host "  🔄 Starte Scan neu..." -ForegroundColor Yellow
-            Start-Sleep -Seconds 2
-            & $PSCommandPath
-        }
-        
-        Read-Host "`n  Drücke Enter"
-        & $PSCommandPath
-    }
-    "2" {
-        if (($fileCheats.Count + $activeCheats.Count) -gt 0) {
-            # Stop Minecraft processes
-            $javaProcs = Get-Process | Where-Object { $_.ProcessName -match "java|javaw" }
-            
-            foreach ($proc in $javaProcs) {
-                try {
-                    Stop-Process -Id $proc.Id -Force
-                    Write-Host "  ✅ Beendet: $($proc.ProcessName) (PID: $($proc.Id))" -ForegroundColor Green
-                } catch {
-                    Write-Host "  ❌ Fehler: $($proc.ProcessName)" -ForegroundColor Red
-                }
-            }
-        } else {
-            # Detailed system analysis
-            Write-Host "  📊 Starte detaillierte Systemanalyse..." -ForegroundColor Yellow
-            # Hier könntest du weitere Scans einfügen
-        }
-        
-        Read-Host "`n  Drücke Enter"
-        & $PSCommandPath
-    }
-    "3" {
-        Write-Host "  🔄 Starte Scan neu..." -ForegroundColor Yellow
-        Start-Sleep -Seconds 2
-        & $PSCommandPath
-    }
-    "4" {
-        # Save report
-        $reportPath = "$env:USERPROFILE\Desktop\AnchorCrystal_Scan_$(Get-Date -Format 'yyyyMMdd_HHmmss').txt"
-        
-        $report = @"
-ANCHOR & CRYSTAL CHEAT SCAN REPORT
-==================================
-Datum: $(Get-Date -Format 'dd.MM.yyyy HH:mm:ss')
-Benutzer: $env:USERNAME
-
-SCAN ERGEBNISSE:
-Datei-Cheats: $($fileCheats.Count)
-Aktive Cheats: $($activeCheats.Count)
-
-"@
-        
-        if ($fileCheats.Count -gt 0) {
-            $report += "`nGEFUNDENE CHEAT DATEIEN:`n"
-            foreach ($cheat in $fileCheats | Group-Object CheatName) {
-                $cheatInfo = $anchorCrystalSignatures[$cheat.Name]
-                $report += "`n- $($cheat.Name) ($($cheat.Count)x)`n"
-                $report += "  Beschreibung: $($cheatInfo.Description)`n"
-                $report += "  Risiko: $($cheatInfo.RiskLevel)`n"
-                $report += "  Dateien:`n"
-                foreach ($file in $cheat.Group | Select-Object -First 5) {
-                    $report += "    • $($file.JarPath)`n"
-                }
-            }
-        }
-        
-        $report | Out-File -FilePath $reportPath -Encoding UTF8
-        Write-Host "  💾 Report gespeichert: $reportPath" -ForegroundColor Green
-        
-        Read-Host "`n  Drücke Enter"
-        & $PSCommandPath
-    }
-    "5" {
-        Write-Host "  👋 Beende..." -ForegroundColor Yellow
-        Exit
-    }
-    default {
-        & $PSCommandPath
-    }
+if ($WhatIf) {
+    Write-Host ""
+    Write-Host "Hinweis: Skript im Testmodus ausgeführt." -ForegroundColor Yellow
+    Write-Host "Um wirklich zu löschen, ohne -WhatIf Parameter ausführen." -ForegroundColor Yellow
 }
