@@ -1,4 +1,336 @@
-# Achtung: Dieses Skript löscht Dateien dauerhaft!
+# Achtung: Dieses Skript löscht Dateien dauerhaft# PowerShell Skript zum Verschieben von Cheat-Clients in den Papierkorb
+# Als Administrator ausführen für beste Ergebnisse
+
+Add-Type -AssemblyName Microsoft.VisualBasic
+
+param(
+    [switch]$WhatIf,
+    [switch]$Verbose,
+    [switch]$Force,
+    [switch]$NoConfirm
+)
+
+Write-Host "=== Cheat-Client Bereinigung (Papierkorb) ===" -ForegroundColor Cyan
+Write-Host "Verschiebe bekannte Cheat-Clients in den Papierkorb" -ForegroundColor Yellow
+Write-Host ""
+
+if ($WhatIf) {
+    Write-Host "TESTMODUS: Es wird nichts verschoben" -ForegroundColor Green
+    Write-Host ""
+}
+
+# Liste aller zu verschiebenden Cheat-Clients/Injectoren
+$targetPatterns = @(
+    # Injectoren
+    "*inject*",
+    
+    # Deine spezifischen Clients
+    "*clickcrystal*",
+    "*argon*",
+    "*system.b.1.5*",
+    "*system b.1.6*",
+    "*system.b1.6*",
+    "*system b1.7*",
+    "*system.b1.7*",
+    "*metorclient*",
+    "*meteorclient*",
+    "*wurstclient*",
+    "*wurst client*",
+    "*kryptonclient*",
+    "*krypton client*",
+    
+    # Weitere bekannte Cheat-Clients
+    "*aristois*",
+    "*impact*",
+    "*kami*",
+    "*lambda*",
+    "*rusher*",
+    "*wolfram*",
+    "*vengeance*",
+    "*novoline*",
+    "*moon*client*",
+    "*sigma*",
+    "*jigsaw*",
+    "*zenith*",
+    "*pyro*",
+    "*cyanide*",
+    
+    # Allgemeine Cheat-Begriffe
+    "*cheat*client*",
+    "*hack*client*",
+    "*pvp*client*",
+    "*cpvp*",
+    "*ghost*",
+    "*reach*",
+    "*killaura*",
+    "*x-ray*",
+    "*xray*",
+    "*nuker*",
+    "*fly*hack*",
+    "*speed*hack*",
+    "*autoclick*",
+    "*auto*click*",
+    
+    # Crack/Unban Tools
+    "*crack*",
+    "*unban*",
+    "*bypass*",
+    "*free*premium*",
+    "*leak*client*"
+)
+
+# Verzeichnisse zum Durchsuchen
+$searchPaths = @(
+    "$env:USERPROFILE",
+    "$env:USERPROFILE\Downloads",
+    "$env:USERPROFILE\Desktop",
+    "$env:USERPROFILE\Documents",
+    "$env:APPDATA",
+    "$env:LOCALAPPDATA",
+    
+    # Minecraft-spezifische Verzeichnisse
+    "$env:APPDATA\.minecraft",
+    "$env:USERPROFILE\.minecraft",
+    "$env:APPDATA\.lunarclient",
+    "$env:APPDATA\.badlion",
+    "$env:APPDATA\.feather"
+)
+
+# Ausgeschlossene Systemverzeichnisse
+$excludedPaths = @(
+    "C:\Windows",
+    "C:\Program Files",
+    "C:\Program Files (x86)",
+    "C:\ProgramData",
+    "$env:SystemRoot",
+    "$env:windir"
+)
+
+$movedCount = 0
+$skippedCount = 0
+$errors = @()
+$foundItems = @()
+
+# Bestätigung vor Start
+if (-not $WhatIf -and -not $NoConfirm) {
+    Write-Host "Dieses Skript wird nach Cheat-Clients suchen und sie in den Papierkorb verschieben." -ForegroundColor Yellow
+    $confirm = Read-Host "Möchten Sie fortfahren? (J/N)"
+    if ($confirm -notmatch "^[jJyY]") {
+        Write-Host "Abgebrochen." -ForegroundColor Red
+        exit
+    }
+}
+
+function Move-ToRecycleBin {
+    param(
+        [string]$Path
+    )
+    
+    try {
+        # Benutze VisualBasic zum Verschieben in den Papierkorb
+        [Microsoft.VisualBasic.FileIO.FileSystem]::DeleteFile(
+            $Path,
+            'OnlyErrorDialogs',
+            'SendToRecycleBin'
+        )
+        return $true
+    } catch {
+        try {
+            # Alternative Methode für Ordner
+            [Microsoft.VisualBasic.FileIO.FileSystem]::DeleteDirectory(
+                $Path,
+                'OnlyErrorDialogs',
+                'SendToRecycleBin'
+            )
+            return $true
+        } catch {
+            return $false
+        }
+    }
+}
+
+foreach ($basePath in $searchPaths) {
+    if (-not (Test-Path $basePath)) {
+        if ($Verbose) { Write-Host "[INFO] Pfad nicht gefunden: $basePath" -ForegroundColor Gray }
+        continue
+    }
+    
+    Write-Host "Durchsuche: $basePath" -ForegroundColor DarkGray
+    
+    foreach ($pattern in $targetPatterns) {
+        try {
+            # Suche nach Dateien
+            $files = Get-ChildItem -Path $basePath -Recurse -Force -ErrorAction SilentlyContinue |
+                    Where-Object { 
+                        $_.Name -like $pattern -or 
+                        $_.Name -like "*$($pattern.Replace('*',''))*" -or
+                        $_.FullName -like "*$($pattern.Replace('*',''))*"
+                    } |
+                    Where-Object { -not $_.PSIsContainer }
+            
+            foreach ($file in $files) {
+                $skipFile = $false
+                $skipReason = ""
+                
+                # Prüfe auf ausgeschlossene Pfade
+                foreach ($excluded in $excludedPaths) {
+                    if ($file.FullName -like "$excluded*") {
+                        $skipFile = $true
+                        $skipReason = "Systempfad"
+                        break
+                    }
+                }
+                
+                # .exe Dateien nur verschieben, wenn sie Injectoren sind
+                if ($file.Extension -eq ".exe" -and $file.Name -notlike "*inject*") {
+                    $skipFile = $true
+                    $skipReason = ".exe Datei (kein Injector)"
+                }
+                
+                if ($skipFile) {
+                    if ($Verbose) {
+                        Write-Host "[ÜBERSPRUNGEN] $($file.Name) - Grund: $skipReason" -ForegroundColor Gray
+                    }
+                    $skippedCount++
+                    continue
+                }
+                
+                # Datei gefunden
+                $foundItems += [PSCustomObject]@{
+                    Pfad = $file.FullName
+                    Name = $file.Name
+                    Größe = "$([math]::Round($file.Length / 1MB, 2)) MB"
+                    Datum = $file.LastWriteTime
+                    Typ = "Datei"
+                }
+                
+                if ($WhatIf) {
+                    Write-Host "[GEFUNDEN] $($file.FullName)" -ForegroundColor Cyan
+                    $movedCount++
+                } else {
+                    # Datei in Papierkorb verschieben
+                    try {
+                        $success = Move-ToRecycleBin -Path $file.FullName
+                        if ($success) {
+                            Write-Host "[PAPIERKORB] $($file.FullName)" -ForegroundColor Green
+                            $movedCount++
+                        } else {
+                            Write-Host "[FEHLER] Konnte nicht in Papierkorb verschieben: $($file.FullName)" -ForegroundColor Yellow
+                            $errors += $file.FullName
+                        }
+                    } catch {
+                        $errors += "[FEHLER] $($file.FullName): $_"
+                        Write-Host "[FEHLER] $($file.FullName)" -ForegroundColor Red
+                    }
+                }
+            }
+            
+            # Suche auch nach Ordnern mit den Mustern
+            $folders = Get-ChildItem -Path $basePath -Recurse -Force -ErrorAction SilentlyContinue |
+                      Where-Object { 
+                          $_.PSIsContainer -and (
+                              $_.Name -like $pattern -or 
+                              $_.Name -like "*$($pattern.Replace('*',''))*"
+                          )
+                      }
+            
+            foreach ($folder in $folders) {
+                $skipFolder = $false
+                
+                foreach ($excluded in $excludedPaths) {
+                    if ($folder.FullName -like "$excluded*") {
+                        $skipFolder = $true
+                        break
+                    }
+                }
+                
+                if ($skipFolder) { continue }
+                
+                $foundItems += [PSCustomObject]@{
+                    Pfad = $folder.FullName
+                    Name = $folder.Name
+                    Größe = "Ordner"
+                    Datum = $folder.LastWriteTime
+                    Typ = "Ordner"
+                }
+                
+                if ($WhatIf) {
+                    Write-Host "[GEFUNDEN-ORDNER] $($folder.FullName)" -ForegroundColor DarkCyan
+                    $movedCount++
+                } else {
+                    try {
+                        $success = Move-ToRecycleBin -Path $folder.FullName
+                        if ($success) {
+                            Write-Host "[PAPIERKORB-ORDNER] $($folder.FullName)" -ForegroundColor DarkGreen
+                            $movedCount++
+                        } else {
+                            Write-Host "[FEHLER] Konnte Ordner nicht in Papierkorb verschieben: $($folder.FullName)" -ForegroundColor Yellow
+                            $errors += $folder.FullName
+                        }
+                    } catch {
+                        $errors += "[FEHLER] $($folder.FullName): $_"
+                        Write-Host "[FEHLER] $($folder.FullName)" -ForegroundColor Red
+                    }
+                }
+            }
+            
+        } catch {
+            $errors += "[SUCHFEHLER] In $basePath nach $pattern : $_"
+        }
+    }
+}
+
+# Zusammenfassung
+Write-Host ""
+Write-Host "=== ZUSAMMENFASSUNG ===" -ForegroundColor Cyan
+Write-Host "Gefundene Elemente: $($foundItems.Count)" -ForegroundColor White
+Write-Host "Verschoben/gefunden: $movedCount" -ForegroundColor White
+Write-Host "Übersprungen: $skippedCount" -ForegroundColor Gray
+
+if ($errors.Count -gt 0) {
+    Write-Host ""
+    Write-Host "Fehler: $($errors.Count)" -ForegroundColor Yellow
+    if ($Verbose) {
+        foreach ($error in $errors) {
+            Write-Host "  $error" -ForegroundColor DarkYellow
+        }
+    }
+}
+
+if ($foundItems.Count -gt 0) {
+    Write-Host ""
+    Write-Host "=== GEFUNDENE DATEIEN/ORDNER ===" -ForegroundColor Cyan
+    $foundItems | Format-Table -AutoSize | Out-Host
+    
+    # Logfile erstellen
+    $logPath = "$env:USERPROFILE\Desktop\Papierkorb_Cleanup_$(Get-Date -Format 'yyyyMMdd_HHmmss').csv"
+    $foundItems | Export-Csv -Path $logPath -NoTypeInformation -Encoding UTF8
+    Write-Host "Report gespeichert: $logPath" -ForegroundColor Green
+}
+
+if ($WhatIf) {
+    Write-Host ""
+    Write-Host "=== WICHTIG ===" -ForegroundColor Yellow
+    Write-Host "Dies war nur ein Testlauf!" -ForegroundColor Yellow
+    Write-Host "Zum Verschieben in den Papierkorb das Skript ohne -WhatIf ausführen:" -ForegroundColor Yellow
+    Write-Host "  .\cleanup_recycle.ps1 -Verbose" -ForegroundColor White
+} else {
+    Write-Host ""
+    Write-Host "Bereinigung abgeschlossen!" -ForegroundColor Green
+    Write-Host "$movedCount Elemente wurden in den Papierkorb verschoben." -ForegroundColor Green
+    Write-Host ""
+    Write-Host "=== NÄCHSTE SCHRITTE ===" -ForegroundColor Yellow
+    Write-Host "1. Überprüfe den Papierkorb" -ForegroundColor White
+    Write-Host "2. Stelle wichtige Dateien ggf. wieder her" -ForegroundColor White
+    Write-Host "3. Leere den Papierkorb, um den Speicherplatz freizugeben" -ForegroundColor White
+}
+
+# Hinweis für Admin-Rechte
+if (-not ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole] "Administrator")) {
+    Write-Host ""
+    Write-Host "HINWEIS: Das Skript wurde nicht als Administrator ausgeführt." -ForegroundColor Yellow
+    Write-Host "Einige Dateien konnten möglicherweise nicht verschoben werden." -ForegroundColor Yellow
+}
 # Bitte vorher mit -WhatIf testen
 
 param(
