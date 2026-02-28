@@ -1,71 +1,40 @@
 # ============================================
-# Vollständiger Benutzer-Scan JAR NAMEN
-# Fehlerfrei – scannt alles außer Systemordner
+# Vollständiger PC JAR Scan (ohne C:\)
+# Nur Anzeige – nichts wird gelöscht
 # ============================================
 
-Write-Host "=== Benutzer-JAR Scan ===" -ForegroundColor Cyan
-Write-Host "Scannt alle zugänglichen Ordner, außer geschützte Systemordner" -ForegroundColor Yellow
+Write-Host "=== Multi-Laufwerk JAR Scan (kein C:) ===" -ForegroundColor Cyan
+Write-Host "Scannt alle Laufwerke außer C:\ für verdächtige JAR-Dateien" -ForegroundColor Yellow
 Write-Host ""
 
-# Basis-Namen (Beginnt-mit)
+# Basisnamen (Beginnt-mit)
 $baseNames = @(
-    "meteorclient",
-    "wurstclient",
-    "argon",
-    "krypton",
-    "catlean",
-    "betterping",
-    "clickcrystal",
-    "killaura",
-    "crystalaura",
-    "autoclick",
-    "triggerbot",
-    "aimassist",
-    "autocrystal",
-    "wtap",
-    "tpaura",
-    "autototem",
-    "playeresp",
-    "storageesp",
+    "meteorclient","wurstclient","argon","krypton","catlean",
+    "betterping","clickcrystal","killaura","crystalaura",
+    "autoclick","triggerbot","aimassist","autocrystal",
+    "wtap","tpaura","autototem","playeresp","storageesp",
     "system"
 )
-
 $patterns = $baseNames | ForEach-Object { "^$_.*" }
 
 $foundItems = @()
 $totalCount = 0
 
-# Startpunkt: alle Ordner im Benutzerprofil
-$rootPath = "$env:USERPROFILE"
+# Alle Laufwerke außer C: holen
+$drives = Get-PSDrive -PSProvider FileSystem | Where-Object { $_.Root -ne "C:\" }
 
-# Ordner, die wir **überspringen** wollen (Systemordner)
-$skipFolders = @(
-    "$rootPath\AppData\Local\Temp",
-    "$rootPath\AppData\LocalLow",
-    "$rootPath\AppData\Local\Packages",
-    "$rootPath\AppData\Roaming\Microsoft\Windows",
-    "$rootPath\AppData\Local\Microsoft\Windows",
-    "$rootPath\OneDrive",
-    "$rootPath\System Volume Information",
-    "$rootPath\$Recycle.Bin"
-)
+foreach ($drive in $drives) {
+    Write-Host "Scanne Laufwerk: $($drive.Root)" -ForegroundColor Gray
 
-# Funktion für rekursiven Scan
-function Scan-Folder($folder) {
-    # Ordner überspringen
-    foreach ($skip in $skipFolders) {
-        if ($folder -like "$skip*") { return }
-    }
-
-    # Dateien prüfen
     try {
-        Get-ChildItem $folder -Filter *.jar -ErrorAction SilentlyContinue | ForEach-Object {
-            $global:totalCount++
+        # Rekursiver Scan für .jar, Fehler ignorieren
+        Get-ChildItem $drive.Root -Recurse -Filter *.jar -ErrorAction SilentlyContinue | ForEach-Object {
+            $totalCount++
             $jarName = $_.Name.ToLower()
 
             foreach ($pattern in $patterns) {
                 if ($jarName -match $pattern) {
-                    $global:foundItems += [PSCustomObject]@{
+                    $foundItems += [PSCustomObject]@{
                         JAR   = $_.Name
                         Größe = "{0:N2} MB" -f ($_.Length / 1MB)
                         Pfad  = $_.FullName
@@ -74,21 +43,12 @@ function Scan-Folder($folder) {
                 }
             }
         }
-
-        # Unterordner rekursiv scannen
-        Get-ChildItem $folder -Directory -ErrorAction SilentlyContinue | ForEach-Object {
-            Scan-Folder $_.FullName
-        }
     }
     catch {
         # Fehler ignorieren
     }
 }
 
-# Start Scan
-Scan-Folder $rootPath
-
-# Ergebnisse anzeigen
 Write-Host ""
 Write-Host "=== ERGEBNIS ===" -ForegroundColor Cyan
 Write-Host "Gescannt: $totalCount JAR-Dateien"
@@ -96,8 +56,7 @@ Write-Host "Verdächtig: $($foundItems.Count)"
 
 if ($foundItems.Count -gt 0) {
     $foundItems | Sort-Object Pfad -Unique | Format-Table -AutoSize
-}
-else {
+} else {
     Write-Host "Keine passenden Dateinamen gefunden." -ForegroundColor Green
 }
 
