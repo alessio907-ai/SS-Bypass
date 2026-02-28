@@ -4,10 +4,10 @@
 # ============================================
 
 Write-Host "=== Vollständiger C:\ JAR NAMEN Scan ===" -ForegroundColor Cyan
-Write-Host "Durchsucht JAR-Dateinamen nach bekannten Client-Namen (Beginnt mit)." -ForegroundColor Yellow
+Write-Host "Durchsucht JAR-Dateinamen nach bekannten Mustern (Beginnt mit)." -ForegroundColor Yellow
 Write-Host ""
 
-# Basis-Namen
+# Basis-Namen (hier kannst du jederzeit erweitern)
 $baseNames = @(
     "meteorclient",
     "wurstclient",
@@ -15,6 +15,7 @@ $baseNames = @(
     "krypton",
     "betterping",
     "clickcrystal",
+    "catlean",
     "killaura",
     "crystalaura",
     "autoclick",
@@ -29,7 +30,7 @@ $baseNames = @(
     "system"
 )
 
-# Regex Muster automatisch erzeugen: ^name.*
+# Regex: beginnt mit Name
 $patterns = $baseNames | ForEach-Object { "^$_.*" }
 
 $foundItems = @()
