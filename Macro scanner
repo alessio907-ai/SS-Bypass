@@ -1,20 +1,24 @@
 # ============================================
-# EXPLORER STYLE JAR SCAN (C:\ komplett)
+# C:\ JAR STRING SCAN (kein Namens-Check)
 # Nur Anzeige – nichts wird gelöscht!
 # ============================================
 
-Write-Host "=== Vollständiger C:\ JAR Scan ===" -ForegroundColor Cyan
-Write-Host "Scannt alles wie im Explorer (nur .jar Dateien)." -ForegroundColor Yellow
+Write-Host "=== Vollständiger C:\ JAR STRING Scan ===" -ForegroundColor Cyan
+Write-Host "Durchsucht .class Dateien nach verdächtigen STRINGS." -ForegroundColor Yellow
 Write-Host ""
 
-$keywords = @(
-    "clickcrystal","argon","system.b1.5","system.b1.6","system.b1.7",
-    "meteor","wurst","krypton","aristois","impact",
-    "kami","lambda","rusher","wolfram","vengeance",
-    "novoline","sigma","jigsaw","zenith","pyro",
-    "cyanide","ghost","reach","killaura","xray",
-    "nuker","autoclick"
+Add-Type -AssemblyName System.IO.Compression.FileSystem
+
+# Verdächtige Fragmente
+$frags=@(
+"killaura","crystalaura","autoclick","triggerbot","aimassist","autocrystal","clickcrystal",
+"anchormacro","wtap","tpaura","placecrystal","breakcrystal","autototem","autoinv",
+"playeresp","storageesp","fastexp","doubleanchor","autoexplode"
 )
+
+$tempRoot = "$env:TEMP\JarScanTemp"
+if(Test-Path $tempRoot){ Remove-Item $tempRoot -Recurse -Force -ErrorAction SilentlyContinue }
+New-Item -ItemType Directory -Path $tempRoot | Out-Null
 
 $foundItems = @()
 $count = 0
@@ -23,38 +27,59 @@ Get-ChildItem "C:\" -Recurse -Filter *.jar -Force -ErrorAction SilentlyContinue 
 ForEach-Object {
 
     $count++
-
-    if ($count % 2000 -eq 0) {
+    if ($count % 100 -eq 0) {
         Write-Host "Gescannt: $count JAR-Dateien..." -ForegroundColor Gray
     }
 
-    $lower = $_.FullName.ToLower()
+    $jarPath = $_.FullName
+    $extractPath = Join-Path $tempRoot ([Guid]::NewGuid().ToString())
 
-    foreach ($word in $keywords) {
-        if ($lower -like "*$word*") {
+    try {
+        # Extrahieren
+        [System.IO.Compression.ZipFile]::ExtractToDirectory($jarPath, $extractPath)
 
-            $foundItems += [PSCustomObject]@{
-                Name  = $_.Name
-                Größe = "{0:N2} MB" -f ($_.Length / 1MB)
-                Pfad  = $_.FullName
-                Datum = $_.LastWriteTime
+        # Nur CLASS Dateien scannen
+        $classes = Get-ChildItem $extractPath -Recurse -Filter "*.class" -ErrorAction SilentlyContinue
+
+        foreach($c in $classes){
+            try{
+                $bytes = [System.IO.File]::ReadAllBytes($c.FullName)
+                $text  = [System.Text.Encoding]::ASCII.GetString($bytes).ToLower()
+
+                foreach($frag in $frags){
+                    if($text.Contains($frag)){
+
+                        $foundItems += [PSCustomObject]@{
+                            JAR    = $_.Name
+                            Treffer= $frag
+                            Größe  = "{0:N2} MB" -f ($_.Length / 1MB)
+                            Pfad   = $jarPath
+                        }
+
+                        break
+                    }
+                }
             }
-
-            break
+            catch{}
         }
+
+        Remove-Item $extractPath -Recurse -Force -ErrorAction SilentlyContinue
+    }
+    catch{
+        # kaputte JAR ignorieren
     }
 }
 
 Write-Host ""
 Write-Host "=== ERGEBNIS ===" -ForegroundColor Cyan
-Write-Host "Gescannt: $count JAR-Dateien" -ForegroundColor White
-Write-Host "Verdächtig: $($foundItems.Count)" -ForegroundColor White
+Write-Host "Gescannt: $count JAR-Dateien"
+Write-Host "Verdächtig: $($foundItems.Count)"
 
 if ($foundItems.Count -gt 0) {
     $foundItems | Sort-Object Pfad -Unique | Format-Table -AutoSize
 }
 else {
-    Write-Host "Keine verdächtigen JAR-Dateien gefunden." -ForegroundColor Green
+    Write-Host "Keine verdächtigen Strings gefunden." -ForegroundColor Green
 }
 
 Write-Host ""
