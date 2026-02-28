@@ -1,74 +1,66 @@
 # ============================================
-# C:\ JAR NAMEN SCAN (Beginnt-mit-Erkennung)
+# Vollständiger Benutzer-Laufwerk JAR NAMEN SCAN
 # Nur Anzeige – nichts wird gelöscht!
 # ============================================
 
-Write-Host "=== Vollständiger C:\ JAR NAMEN Scan ===" -ForegroundColor Cyan
-Write-Host "Durchsucht JAR-Dateinamen nach bekannten Mustern (Beginnt mit)." -ForegroundColor Yellow
+Write-Host "=== Stabiler Multi-Laufwerk JAR Scan ===" -ForegroundColor Cyan
+Write-Host "Scannt alle Laufwerke außer C:\ für bekannte Client-Namen" -ForegroundColor Yellow
 Write-Host ""
 
-# Basis-Namen (hier kannst du jederzeit erweitern)
+# Basisnamen (Beginnt-mit)
 $baseNames = @(
-    "meteorclient",
-    "wurstclient",
-    "argon",
-    "krypton",
-    "betterping",
-    "clickcrystal",
-    "catlean",
-    "killaura",
-    "crystalaura",
-    "autoclick",
-    "triggerbot",
-    "aimassist",
-    "autocrystal",
-    "wtap",
-    "tpaura",
-    "autototem",
-    "playeresp",
-    "storageesp",
+    "meteorclient","wurstclient","argon","krypton","catlean",
+    "betterping","clickcrystal","killaura","crystalaura",
+    "autoclick","triggerbot","aimassist","autocrystal",
+    "wtap","tpaura","autototem","playeresp","storageesp",
+    "system"
 )
 
-# Regex: beginnt mit Name
+# Regex-Muster erstellen
 $patterns = $baseNames | ForEach-Object { "^$_.*" }
 
 $foundItems = @()
-$count = 0
+$totalCount = 0
 
-Get-ChildItem "C:\" -Recurse -Filter *.jar -Force -ErrorAction SilentlyContinue |
-ForEach-Object {
+# Alle Laufwerke außer C: holen
+$drives = Get-PSDrive -PSProvider FileSystem | Where-Object { $_.Root -ne "C:\" }
 
-    $count++
-    if ($count % 100 -eq 0) {
-        Write-Host "Gescannt: $count JAR-Dateien..." -ForegroundColor Gray
-    }
+foreach ($drive in $drives) {
 
-    $jarName = $_.Name.ToLower()
+    Write-Host "Scanne Laufwerk: $($drive.Root)" -ForegroundColor Gray
 
-    foreach($pattern in $patterns){
-        if($jarName -match $pattern){
+    try {
+        # Rekursiver Scan nach *.jar, Fehler ignorieren
+        Get-ChildItem $drive.Root -Recurse -Filter *.jar -ErrorAction SilentlyContinue | ForEach-Object {
+            $totalCount++
+            $jarName = $_.Name.ToLower()
 
-            $foundItems += [PSCustomObject]@{
-                JAR     = $_.Name
-                Treffer = $pattern
-                Größe   = "{0:N2} MB" -f ($_.Length / 1MB)
-                Pfad    = $_.FullName
+            foreach ($pattern in $patterns) {
+                if ($jarName -match $pattern) {
+                    $foundItems += [PSCustomObject]@{
+                        JAR   = $_.Name
+                        Größe = "{0:N2} MB" -f ($_.Length / 1MB)
+                        Pfad  = $_.FullName
+                    }
+                    break
+                }
             }
-
-            break
         }
+    }
+    catch {
+        # Fehler ignorieren
     }
 }
 
+# Ergebnisse anzeigen
 Write-Host ""
 Write-Host "=== ERGEBNIS ===" -ForegroundColor Cyan
-Write-Host "Gescannt: $count JAR-Dateien"
+Write-Host "Gescannt: $totalCount JAR-Dateien"
 Write-Host "Verdächtig: $($foundItems.Count)"
 
 if ($foundItems.Count -gt 0) {
     $foundItems | Sort-Object Pfad -Unique | Format-Table -AutoSize
-}
-else {
+} else {
     Write-Host "Keine passenden Dateinamen gefunden." -ForegroundColor Green
 }
 
