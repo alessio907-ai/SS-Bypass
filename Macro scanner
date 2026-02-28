@@ -1,24 +1,31 @@
 # ============================================
-# C:\ JAR STRING SCAN (kein Namens-Check)
+# C:\ JAR NAMEN SCAN (Erweiterte Muster)
 # Nur Anzeige – nichts wird gelöscht!
 # ============================================
 
-Write-Host "=== Vollständiger C:\ JAR STRING Scan ===" -ForegroundColor Cyan
-Write-Host "Durchsucht .class Dateien nach verdächtigen STRINGS." -ForegroundColor Yellow
+Write-Host "=== Vollständiger C:\ JAR NAMEN Scan ===" -ForegroundColor Cyan
+Write-Host "Durchsucht JAR-Dateinamen nach auffälligen Mustern." -ForegroundColor Yellow
 Write-Host ""
 
-Add-Type -AssemblyName System.IO.Compression.FileSystem
-
-# Verdächtige Fragmente
-$frags=@(
-"killaura","crystalaura","autoclick","triggerbot","aimassist","autocrystal","clickcrystal",
-"anchormacro","wtap","tpaura","placecrystal","breakcrystal","autototem","autoinv",
-"playeresp","storageesp","fastexp","doubleanchor","autoexplode"
+# Allgemeine Muster (keine einzelne Cheat-Liste)
+$patterns = @(
+    "client",
+    "hack",
+    "cheat",
+    "utility",
+    "injector",
+    "loader",
+    "bypass",
+    "exploit",
+    "crack",
+    "ghost",
+    "mod",
+    "betterping",
+    "clickcrystal",
+    "krypton",
+    "kryptonclient",
+    "^system.*"
 )
-
-$tempRoot = "$env:TEMP\JarScanTemp"
-if(Test-Path $tempRoot){ Remove-Item $tempRoot -Recurse -Force -ErrorAction SilentlyContinue }
-New-Item -ItemType Directory -Path $tempRoot | Out-Null
 
 $foundItems = @()
 $count = 0
@@ -31,42 +38,20 @@ ForEach-Object {
         Write-Host "Gescannt: $count JAR-Dateien..." -ForegroundColor Gray
     }
 
-    $jarPath = $_.FullName
-    $extractPath = Join-Path $tempRoot ([Guid]::NewGuid().ToString())
+    $jarName = $_.Name.ToLower()
 
-    try {
-        # Extrahieren
-        [System.IO.Compression.ZipFile]::ExtractToDirectory($jarPath, $extractPath)
+    foreach($pattern in $patterns){
+        if($jarName -match $pattern){
 
-        # Nur CLASS Dateien scannen
-        $classes = Get-ChildItem $extractPath -Recurse -Filter "*.class" -ErrorAction SilentlyContinue
-
-        foreach($c in $classes){
-            try{
-                $bytes = [System.IO.File]::ReadAllBytes($c.FullName)
-                $text  = [System.Text.Encoding]::ASCII.GetString($bytes).ToLower()
-
-                foreach($frag in $frags){
-                    if($text.Contains($frag)){
-
-                        $foundItems += [PSCustomObject]@{
-                            JAR    = $_.Name
-                            Treffer= $frag
-                            Größe  = "{0:N2} MB" -f ($_.Length / 1MB)
-                            Pfad   = $jarPath
-                        }
-
-                        break
-                    }
-                }
+            $foundItems += [PSCustomObject]@{
+                JAR     = $_.Name
+                Treffer = $pattern
+                Größe   = "{0:N2} MB" -f ($_.Length / 1MB)
+                Pfad    = $_.FullName
             }
-            catch{}
-        }
 
-        Remove-Item $extractPath -Recurse -Force -ErrorAction SilentlyContinue
-    }
-    catch{
-        # kaputte JAR ignorieren
+            break
+        }
     }
 }
 
@@ -79,7 +64,7 @@ if ($foundItems.Count -gt 0) {
     $foundItems | Sort-Object Pfad -Unique | Format-Table -AutoSize
 }
 else {
-    Write-Host "Keine verdächtigen Strings gefunden." -ForegroundColor Green
+    Write-Host "Keine auffälligen Dateinamen gefunden." -ForegroundColor Green
 }
 
 Write-Host ""
