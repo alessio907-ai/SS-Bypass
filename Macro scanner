@@ -1,14 +1,12 @@
 # ============================================
-# FULL PC JAR SCAN (READ-ONLY)
-# Scannt ALLE .jar Dateien auf allen Laufwerken
-# Es wird NICHTS gelöscht!
+# EXPLORER STYLE JAR SCAN (C:\ komplett)
+# Nur Anzeige – nichts wird gelöscht!
 # ============================================
 
-Write-Host "=== Vollständiger JAR-Scan gestartet ===" -ForegroundColor Cyan
-Write-Host "Es werden alle .jar Dateien auf allen Laufwerken geprüft." -ForegroundColor Yellow
+Write-Host "=== Vollständiger C:\ JAR Scan ===" -ForegroundColor Cyan
+Write-Host "Scannt alles wie im Explorer (nur .jar Dateien)." -ForegroundColor Yellow
 Write-Host ""
 
-# Suchbegriffe
 $keywords = @(
     "clickcrystal","argon","system.b1.5","system.b1.6","system.b1.7",
     "meteor","wurst","krypton","aristois","impact",
@@ -18,49 +16,39 @@ $keywords = @(
     "nuker","autoclick"
 )
 
-# Systemlaufwerke automatisch erkennen
-$drives = Get-PSDrive -PSProvider FileSystem | Where-Object { $_.Free -ne $null }
-
 $foundItems = @()
-$totalScanned = 0
+$count = 0
 
-foreach ($drive in $drives) {
+Get-ChildItem "C:\" -Recurse -Filter *.jar -Force -ErrorAction SilentlyContinue |
+ForEach-Object {
 
-    Write-Host "Scanne Laufwerk: $($drive.Name):\" -ForegroundColor DarkGray
+    $count++
 
-    Get-ChildItem "$($drive.Name):\" -Recurse -Filter *.jar -Force -ErrorAction SilentlyContinue |
-    ForEach-Object {
+    if ($count % 2000 -eq 0) {
+        Write-Host "Gescannt: $count JAR-Dateien..." -ForegroundColor Gray
+    }
 
-        $totalScanned++
+    $lower = $_.FullName.ToLower()
 
-        # Fortschritt alle 1000 Dateien
-        if ($totalScanned % 1000 -eq 0) {
-            Write-Host "Gescannt: $totalScanned JAR-Dateien..." -ForegroundColor Gray
-        }
+    foreach ($word in $keywords) {
+        if ($lower -like "*$word*") {
 
-        $lower = $_.FullName.ToLower()
-
-        foreach ($word in $keywords) {
-            if ($lower -like "*$word*") {
-
-                $foundItems += [PSCustomObject]@{
-                    Name  = $_.Name
-                    Größe = "{0:N2} MB" -f ($_.Length / 1MB)
-                    Pfad  = $_.FullName
-                    Datum = $_.LastWriteTime
-                    Laufwerk = $drive.Name
-                }
-
-                break
+            $foundItems += [PSCustomObject]@{
+                Name  = $_.Name
+                Größe = "{0:N2} MB" -f ($_.Length / 1MB)
+                Pfad  = $_.FullName
+                Datum = $_.LastWriteTime
             }
+
+            break
         }
     }
 }
 
 Write-Host ""
 Write-Host "=== ERGEBNIS ===" -ForegroundColor Cyan
-Write-Host "Gesamt gescannte JAR-Dateien: $totalScanned" -ForegroundColor White
-Write-Host "Verdächtige Dateien: $($foundItems.Count)" -ForegroundColor White
+Write-Host "Gescannt: $count JAR-Dateien" -ForegroundColor White
+Write-Host "Verdächtig: $($foundItems.Count)" -ForegroundColor White
 
 if ($foundItems.Count -gt 0) {
     $foundItems | Sort-Object Pfad -Unique | Format-Table -AutoSize
