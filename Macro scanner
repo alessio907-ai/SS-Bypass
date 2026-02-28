@@ -1,18 +1,28 @@
 # ============================================
-# C:\ JAR NAMEN SCAN (Beginnt-mit-Erkennung)
+# Minecraft JAR NAMEN Scan (Stabile Version)
 # Nur Anzeige – nichts wird gelöscht!
 # ============================================
 
-Write-Host "=== Vollständiger C:\ JAR NAMEN Scan ===" -ForegroundColor Cyan
-Write-Host "Durchsucht JAR-Dateinamen nach bekannten Client-Namen (Beginnt mit)." -ForegroundColor Yellow
+Write-Host "=== Minecraft JAR Scan ===" -ForegroundColor Cyan
+
+$scanPath = "$env:APPDATA\.minecraft"
+
+if (!(Test-Path $scanPath)) {
+    Write-Host "Minecraft-Ordner nicht gefunden!" -ForegroundColor Red
+    Write-Host "Pfad: $scanPath"
+    exit
+}
+
+Write-Host "Scan-Pfad: $scanPath" -ForegroundColor Yellow
 Write-Host ""
 
-# Basis-Namen
+# Namen die erkannt werden sollen (Beginnt-mit)
 $baseNames = @(
     "meteorclient",
     "wurstclient",
     "argon",
     "krypton",
+    "catlean",
     "betterping",
     "clickcrystal",
     "killaura",
@@ -29,30 +39,24 @@ $baseNames = @(
     "system"
 )
 
-# Regex Muster automatisch erzeugen: ^name.*
 $patterns = $baseNames | ForEach-Object { "^$_.*" }
 
 $foundItems = @()
 $count = 0
 
-Get-ChildItem "C:\" -Recurse -Filter *.jar -Force -ErrorAction SilentlyContinue |
+Get-ChildItem $scanPath -Recurse -Filter *.jar -ErrorAction SilentlyContinue |
 ForEach-Object {
 
     $count++
-    if ($count % 100 -eq 0) {
-        Write-Host "Gescannt: $count JAR-Dateien..." -ForegroundColor Gray
-    }
-
     $jarName = $_.Name.ToLower()
 
     foreach($pattern in $patterns){
         if($jarName -match $pattern){
 
             $foundItems += [PSCustomObject]@{
-                JAR     = $_.Name
-                Treffer = $pattern
-                Größe   = "{0:N2} MB" -f ($_.Length / 1MB)
-                Pfad    = $_.FullName
+                JAR   = $_.Name
+                Größe = "{0:N2} MB" -f ($_.Length / 1MB)
+                Pfad  = $_.FullName
             }
 
             break
