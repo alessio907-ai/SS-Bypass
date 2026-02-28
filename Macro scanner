@@ -1,10 +1,11 @@
 # ============================================
-# Minecraft JAR Scan (Nur Anzeige)
-# Scannt nur .jar Dateien
+# FULL PC JAR SCAN (READ-ONLY)
+# Scannt ALLE .jar Dateien auf allen Laufwerken
+# Es wird NICHTS gelöscht!
 # ============================================
 
-Write-Host "=== Minecraft JAR Analyse ===" -ForegroundColor Cyan
-Write-Host "Es werden nur .jar Dateien geprüft." -ForegroundColor Yellow
+Write-Host "=== Vollständiger JAR-Scan gestartet ===" -ForegroundColor Cyan
+Write-Host "Es werden alle .jar Dateien auf allen Laufwerken geprüft." -ForegroundColor Yellow
 Write-Host ""
 
 # Suchbegriffe
@@ -17,38 +18,37 @@ $keywords = @(
     "nuker","autoclick"
 )
 
-# Nur typische Minecraft-Orte
-$searchPaths = @(
-    "$env:APPDATA\.minecraft\mods",
-    "$env:APPDATA\.minecraft\versions",
-    "$env:USERPROFILE\Downloads",
-    "$env:USERPROFILE\Desktop"
-)
+# Systemlaufwerke automatisch erkennen
+$drives = Get-PSDrive -PSProvider FileSystem | Where-Object { $_.Free -ne $null }
 
 $foundItems = @()
 $totalScanned = 0
 
-foreach ($path in $searchPaths) {
+foreach ($drive in $drives) {
 
-    if (-not (Test-Path $path)) { continue }
+    Write-Host "Scanne Laufwerk: $($drive.Name):\" -ForegroundColor DarkGray
 
-    Write-Host "Scanne: $path" -ForegroundColor DarkGray
-
-    Get-ChildItem -Path $path -Recurse -Filter *.jar -ErrorAction SilentlyContinue |
+    Get-ChildItem "$($drive.Name):\" -Recurse -Filter *.jar -Force -ErrorAction SilentlyContinue |
     ForEach-Object {
 
         $totalScanned++
 
-        $lowerName = $_.FullName.ToLower()
+        # Fortschritt alle 1000 Dateien
+        if ($totalScanned % 1000 -eq 0) {
+            Write-Host "Gescannt: $totalScanned JAR-Dateien..." -ForegroundColor Gray
+        }
+
+        $lower = $_.FullName.ToLower()
 
         foreach ($word in $keywords) {
-            if ($lowerName -like "*$word*") {
+            if ($lower -like "*$word*") {
 
                 $foundItems += [PSCustomObject]@{
                     Name  = $_.Name
                     Größe = "{0:N2} MB" -f ($_.Length / 1MB)
                     Pfad  = $_.FullName
                     Datum = $_.LastWriteTime
+                    Laufwerk = $drive.Name
                 }
 
                 break
@@ -59,11 +59,11 @@ foreach ($path in $searchPaths) {
 
 Write-Host ""
 Write-Host "=== ERGEBNIS ===" -ForegroundColor Cyan
-Write-Host "Gescannt: $totalScanned JAR-Dateien" -ForegroundColor White
-Write-Host "Verdächtig: $($foundItems.Count)" -ForegroundColor White
+Write-Host "Gesamt gescannte JAR-Dateien: $totalScanned" -ForegroundColor White
+Write-Host "Verdächtige Dateien: $($foundItems.Count)" -ForegroundColor White
 
 if ($foundItems.Count -gt 0) {
-    $foundItems | Sort-Object Pfad | Format-Table -AutoSize
+    $foundItems | Sort-Object Pfad -Unique | Format-Table -AutoSize
 }
 else {
     Write-Host "Keine verdächtigen JAR-Dateien gefunden." -ForegroundColor Green
