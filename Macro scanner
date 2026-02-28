@@ -1,12 +1,12 @@
 # ============================================
-# Stabile JAR Scan (Benutzer-Ordner)
+# Stabile JAR Scan (Erweiterte Benutzer-Ordner)
 # ============================================
 
 Write-Host "=== Stabiler JAR Scan ===" -ForegroundColor Cyan
-Write-Host "Scannt Desktop, Downloads, Documents, Roaming & .minecraft" -ForegroundColor Yellow
+Write-Host "Scannt viele typische Benutzer- & Minecraft-Ordner" -ForegroundColor Yellow
 Write-Host ""
 
-# Basisnamen
+# Basisnamen (UNVERÄNDERT)
 $baseNames = @(
     "meteorclient","wurstclient","argon","krypton","catlean",
     "betterping","clickcrystal","killaura","crystalaura",
@@ -14,21 +14,49 @@ $baseNames = @(
     "wtap","tpaura","autototem","playeresp","storageesp",
     "system"
 )
+
 $patterns = $baseNames | ForEach-Object { "^$_.*" }
 
 $foundItems = @()
 $totalCount = 0
 
-# Benutzer-Ordner
+# 🔎 ERWEITERTE ORDNERLISTE (nur das wurde erweitert)
 $scanFolders = @(
+    # Standard User Ordner
     "$env:USERPROFILE\Desktop",
     "$env:USERPROFILE\Downloads",
     "$env:USERPROFILE\Documents",
+    "$env:USERPROFILE\Pictures",
+    "$env:USERPROFILE\Videos",
+    "$env:USERPROFILE\Music",
+
+    # AppData
     "$env:APPDATA",
-    "$env:APPDATA\.minecraft"
+    "$env:LOCALAPPDATA",
+    "$env:LOCALAPPDATA\Temp",
+
+    # Minecraft & Launcher
+    "$env:APPDATA\.minecraft",
+    "$env:LOCALAPPDATA\.minecraft",
+    "$env:APPDATA\.tlauncher",
+    "$env:APPDATA\.lunarclient",
+    "$env:APPDATA\.feather",
+    "$env:APPDATA\.badlion",
+    "$env:APPDATA\.curseforge",
+    "$env:APPDATA\PrismLauncher",
+    "$env:APPDATA\MultiMC",
+
+    # Öffentliche Benutzerordner
+    "C:\Users\Public\Desktop",
+    "C:\Users\Public\Downloads",
+    "C:\Users\Public\Documents",
+
+    # Temp & allgemeine Speicherorte
+    "C:\Temp",
+    "C:\Windows\Temp"
 )
 
-foreach ($folder in $scanFolders) {
+foreach ($folder in $scanFolders | Select-Object -Unique) {
     if (-not (Test-Path $folder)) { continue }
 
     Write-Host "Scanne: $folder" -ForegroundColor Gray
