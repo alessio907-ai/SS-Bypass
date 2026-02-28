@@ -1,22 +1,13 @@
 # ============================================
-# Minecraft JAR NAMEN Scan (Stabile Version)
-# Nur Anzeige – nichts wird gelöscht!
+# Vollständiger Benutzer-Scan JAR NAMEN
+# Fehlerfrei – scannt alles außer Systemordner
 # ============================================
 
-Write-Host "=== Minecraft JAR Scan ===" -ForegroundColor Cyan
-
-$scanPath = "$env:APPDATA\.minecraft"
-
-if (!(Test-Path $scanPath)) {
-    Write-Host "Minecraft-Ordner nicht gefunden!" -ForegroundColor Red
-    Write-Host "Pfad: $scanPath"
-    exit
-}
-
-Write-Host "Scan-Pfad: $scanPath" -ForegroundColor Yellow
+Write-Host "=== Benutzer-JAR Scan ===" -ForegroundColor Cyan
+Write-Host "Scannt alle zugänglichen Ordner, außer geschützte Systemordner" -ForegroundColor Yellow
 Write-Host ""
 
-# Namen die erkannt werden sollen (Beginnt-mit)
+# Basis-Namen (Beginnt-mit)
 $baseNames = @(
     "meteorclient",
     "wurstclient",
@@ -42,31 +33,65 @@ $baseNames = @(
 $patterns = $baseNames | ForEach-Object { "^$_.*" }
 
 $foundItems = @()
-$count = 0
+$totalCount = 0
 
-Get-ChildItem $scanPath -Recurse -Filter *.jar -ErrorAction SilentlyContinue |
-ForEach-Object {
+# Startpunkt: alle Ordner im Benutzerprofil
+$rootPath = "$env:USERPROFILE"
 
-    $count++
-    $jarName = $_.Name.ToLower()
+# Ordner, die wir **überspringen** wollen (Systemordner)
+$skipFolders = @(
+    "$rootPath\AppData\Local\Temp",
+    "$rootPath\AppData\LocalLow",
+    "$rootPath\AppData\Local\Packages",
+    "$rootPath\AppData\Roaming\Microsoft\Windows",
+    "$rootPath\AppData\Local\Microsoft\Windows",
+    "$rootPath\OneDrive",
+    "$rootPath\System Volume Information",
+    "$rootPath\$Recycle.Bin"
+)
 
-    foreach($pattern in $patterns){
-        if($jarName -match $pattern){
+# Funktion für rekursiven Scan
+function Scan-Folder($folder) {
+    # Ordner überspringen
+    foreach ($skip in $skipFolders) {
+        if ($folder -like "$skip*") { return }
+    }
 
-            $foundItems += [PSCustomObject]@{
-                JAR   = $_.Name
-                Größe = "{0:N2} MB" -f ($_.Length / 1MB)
-                Pfad  = $_.FullName
+    # Dateien prüfen
+    try {
+        Get-ChildItem $folder -Filter *.jar -ErrorAction SilentlyContinue | ForEach-Object {
+            $global:totalCount++
+            $jarName = $_.Name.ToLower()
+
+            foreach ($pattern in $patterns) {
+                if ($jarName -match $pattern) {
+                    $global:foundItems += [PSCustomObject]@{
+                        JAR   = $_.Name
+                        Größe = "{0:N2} MB" -f ($_.Length / 1MB)
+                        Pfad  = $_.FullName
+                    }
+                    break
+                }
             }
-
-            break
         }
+
+        # Unterordner rekursiv scannen
+        Get-ChildItem $folder -Directory -ErrorAction SilentlyContinue | ForEach-Object {
+            Scan-Folder $_.FullName
+        }
+    }
+    catch {
+        # Fehler ignorieren
     }
 }
 
+# Start Scan
+Scan-Folder $rootPath
+
+# Ergebnisse anzeigen
 Write-Host ""
 Write-Host "=== ERGEBNIS ===" -ForegroundColor Cyan
-Write-Host "Gescannt: $count JAR-Dateien"
+Write-Host "Gescannt: $totalCount JAR-Dateien"
 Write-Host "Verdächtig: $($foundItems.Count)"
 
 if ($foundItems.Count -gt 0) {
