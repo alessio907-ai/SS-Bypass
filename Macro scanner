@@ -1,72 +1,32 @@
 # ============================================
-# Cheat-Client Scan (READ-ONLY)
-# Es wird NICHTS gelöscht oder verschoben!
+# Minecraft JAR Scan (Nur Anzeige)
+# Scannt nur .jar Dateien
 # ============================================
 
-param(
-    [switch]$Verbose
-)
-
-Write-Host "=== Cheat-Client Analyse (Nur Scan) ===" -ForegroundColor Cyan
-Write-Host "Es werden KEINE Dateien gelöscht oder verschoben." -ForegroundColor Yellow
+Write-Host "=== Minecraft JAR Analyse ===" -ForegroundColor Cyan
+Write-Host "Es werden nur .jar Dateien geprüft." -ForegroundColor Yellow
 Write-Host ""
 
-# Suchmuster
-$searchPatterns = @(
-    "*clickcrystal*",
-    "*argon*",
-    "*system.b1.5*",
-    "*system.b1.6*",
-    "*system.b1.7*",
-    "*metorclient*",
-    "*meteorclient*",
-    "*wurst*",
-    "*krypton*",
-    "*aristois*",
-    "*impact*",
-    "*kami*",
-    "*lambda*",
-    "*rusher*",
-    "*wolfram*",
-    "*vengeance*",
-    "*novoline*",
-    "*sigma*",
-    "*jigsaw*",
-    "*zenith*",
-    "*pyro*",
-    "*cyanide*",
-    "*cheat*client*",
-    "*hack*client*",
-    "*ghost*",
-    "*reach*",
-    "*killaura*",
-    "*xray*",
-    "*nuker*",
-    "*fly*hack*",
-    "*speed*hack*",
-    "*autoclick*"
+# Suchbegriffe
+$keywords = @(
+    "clickcrystal","argon","system.b1.5","system.b1.6","system.b1.7",
+    "meteor","wurst","krypton","aristois","impact",
+    "kami","lambda","rusher","wolfram","vengeance",
+    "novoline","sigma","jigsaw","zenith","pyro",
+    "cyanide","ghost","reach","killaura","xray",
+    "nuker","autoclick"
 )
 
-# Zu durchsuchende Pfade
+# Nur typische Minecraft-Orte
 $searchPaths = @(
-    "$env:USERPROFILE",
+    "$env:APPDATA\.minecraft\mods",
+    "$env:APPDATA\.minecraft\versions",
     "$env:USERPROFILE\Downloads",
-    "$env:USERPROFILE\Desktop",
-    "$env:USERPROFILE\Documents",
-    "$env:APPDATA",
-    "$env:LOCALAPPDATA",
-    "$env:APPDATA\.minecraft"
-)
-
-# Ausgeschlossene Systempfade
-$excludedPaths = @(
-    "C:\Windows",
-    "C:\Program Files",
-    "C:\Program Files (x86)",
-    "C:\ProgramData"
+    "$env:USERPROFILE\Desktop"
 )
 
 $foundItems = @()
+$totalScanned = 0
 
 foreach ($path in $searchPaths) {
 
@@ -74,41 +34,24 @@ foreach ($path in $searchPaths) {
 
     Write-Host "Scanne: $path" -ForegroundColor DarkGray
 
-    foreach ($pattern in $searchPatterns) {
+    Get-ChildItem -Path $path -Recurse -Filter *.jar -ErrorAction SilentlyContinue |
+    ForEach-Object {
 
-        try {
-            $items = Get-ChildItem -Path $path -Recurse -Force -ErrorAction SilentlyContinue |
-                Where-Object {
-                    ($_.Name -like $pattern -or $_.FullName -like "*$($pattern.Replace('*',''))*")
+        $totalScanned++
+
+        $lowerName = $_.FullName.ToLower()
+
+        foreach ($word in $keywords) {
+            if ($lowerName -like "*$word*") {
+
+                $foundItems += [PSCustomObject]@{
+                    Name  = $_.Name
+                    Größe = "{0:N2} MB" -f ($_.Length / 1MB)
+                    Pfad  = $_.FullName
+                    Datum = $_.LastWriteTime
                 }
 
-            foreach ($item in $items) {
-
-                # Systempfade überspringen
-                $skip = $false
-                foreach ($excluded in $excludedPaths) {
-                    if ($item.FullName -like "$excluded*") {
-                        $skip = $true
-                        break
-                    }
-                }
-
-                if (-not $skip) {
-                    $foundItems += [PSCustomObject]@{
-                        Name  = $item.Name
-                        Typ   = if ($item.PSIsContainer) { "Ordner" } else { "Datei" }
-                        Größe = if (-not $item.PSIsContainer) { 
-                                    "{0:N2} MB" -f ($item.Length / 1MB) 
-                                } else { "-" }
-                        Pfad  = $item.FullName
-                        Datum = $item.LastWriteTime
-                    }
-                }
-            }
-
-        } catch {
-            if ($Verbose) {
-                Write-Host "Fehler bei $path : $_" -ForegroundColor Yellow
+                break
             }
         }
     }
@@ -116,21 +59,14 @@ foreach ($path in $searchPaths) {
 
 Write-Host ""
 Write-Host "=== ERGEBNIS ===" -ForegroundColor Cyan
+Write-Host "Gescannt: $totalScanned JAR-Dateien" -ForegroundColor White
+Write-Host "Verdächtig: $($foundItems.Count)" -ForegroundColor White
 
 if ($foundItems.Count -gt 0) {
-    Write-Host "Gefundene Elemente: $($foundItems.Count)" -ForegroundColor White
-    $foundItems | Sort-Object Pfad | Format-Table -AutoSize | Out-Host
-
-    # Optionaler Report
-    $logPath = "$env:USERPROFILE\Desktop\Scan_Report_$(Get-Date -Format 'yyyyMMdd_HHmmss').csv"
-    $foundItems | Export-Csv -Path $logPath -NoTypeInformation -Encoding UTF8
-
-    Write-Host ""
-    Write-Host "Report gespeichert unter:" -ForegroundColor Green
-    Write-Host $logPath -ForegroundColor Green
+    $foundItems | Sort-Object Pfad | Format-Table -AutoSize
 }
 else {
-    Write-Host "Keine passenden Dateien oder Ordner gefunden." -ForegroundColor Green
+    Write-Host "Keine verdächtigen JAR-Dateien gefunden." -ForegroundColor Green
 }
 
 Write-Host ""
