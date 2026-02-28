@@ -1,31 +1,36 @@
 # ============================================
-# C:\ JAR NAMEN SCAN (Erweiterte Muster)
+# C:\ JAR NAMEN SCAN (Beginnt-mit-Erkennung)
 # Nur Anzeige – nichts wird gelöscht!
 # ============================================
 
 Write-Host "=== Vollständiger C:\ JAR NAMEN Scan ===" -ForegroundColor Cyan
-Write-Host "Durchsucht JAR-Dateinamen nach auffälligen Mustern." -ForegroundColor Yellow
+Write-Host "Durchsucht JAR-Dateinamen nach bekannten Client-Namen (Beginnt mit)." -ForegroundColor Yellow
 Write-Host ""
 
-# Allgemeine Muster (keine einzelne Cheat-Liste)
-$patterns = @(
-    "client",
-    "hack",
-    "cheat",
-    "utility",
-    "injector",
-    "loader",
-    "bypass",
-    "exploit",
-    "crack",
-    "ghost",
-    "mod",
+# Basis-Namen
+$baseNames = @(
+    "meteorclient",
+    "wurstclient",
+    "argon",
+    "krypton",
     "betterping",
     "clickcrystal",
-    "krypton",
-    "kryptonclient",
-    "^system.*"
+    "killaura",
+    "crystalaura",
+    "autoclick",
+    "triggerbot",
+    "aimassist",
+    "autocrystal",
+    "wtap",
+    "tpaura",
+    "autototem",
+    "playeresp",
+    "storageesp",
+    "system"
 )
+
+# Regex Muster automatisch erzeugen: ^name.*
+$patterns = $baseNames | ForEach-Object { "^$_.*" }
 
 $foundItems = @()
 $count = 0
@@ -64,7 +69,7 @@ if ($foundItems.Count -gt 0) {
     $foundItems | Sort-Object Pfad -Unique | Format-Table -AutoSize
 }
 else {
-    Write-Host "Keine auffälligen Dateinamen gefunden." -ForegroundColor Green
+    Write-Host "Keine passenden Dateinamen gefunden." -ForegroundColor Green
 }
 
 Write-Host ""
