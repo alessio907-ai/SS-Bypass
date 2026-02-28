@@ -1,66 +1,75 @@
 # ============================================
-# Vollständiger Benutzer-Laufwerk JAR NAMEN SCAN
+# C:\ JAR NAMEN SCAN (Beginnt-mit-Erkennung)
 # Nur Anzeige – nichts wird gelöscht!
 # ============================================
 
-Write-Host "=== Stabiler Multi-Laufwerk JAR Scan ===" -ForegroundColor Cyan
-Write-Host "Scannt alle Laufwerke außer C:\ für bekannte Client-Namen" -ForegroundColor Yellow
+Write-Host "=== Vollständiger C:\ JAR NAMEN Scan ===" -ForegroundColor Cyan
+Write-Host "Durchsucht JAR-Dateinamen nach bekannten Mustern (Beginnt mit)." -ForegroundColor Yellow
 Write-Host ""
 
-# Basisnamen (Beginnt-mit)
+# Basis-Namen (hier kannst du jederzeit erweitern)
 $baseNames = @(
-    "meteorclient","wurstclient","argon","krypton","catlean",
-    "betterping","clickcrystal","killaura","crystalaura",
-    "autoclick","triggerbot","aimassist","autocrystal",
-    "wtap","tpaura","autototem","playeresp","storageesp",
+    "meteorclient",
+    "wurstclient",
+    "argon",
+    "krypton",
+    "betterping",
+    "clickcrystal",
+    "catlean",
+    "killaura",
+    "crystalaura",
+    "autoclick",
+    "triggerbot",
+    "aimassist",
+    "autocrystal",
+    "wtap",
+    "tpaura",
+    "autototem",
+    "playeresp",
+    "storageesp",
     "system"
 )
 
-# Regex-Muster erstellen
+# Regex: beginnt mit Name
 $patterns = $baseNames | ForEach-Object { "^$_.*" }
 
 $foundItems = @()
-$totalCount = 0
+$count = 0
 
-# Alle Laufwerke außer C: holen
-$drives = Get-PSDrive -PSProvider FileSystem | Where-Object { $_.Root -ne "C:\" }
+Get-ChildItem "C:\" -Recurse -Filter *.jar -Force -ErrorAction SilentlyContinue |
+ForEach-Object {
 
-foreach ($drive in $drives) {
-
-    Write-Host "Scanne Laufwerk: $($drive.Root)" -ForegroundColor Gray
-
-    try {
-        # Rekursiver Scan nach *.jar, Fehler ignorieren
-        Get-ChildItem $drive.Root -Recurse -Filter *.jar -ErrorAction SilentlyContinue | ForEach-Object {
-            $totalCount++
-            $jarName = $_.Name.ToLower()
-
-            foreach ($pattern in $patterns) {
-                if ($jarName -match $pattern) {
-                    $foundItems += [PSCustomObject]@{
-                        JAR   = $_.Name
-                        Größe = "{0:N2} MB" -f ($_.Length / 1MB)
-                        Pfad  = $_.FullName
-                    }
-                    break
-                }
-            }
-        }
+    $count++
+    if ($count % 100 -eq 0) {
+        Write-Host "Gescannt: $count JAR-Dateien..." -ForegroundColor Gray
     }
-    catch {
-        # Fehler ignorieren
+
+    $jarName = $_.Name.ToLower()
+
+    foreach($pattern in $patterns){
+        if($jarName -match $pattern){
+
+            $foundItems += [PSCustomObject]@{
+                JAR     = $_.Name
+                Treffer = $pattern
+                Größe   = "{0:N2} MB" -f ($_.Length / 1MB)
+                Pfad    = $_.FullName
+            }
+
+            break
+        }
     }
 }
 
-# Ergebnisse anzeigen
 Write-Host ""
 Write-Host "=== ERGEBNIS ===" -ForegroundColor Cyan
-Write-Host "Gescannt: $totalCount JAR-Dateien"
+Write-Host "Gescannt: $count JAR-Dateien"
 Write-Host "Verdächtig: $($foundItems.Count)"
 
 if ($foundItems.Count -gt 0) {
     $foundItems | Sort-Object Pfad -Unique | Format-Table -AutoSize
-} else {
+}
+else {
     Write-Host "Keine passenden Dateinamen gefunden." -ForegroundColor Green
 }
 
