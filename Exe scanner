@@ -28,17 +28,7 @@ Write-Host ""
 # ===== SUCHBEGRIFFE (IN KLEINBUCHSTABEN FÜR VERGLEICH) =====
 $searchTerms = @(
     "prestige",
-    "client",
-    "java",
-    "agent",
-    "injectable",
-    "inject",
-    "loader",
-    "bypass",
-    "cheat",
-    "ghost",
-    "blur",
-    "config"
+    "inject"
 )
 
 Write-Host "📋 Suchbegriffe: $($searchTerms -join ', ')" -ForegroundColor Yellow
