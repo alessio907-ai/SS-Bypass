@@ -1,42 +1,155 @@
 # =========================================
-# DEEP INJECTABLE CLIENT SCANNER
+# PRESTIGE / INJECTABLE CLIENT SCANNER
 # =========================================
 
 $ErrorActionPreference = "SilentlyContinue"
 
-Write-Host "=== INJECTABLE CLIENT DEEP SCAN ===" -ForegroundColor Cyan
+Write-Host "=== PRESTIGE CLIENT / INJECTABLE SCANNER ===" -ForegroundColor Cyan
+Write-Host "Suchbegriffe: prestige, inject, cheat-spezifische DLLs" -ForegroundColor Yellow
+Write-Host ""
 
-# Suchbegriffe im Inhalt
-$searchTerms = @("prestige","blur","inject","client")
-
-# Typische Orte
-$scanPaths = @(
-    "$env:APPDATA\.minecraft\logs",
-    "$env:APPDATA\.minecraft\crash-reports",
-    "$env:APPDATA",
-    "$env:LOCALAPPDATA",
-    "$env:USERPROFILE\Downloads",
-    "$env:USERPROFILE\Desktop",
-    "$env:APPDATA\.minecraft\mods"
+# SPEZIFISCHE SUCHBEGRIFFE FÜR PRESTIGE & INJEKTION
+$searchTerms = @(
+    "prestige",
+    "Prestige",
+    "inject",
+    "Injection",
+    "injected",
+    "loader",
+    "DLLInjector",
+    "jni",
+    "agent",
+    "javaagent",
+    "-javaagent",
+    "native"
 )
 
-foreach ($path in $scanPaths) {
-    if (Test-Path $path) {
-        Write-Host "Scanning $path ..."
+# DLL-Dateien, die auf Injektion hindeuten
+$dllPatterns = @(
+    "inject*.dll",
+    "prestige*.dll",
+    "loader*.dll",
+    "agent*.dll"
+)
 
-        Get-ChildItem $path -Recurse -File -Force -Include *.log,*.txt,*.class,*.* |
+# TYPISCHE ORTE FÜR INJEKTIONS-CLIENTS
+$scanPaths = @(
+    "$env:APPDATA\.minecraft",
+    "$env:APPDATA\.minecraft\bin",
+    "$env:APPDATA\.minecraft\Cache_60",
+    "$env:APPDATA\.minecraft\natives",
+    "$env:APPDATA\.minecraft\versions",
+    "$env:APPDATA\.feather",
+    "$env:APPDATA\.lunarclient",
+    "$env:LOCALAPPDATA\Temp",
+    "$env:USERPROFILE\Downloads",
+    "$env:USERPROFILE\Desktop",
+    "$env:USERPROFILE\Documents",
+    "$env:ProgramData"
+)
+
+# ZUSÄTZLICHE VERSTECKE ORTE
+$extraPaths = @(
+    "$env:LOCALAPPDATA\Programs",
+    "$env:APPDATA\Microsoft\Windows\Start Menu\Programs\Startup",
+    "C:\ProgramData\Microsoft\Windows\Start Menu\Programs\Startup"
+)
+
+$scanPaths += $extraPaths
+
+# GEFUNDENE DATEIEN SPEICHERN
+$foundItems = @()
+
+Write-Host "Starte Tiefenscan..." -ForegroundColor Green
+Write-Host ""
+
+foreach ($basePath in $scanPaths) {
+    if (Test-Path $basePath) {
+        Write-Host "Scanning $basePath ..." -ForegroundColor Gray
+
+        # SCAN NACH DATEIEN MIT PRESTIGE/INJEKT-BEGRIFFEN
+        Get-ChildItem $basePath -Recurse -File -Force -ErrorAction SilentlyContinue |
         ForEach-Object {
             $file = $_.FullName
+            $fileName = $_.Name
+
+            # 1. NACH DATEINAMEN SUCHEN
             foreach ($term in $searchTerms) {
+                if ($fileName -like "*$term*") {
+                    Write-Host "MATCH FOUND (Filename): $file" -ForegroundColor Red
+                    $foundItems += $file
+                    break
+                }
+            }
+
+            # 2. NACH DLL-PATTERN SUCHEN
+            foreach ($pattern in $dllPatterns) {
+                if ($fileName -like $pattern) {
+                    Write-Host "MATCH FOUND (DLL Pattern): $file" -ForegroundColor Red
+                    $foundItems += $file
+                    break
+                }
+            }
+
+            # 3. IN DATEIEN SUCHEN (NUR BEI BESTIMMTEN TYPEN)
+            if ($file -match "\.(log|txt|json|properties|class|jar|exe|dll|cfg|bat|ps1)$") {
                 try {
-                    if (Select-String -Path $file -Pattern $term -Quiet) {
-                        Write-Host "MATCH FOUND in $file" -ForegroundColor Red
-                        break
+                    $content = Get-Content $file -TotalCount 50 -ErrorAction SilentlyContinue
+                    foreach ($term in $searchTerms) {
+                        if ($content -match $term) {
+                            Write-Host "MATCH FOUND (Content): $file" -ForegroundColor Red
+                            $foundItems += $file
+                            break
+                        }
                     }
                 } catch {}
             }
         }
+    } else {
+        Write-Host "Path not found: $basePath" -ForegroundColor DarkGray
     }
 }
 
-Write-Host "`nScan finished. NOTHING was deleted." -ForegroundColor Green
+# SPEZIAL-SCAN: PRÜFE AUF UNGEWÖHNLICHE JVM-PARAMETER
+Write-Host ""
+Write-Host "Prüfe auf JVM-Parameter..." -ForegroundColor Yellow
+
+$jvmFiles = @(
+    "$env:APPDATA\.minecraft\launcher_profiles.json",
+    "$env:APPDATA\.minecraft\launcher_accounts.json",
+    "$env:APPDATA\.minecraft\options.txt"
+)
+
+foreach ($jvmFile in $jvmFiles) {
+    if (Test-Path $jvmFile) {
+        $content = Get-Content $jvmFile -Raw -ErrorAction SilentlyContinue
+        if ($content -match "-javaagent" -or $content -match "inject" -or $content -match "prestige") {
+            Write-Host "JVM PARAMETER FOUND in $jvmFile" -ForegroundColor Red
+            $foundItems += "$jvmFile (JVM-Parameter)"
+        }
+    }
+}
+
+# SPEZIAL-SCAN: PRÜFE AUF VERSTECKTE PROZESSE
+Write-Host ""
+Write-Host "Prüfe auf laufende Prozesse..." -ForegroundColor Yellow
+
+$processes = Get-Process | Where-Object { $_.ProcessName -like "*prestige*" -or $_.ProcessName -like "*inject*" -or $_.ProcessName -like "*loader*" }
+if ($processes) {
+    Write-Host "VERDÄCHTIGE PROZESSE GEFUNDEN:" -ForegroundColor Red
+    $processes | ForEach-Object { Write-Host "  $($_.ProcessName) (PID: $($_.Id))" -ForegroundColor Red }
+}
+
+# ZUSAMMENFASSUNG
+Write-Host ""
+Write-Host "========== SCAN ERGEBNIS ==========" -ForegroundColor Cyan
+if ($foundItems.Count -gt 0) {
+    Write-Host "GEFUNDENE VERDÄCHTIGE DATEIEN: $($foundItems.Count)" -ForegroundColor Red
+    $foundItems | ForEach-Object { Write-Host "  - $_" -ForegroundColor Yellow }
+} else {
+    Write-Host "KEINE PRESTIGE/INJEKT-DATEIEN GEFUNDEN" -ForegroundColor Green
+}
+
+Write-Host ""
+Write-Host "Scan finished. NOTHING was deleted." -ForegroundColor Green
+Write-Host "Prüfe die gefundenen Dateien manuell!" -ForegroundColor Yellow
