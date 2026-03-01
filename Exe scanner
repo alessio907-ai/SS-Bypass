@@ -1,57 +1,1035 @@
-# =========================================
-# PRESTIGE .BLUR-CONFIG SCANNER
-# =========================================
+# ===============================================================================================
+# PRESTIGE CLIENT ULTIMATE DEEP SCANNER V6.66
+# ===============================================================================================
+# Dieses Skript durchsucht JEDEN Winkel deines Systems nach Prestige Client Spuren
+# Geschrieben für maximalen Erfolg - 1000+ Zeilen reine Power!
+# ===============================================================================================
 
-$configPath = "$env:USERPROFILE\.blur-config"
+[CmdletBinding()]
+param(
+    [switch]$AutoCopy,
+    [switch]$Force,
+    [string]$OutputPath = "$env:USERPROFILE\Desktop\Prestige_Fund"
+)
 
-if (Test-Path $configPath) {
-    Write-Host "🚨 PRESTIGE CLIENT GEFUNDEN!" -ForegroundColor Red -BackgroundColor Black
-    Write-Host "Ordner: $configPath" -ForegroundColor Yellow
+# ================================= KONFIGURATION =================================
+$Version = "6.66"
+$ScriptName = "Prestige Client Ultimate Deep Scanner"
+$Author = "Debugger"
+$ScanDate = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
+
+# ============================= FARBEN FÜR AUSGABE ===============================
+$Colors = @{
+    Header = "Magenta"
+    Success = "Green"
+    Warning = "Yellow"
+    Error = "Red"
+    Info = "Cyan"
+    Found = "Red"
+    Path = "Yellow"
+    File = "Gray"
+    Separator = "DarkGray"
+}
+
+# ============================= SUCHBEGRIFFE PREMIUM =============================
+$PrestigeTerms = @(
+    # Prestige-spezifisch
+    "prestige",
+    "Prestige",
+    "PRESTIGE",
+    "prestige-client",
+    "prestigeclient",
+    "PrestigeClient",
     
-    # Zeige alle Dateien im Ordner
-    Write-Host "`n📁 Ordner-Inhalt:" -ForegroundColor Cyan
-    Get-ChildItem $configPath -Recurse | ForEach-Object {
-        if ($_.PSIsContainer) {
-            Write-Host "  📂 $($_.Name)" -ForegroundColor Magenta
-        } else {
-            $size = [math]::Round($_.Length/1KB, 2)
-            Write-Host "  ├─ $($_.Name) (${size} KB) - $($_.LastWriteTime)" -ForegroundColor Gray
-        }
+    # Blur-related (aus deinem Screenshot!)
+    ".blur",
+    "blur-config",
+    "blurconfig",
+    "blur.cfg",
+    "blur.json",
+    "blur.exe",
+    
+    # Typische Injector-Namen
+    "inject",
+    "injector",
+    "injection",
+    "injected",
+    "loader",
+    "launcher",
+    "DLLInjector",
+    "javaagent",
+    "agent",
+    "jni",
+    "native",
+    
+    # Versteckte Ordner
+    ".*prestige*",
+    ".*blur*",
+    ".*inject*",
+    
+    # Config-Dateien
+    "prestige_config",
+    "prestige-config",
+    "prestige.cfg",
+    "prestige.json",
+    "prestige.yml",
+    "prestige.dat",
+    "prestige.bin",
+    
+    # Log-Dateien
+    "prestige.log",
+    "prestige_latest.log",
+    "prestige_crash",
+    "crash_prestige",
+    "blur.log",
+    "blur_crash",
+    "inject.log",
+    "loader.log",
+    
+    # Prozess-Namen
+    "Prestige.exe",
+    "PrestigeClient.exe",
+    "Prestige-Launcher.exe",
+    "Prestige_Injector.exe",
+    "Blur.exe",
+    "BlurClient.exe",
+    "inject.exe",
+    "loader.exe",
+    
+    # DLL-Namen
+    "prestige.dll",
+    "prestige_inject.dll",
+    "blur.dll",
+    "blur_inject.dll",
+    "inject.dll",
+    "injector.dll",
+    "loader.dll",
+    "javaagent.dll",
+    "jni_prestige.dll",
+    
+    # Registry-Keys
+    "PrestigeClient",
+    "Prestige Launcher",
+    "Prestige Injector",
+    "Blur Client",
+    
+    # Spezifische Pfade
+    "\\Prestige\\",
+    "\\Prestige Client\\",
+    "\\.blur\\",
+    "\\blur-config\\",
+    "\\PrestigeData\\",
+    "\\PrestigeCache\\",
+    "\\PrestigeLogs\\",
+    
+    # Crash-Reports
+    "hs_err_pid*prestige*",
+    "crash-*prestige*",
+    "prestige_crash_*",
+    "blur_crash_*",
+    "injector_crash_*",
+    
+    # Minecraft-bezogen (falls injiziert)
+    "prestige_mod",
+    "prestige-mcp",
+    "prestige-mixin",
+    "prestige-transformer",
+    "prestige-asm",
+    "prestige-agent",
+    
+    # Typische Strings in Prestige-Dateien
+    "PrestigeClient Main Class",
+    "Prestige Injector v",
+    "Blur Client v",
+    "Injection successful",
+    "Loaded prestige modules",
+    "Prestige cloud config",
+    "Screenshare bypass",
+    "Undetected since",
+    "ghost client",
+    "competitive play",
+    "injection method",
+    
+    # Deine spezifischen Suchbegriffe aus vorherigen Scans
+    "coherent-trigger-bot",
+    "trigger-bot",
+    "ccs",
+    "VoltageClient",
+    "voltageclient_leaked",
+    "crashers.impl",
+    "ViaMCP",
+    "VLBViaInjector",
+    "inject",
+    "loader",
+    "native"
+)
+
+# ============================= ERWEITERTE SUCHPFADE =============================
+$ScanPaths = @(
+    # Benutzer-spezifisch
+    "$env:USERPROFILE\Desktop",
+    "$env:USERPROFILE\Downloads",
+    "$env:USERPROFILE\Documents",
+    "$env:USERPROFILE\Pictures",
+    "$env:USERPROFILE\Videos",
+    "$env:USERPROFILE\Music",
+    "$env:USERPROFILE\Favorites",
+    "$env:USERPROFILE\Links",
+    "$env:USERPROFILE\Saved Games",
+    "$env:USERPROFILE\Searches",
+    "$env:USERPROFILE\OneDrive",
+    "$env:USERPROFILE\source",
+    "$env:USERPROFILE\AppData",
+    "$env:USERPROFILE\AppData\Local",
+    "$env:USERPROFILE\AppData\LocalLow",
+    "$env:USERPROFILE\AppData\Roaming",
+    "$env:USERPROFILE\.cache",
+    "$env:USERPROFILE\.config",
+    "$env:USERPROFILE\.local",
+    "$env:USERPROFILE\." + "*",
+    
+    # Minecraft-spezifisch
+    "$env:APPDATA\.minecraft",
+    "$env:APPDATA\.minecraft\bin",
+    "$env:APPDATA\.minecraft\cache",
+    "$env:APPDATA\.minecraft\Cache_60",
+    "$env:APPDATA\.minecraft\natives",
+    "$env:APPDATA\.minecraft\versions",
+    "$env:APPDATA\.minecraft\mods",
+    "$env:APPDATA\.minecraft\config",
+    "$env:APPDATA\.minecraft\crash-reports",
+    "$env:APPDATA\.minecraft\logs",
+    "$env:APPDATA\.minecraft\debug",
+    "$env:APPDATA\.minecraft\.fabric",
+    "$env:APPDATA\.minecraft\feather",
+    "$env:APPDATA\.feather",
+    "$env:APPDATA\.lunarclient",
+    "$env:APPDATA\.badlion",
+    "$env:APPDATA\.labymod",
+    "$env:APPDATA\.optifine",
+    
+    # System-weit
+    "$env:LOCALAPPDATA\Temp",
+    "$env:LOCALAPPDATA\Programs",
+    "$env:LOCALAPPDATA\Microsoft\Windows\INetCache",
+    "$env:LOCALAPPDATA\Microsoft\Windows\Temporary Internet Files",
+    "$env:LOCALAPPDATA\Microsoft\Windows\WER",
+    "$env:APPDATA\Microsoft\Windows\Start Menu\Programs\Startup",
+    "$env:APPDATA\Microsoft\Windows\Recent",
+    "$env:APPDATA\Microsoft\Windows\Recent\AutomaticDestinations",
+    "$env:APPDATA\Microsoft\Windows\Recent\CustomDestinations",
+    "$env:ProgramData",
+    "$env:ProgramData\Microsoft\Windows\Start Menu\Programs\Startup",
+    "$env:SystemRoot\Temp",
+    "$env:SystemRoot\Prefetch",
+    "$env:SystemRoot\Minidump",
+    "$env:SystemRoot\System32\config\systemprofile\AppData\Local",
+    "C:\Program Files",
+    "C:\Program Files (x86)",
+    "C:\ProgramData",
+    "C:\Temp",
+    "C:\Windows\Temp",
+    "C:\Windows\Prefetch",
+    "C:\Windows\System32\config\systemprofile\Desktop",
+    "C:\Windows\System32\config\systemprofile\Documents",
+    "C:\Windows\System32\config\systemprofile\Downloads",
+    
+    # Zusätzliche versteckte Orte
+    "C:\Users\Public\Desktop",
+    "C:\Users\Public\Documents",
+    "C:\Users\Public\Downloads",
+    "C:\Users\Public\Music",
+    "C:\Users\Public\Pictures",
+    "C:\Users\Public\Videos",
+    "C:\Recovery",
+    "C:\System Volume Information",
+    "C:\$Recycle.Bin",
+    "C:\Config.Msi"
+)
+
+# ============================= REGISTRY SUCHPFADE =============================
+$RegistryPaths = @(
+    "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\*",
+    "HKLM:\SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall\*",
+    "HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\*",
+    "HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\Run",
+    "HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\RunOnce",
+    "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Run",
+    "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\RunOnce",
+    "HKCU:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Winlogon",
+    "HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Winlogon",
+    "HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\StartupApproved\Run",
+    "HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\StartupApproved\Run32",
+    "HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\User Shell Folders",
+    "HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\Shell Folders",
+    "HKCU:\Software\Microsoft\Internet Explorer\Main",
+    "HKLM:\SOFTWARE\Microsoft\Internet Explorer\Main",
+    "HKCU:\Software\Classes\Local Settings\Software\Microsoft\Windows\Shell\MuiCache",
+    "HKCU:\Software\Classes\Applications",
+    "HKLM:\SYSTEM\CurrentControlSet\Services",
+    "HKLM:\SYSTEM\ControlSet001\Services",
+    "HKLM:\SYSTEM\ControlSet002\Services"
+)
+
+# ============================= DATEI-EXTENSIONEN =============================
+$FileExtensions = @(
+    "*.exe", "*.dll", "*.jar", "*.class", "*.json", "*.yml", "*.yaml", "*.cfg", "*.conf",
+    "*.config", "*.properties", "*.xml", "*.txt", "*.log", "*.crash", "*.dmp", "*.mdmp",
+    "*.dat", "*.bin", "*.cache", "*.tmp", "*.temp", "*.lck", "*.lock", "*.pid",
+    "*.bat", "*.cmd", "*.ps1", "*.vbs", "*.js", "*.jse", "*.vbe", "*.wsf", "*.wsh",
+    "*.msi", "*.msp", "*.cab", "*.zip", "*.rar", "*.7z", "*.tar", "*.gz", "*.bz2",
+    "*.lnk", "*.url", "*.website", "*.desktop", "*.ico", "*.png", "*.jpg", "*.jpeg",
+    "*.bmp", "*.gif", "*.svg", "*.ico", "*.cur", "*.ani", "*.icl", "*.ex_", "*.dl_",
+    "*.ocx", "*.sys", "*.drv", "*.cpl", "*.fon", "*.fnt", "*.ttf", "*.otf",
+    "*.mui", "*.manifest", "*.cat", "*.blf", "*.regtrans-ms", "*.regbackup"
+)
+
+# ============================= ERGEBNIS-VARIABLEN =============================
+$Global:FoundItems = @()
+$Global:FoundCount = 0
+$Global:ScanStartTime = Get-Date
+$Global:TotalFilesScanned = 0
+$Global:TotalDirsScanned = 0
+$Global:Errors = @()
+$Global:Warnings = @()
+
+# ============================= FUNKTION: HEADER ANZEIGEN =============================
+function Show-Header {
+    Clear-Host
+    Write-Host "╔" + ("═" * 98) + "╗" -ForegroundColor $Colors.Separator
+    Write-Host "║" -ForegroundColor $Colors.Separator -NoNewline
+    Write-Host "                       PRESTIGE CLIENT ULTIMATE DEEP SCANNER v$Version                         " -ForegroundColor $Colors.Header -NoNewline
+    Write-Host "║" -ForegroundColor $Colors.Separator
+    Write-Host "║" -ForegroundColor $Colors.Separator -NoNewline
+    Write-Host "                      Der ultimative Prestige Client Detektor                             " -ForegroundColor $Colors.Info -NoNewline
+    Write-Host "║" -ForegroundColor $Colors.Separator
+    Write-Host "║" -ForegroundColor $Colors.Separator -NoNewline
+    Write-Host "                           Author: $Author | Date: $ScanDate                             " -ForegroundColor $Colors.Warning -NoNewline
+    Write-Host "║" -ForegroundColor $Colors.Separator
+    Write-Host "╚" + ("═" * 98) + "╝" -ForegroundColor $Colors.Separator
+    Write-Host ""
+}
+
+# ============================= FUNKTION: PROGRESS ANZEIGEN =============================
+function Show-Progress {
+    param([string]$Activity, [string]$Status, [int]$PercentComplete)
+    
+    $width = 50
+    $progress = [math]::Floor($PercentComplete / 2)
+    $bar = "[" + ("█" * $progress) + ("░" * ($width - $progress)) + "]"
+    
+    Write-Host "`r$bar $PercentComplete% - $Activity : $Status" -NoNewline -ForegroundColor $Colors.Info
+}
+
+# ============================= FUNKTION: FUND MELDEN =============================
+function Add-Found {
+    param(
+        [string]$Path,
+        [string]$Type,
+        [string]$Details = ""
+    )
+    
+    $Global:FoundCount++
+    $Global:FoundItems += [PSCustomObject]@{
+        Index = $Global:FoundCount
+        Path = $Path
+        Type = $Type
+        Details = $Details
+        Time = Get-Date -Format "HH:mm:ss"
     }
     
-    # Speziell nach LOGS suchen
-    Write-Host "`n📋 LOG-DATEIEN:" -ForegroundColor Green
-    $logs = Get-ChildItem $configPath -Recurse -Include "*.log", "*.txt", "*.crash", "*.dmp"
-    if ($logs) {
-        $logs | ForEach-Object {
-            Write-Host "  📄 $($_.FullName)" -ForegroundColor Red
-            Write-Host "     Größe: $([math]::Round($_.Length/1KB, 2)) KB" -ForegroundColor Yellow
-            Write-Host "     Geändert: $($_.LastWriteTime)" -ForegroundColor Yellow
+    Write-Host ""
+    Write-Host "🔥 FUND #$($Global:FoundCount): " -ForegroundColor $Colors.Found -NoNewline
+    Write-Host "$Type" -ForegroundColor $Colors.Warning
+    Write-Host "   📁 $Path" -ForegroundColor $Colors.Path
+    if ($Details) { Write-Host "   ℹ️ $Details" -ForegroundColor $Colors.Info }
+}
+
+# ============================= FUNKTION: DATEISYSTEM SCANNEN =============================
+function Scan-FileSystem {
+    param([string]$Path, [int]$Depth = 0, [int]$MaxDepth = 10)
+    
+    if ($Depth -gt $MaxDepth) { return }
+    if (-not (Test-Path $Path)) { return }
+    
+    try {
+        # Ordner scannen
+        $dirs = Get-ChildItem -Path $Path -Directory -Force -ErrorAction SilentlyContinue
+        foreach ($dir in $dirs) {
+            $Global:TotalDirsScanned++
             
-            # Zeige die ersten 5 Zeilen des Logs
-            Write-Host "     Erste Zeilen:" -ForegroundColor Cyan
-            Get-Content $_.FullName -TotalCount 5 | ForEach-Object {
-                Write-Host "       $_" -ForegroundColor Gray
+            # Prüfe Ordnernamen
+            foreach ($term in $PrestigeTerms) {
+                if ($dir.Name -like "*$term*") {
+                    Add-Found -Path $dir.FullName -Type "PRESTIGE-ORDNER" -Details "Ordnername: $($dir.Name)"
+                    break
+                }
+            }
+            
+            # Rekursiv weiterscannen
+            Scan-FileSystem -Path $dir.FullName -Depth ($Depth + 1) -MaxDepth $MaxDepth
+        }
+        
+        # Dateien scannen
+        $files = Get-ChildItem -Path $Path -File -Force -ErrorAction SilentlyContinue
+        foreach ($file in $files) {
+            $Global:TotalFilesScanned++
+            
+            # Prüfe Dateinamen
+            foreach ($term in $PrestigeTerms) {
+                if ($file.Name -like "*$term*") {
+                    Add-Found -Path $file.FullName -Type "PRESTIGE-DATEI" -Details "Dateiname: $($file.Name) | Größe: $([math]::Round($file.Length/1KB,2)) KB | Geändert: $($file.LastWriteTime)"
+                    break
+                }
+            }
+            
+            # Prüfe Datei-Inhalt bei bestimmten Extensions
+            if ($file.Extension -match "\.(exe|dll|jar|json|cfg|conf|properties|txt|log|bat|ps1|vbs|js)$") {
+                try {
+                    if ($file.Length -lt 1MB) {  # Nur kleine Dateien einlesen
+                        $content = Get-Content $file.FullName -Raw -ErrorAction SilentlyContinue
+                        if ($content) {
+                            foreach ($term in $PrestigeTerms) {
+                                if ($content -match $term) {
+                                    Add-Found -Path $file.FullName -Type "PRESTIGE-INHALT" -Details "Enthält: '$term'"
+                                    break
+                                }
+                            }
+                        }
+                    }
+                } catch {}
             }
         }
-    } else {
-        Write-Host "  Keine Logs gefunden" -ForegroundColor Gray
-    }
-    
-    # Prüfe ob Prestige gerade läuft
-    Write-Host "`n🔄 Prüfe auf laufende Prestige-Prozesse..." -ForegroundColor Yellow
-    $prestigeProc = Get-Process | Where-Object { $_.ProcessName -like "*prestige*" -or $_.Path -like "*prestige*" }
-    if ($prestigeProc) {
-        Write-Host "✅ Prestige läuft: $($prestigeProc.Path)" -ForegroundColor Red
-    } else {
-        Write-Host "❌ Prestige läuft nicht" -ForegroundColor Green
-    }
-    
-} else {
-    Write-Host "❌ .blur-config Ordner nicht gefunden!" -ForegroundColor Red
-    Write-Host "Suche im ganzen Benutzerverzeichnis..." -ForegroundColor Yellow
-    
-    Get-ChildItem "$env:USERPROFILE" -Directory -Hidden | Where-Object { $_.Name -like "*.blur*" -or $_.Name -like "*prestige*" } | ForEach-Object {
-        Write-Host "🚨 Gefunden: $($_.FullName)" -ForegroundColor Red
+    } catch {
+        $Global:Errors += "Fehler beim Scannen von $Path : $_"
     }
 }
+
+# ============================= FUNKTION: REGISTRY SCANNEN =============================
+function Scan-Registry {
+    Write-Host "`n📋 Scanne Registry..." -ForegroundColor $Colors.Info
+    
+    foreach ($regPath in $RegistryPaths) {
+        try {
+            $items = Get-ItemProperty -Path $regPath -ErrorAction SilentlyContinue
+            if ($items) {
+                $items.PSObject.Properties | ForEach-Object {
+                    $value = $_.Value
+                    if ($value -is [string]) {
+                        foreach ($term in $PrestigeTerms) {
+                            if ($value -match $term) {
+                                Add-Found -Path $regPath -Type "REGISTRY-EINTRAG" -Details "Schlüssel: $($_.Name) = $value"
+                                break
+                            }
+                        }
+                    }
+                }
+            }
+        } catch {}
+    }
+}
+
+# ============================= FUNKTION: PROZESSE SCANNEN =============================
+function Scan-Processes {
+    Write-Host "`n🔄 Scanne laufende Prozesse..." -ForegroundColor $Colors.Info
+    
+    $processes = Get-Process | Where-Object { 
+        $_.ProcessName -match "prestige|Prestige|blur|Blur|inject|loader|javaagent" -or
+        $_.Path -match "prestige|Prestige|blur|Blur|inject|loader"
+    }
+    
+    foreach ($proc in $processes) {
+        Add-Found -Path "PROZESS" -Type "PRESTIGE-PROZESS" -Details "Name: $($proc.ProcessName) | PID: $($proc.Id) | Pfad: $($proc.Path)"
+        
+        # Geladene DLLs anzeigen (bei Admin-Rechten)
+        try {
+            $proc.Modules | Where-Object { $_.ModuleName -match "prestige|blur|inject" } | ForEach-Object {
+                Add-Found -Path "PROZESS-DLL" -Type "PRESTIGE-DLL" -Details "Prozess: $($proc.ProcessName) | DLL: $($_.ModuleName) | Pfad: $($_.FileName)"
+            }
+        } catch {}
+    }
+}
+
+# ============================= FUNKTION: NETZWERKVERBINDUNGEN SCANNEN =============================
+function Scan-Network {
+    Write-Host "`n🌐 Scanne Netzwerkverbindungen..." -ForegroundColor $Colors.Info
+    
+    $connections = Get-NetTCPConnection -ErrorAction SilentlyContinue | Where-Object { 
+        $_.RemotePort -in 80,443,8080,8443,25565 -or 
+        $_.RemoteAddress -match "prestige|blur|inject"
+    }
+    
+    foreach ($conn in $connections) {
+        $proc = Get-Process -Id $conn.OwningProcess -ErrorAction SilentlyContinue
+        Add-Found -Path "NETZWERK" -Type "PRESTIGE-VERBINDUNG" -Details "Prozess: $($proc.ProcessName) | Remote: $($conn.RemoteAddress):$($conn.RemotePort) | Status: $($conn.State)"
+    }
+}
+
+# ============================= FUNKTION: TASK-SCHEDULER SCANNEN =============================
+function Scan-TaskScheduler {
+    Write-Host "`n⏰ Scanne Task Scheduler..." -ForegroundColor $Colors.Info
+    
+    $tasks = Get-ScheduledTask -ErrorAction SilentlyContinue | Where-Object { 
+        $_.TaskName -match "prestige|Prestige|blur|Blur|inject|loader" -or
+        $_.TaskPath -match "prestige|Prestige|blur|Blur|inject|loader"
+    }
+    
+    foreach ($task in $tasks) {
+        Add-Found -Path "TASK-SCHEDULER" -Type "PRESTIGE-TASK" -Details "Task: $($task.TaskName) | Pfad: $($task.TaskPath) | Status: $($task.State)"
+    }
+}
+
+# ============================= FUNKTION: SERVER-DIENSTE SCANNEN =============================
+function Scan-Services {
+    Write-Host "`n⚙️ Scanne Windows-Dienste..." -ForegroundColor $Colors.Info
+    
+    $services = Get-Service -ErrorAction SilentlyContinue | Where-Object { 
+        $_.Name -match "prestige|Prestige|blur|Blur|inject|loader" -or
+        $_.DisplayName -match "prestige|Prestige|blur|Blur|inject|loader"
+    }
+    
+    foreach ($service in $services) {
+        Add-Found -Path "WINDOWS-DIENST" -Type "PRESTIGE-DIENST" -Details "Name: $($service.Name) | Anzeigename: $($service.DisplayName) | Status: $($service.Status)"
+    }
+}
+
+# ============================= FUNKTION: RECYCLE BIN SCANNEN =============================
+function Scan-RecycleBin {
+    Write-Host "`n🗑️ Scanne Papierkorb..." -ForegroundColor $Colors.Info
+    
+    $recycleBin = (New-Object -ComObject Shell.Application).Namespace(0xa)
+    $recycleBin.Items() | ForEach-Object {
+        $name = $_.Name
+        $path = $_.Path
+        foreach ($term in $PrestigeTerms) {
+            if ($name -match $term) {
+                Add-Found -Path "PAPIERKORB" -Type "PRESTIGE-DATEI" -Details "Gelöscht: $name | Originalpfad: $path"
+                break
+            }
+        }
+    }
+}
+
+# ============================= FUNKTION: PRESTIGE-SPEZIFISCHE SUCHE =============================
+function Scan-PrestigeSpecific {
+    Write-Host "`n🎯 Führe Prestige-spezifische Tiefensuche durch..." -ForegroundColor $Colors.Info
+    
+    # Spezifische Prestige-Pfade
+    $specificPaths = @(
+        "$env:USERPROFILE\.prestige",
+        "$env:USERPROFILE\.blur",
+        "$env:USERPROFILE\.blur-config",
+        "$env:USERPROFILE\Desktop\.blur-config",
+        "$env:USERPROFILE\Prestige",
+        "$env:USERPROFILE\Prestige Client",
+        "$env:APPDATA\Prestige",
+        "$env:APPDATA\.prestige",
+        "$env:LOCALAPPDATA\Prestige",
+        "$env:LOCALAPPDATA\Temp\prestige",
+        "$env:LOCALAPPDATA\Temp\.prestige",
+        "$env:LOCALAPPDATA\Temp\prestige_*",
+        "$env:LOCALAPPDATA\Temp\blur_*",
+        "$env:LOCALAPPDATA\Temp\.blur_*",
+        "$env:ProgramData\Prestige",
+        "C:\Prestige",
+        "C:\Program Files\Prestige",
+        "C:\Program Files (x86)\Prestige"
+    )
+    
+    foreach ($path in $specificPaths) {
+        if (Test-Path $path) {
+            Add-Found -Path $path -Type "PRESTIGE-SPEZIFISCH" -Details "Existiert: $path"
+            
+            # Rekursiv den Inhalt anzeigen
+            Get-ChildItem $path -Recurse -Force -ErrorAction SilentlyContinue | ForEach-Object {
+                if ($_.PSIsContainer) {
+                    Add-Found -Path $_.FullName -Type "PRESTIGE-UNTERORDNER" -Details "In $path"
+                } else {
+                    Add-Found -Path $_.FullName -Type "PRESTIGE-DATEI" -Details "In $path | Größe: $([math]::Round($_.Length/1KB,2)) KB"
+                }
+            }
+        }
+    }
+    
+    # Nach Prestige-Logs suchen
+    $logPaths = @(
+        "$env:LOCALAPPDATA\Temp\*prestige*.log",
+        "$env:LOCALAPPDATA\Temp\*blur*.log",
+        "$env:LOCALAPPDATA\Temp\prestige_*\*.log",
+        "$env:LOCALAPPDATA\Temp\prestige_*\crash-*",
+        "$env:USERPROFILE\Desktop\*prestige*.log",
+        "$env:USERPROFILE\Desktop\*crash*.log",
+        "$env:APPDATA\.minecraft\logs\*prestige*",
+        "$env:APPDATA\.minecraft\crash-reports\*prestige*"
+    )
+    
+    foreach ($pattern in $logPaths) {
+        Get-ChildItem -Path $pattern -ErrorAction SilentlyContinue | ForEach-Object {
+            Add-Found -Path $_.FullName -Type "PRESTIGE-LOG" -Details "Log-Datei | Größe: $([math]::Round($_.Length/1KB,2)) KB | Geändert: $($_.LastWriteTime)"
+            
+            # Erste 10 Zeilen des Logs anzeigen
+            try {
+                $firstLines = Get-Content $_.FullName -TotalCount 10 -ErrorAction SilentlyContinue
+                Add-Found -Path "LOG-INHALT" -Type "PRESTIGE-LOG" -Details "Erste Zeilen von $($_.Name):`n$($firstLines -join '`n')"
+            } catch {}
+        }
+    }
+}
+
+# ============================= FUNKTION: JVM-PARAMETER SCANNEN =============================
+function Scan-JVMParameters {
+    Write-Host "`n☕ Scanne JVM-Parameter..." -ForegroundColor $Colors.Info
+    
+    $jvmFiles = @(
+        "$env:APPDATA\.minecraft\launcher_profiles.json",
+        "$env:APPDATA\.minecraft\launcher_accounts.json",
+        "$env:APPDATA\.minecraft\options.txt",
+        "$env:APPDATA\.minecraft\versions\*\*.json",
+        "$env:APPDATA\PrismLauncher\accounts.json",
+        "$env:APPDATA\MultiMC\accounts.json",
+        "$env:APPDATA\ATLauncher\configs\*"
+    )
+    
+    foreach ($pattern in $jvmFiles) {
+        Get-ChildItem -Path $pattern -ErrorAction SilentlyContinue | ForEach-Object {
+            try {
+                $content = Get-Content $_.FullName -Raw -ErrorAction SilentlyContinue
+                if ($content -match "-javaagent" -or $content -match "prestige" -or $content -match "inject") {
+                    Add-Found -Path $_.FullName -Type "JVM-PARAMETER" -Details "Enthält Java-Agent oder Prestige-Referenz"
+                }
+            } catch {}
+        }
+    }
+}
+
+# ============================= FUNKTION: BROWSER-EXTENSIONS SCANNEN =============================
+function Scan-BrowserExtensions {
+    Write-Host "`n🌍 Scanne Browser-Extensions..." -ForegroundColor $Colors.Info
+    
+    $browserPaths = @(
+        "$env:LOCALAPPDATA\Google\Chrome\User Data\Default\Extensions",
+        "$env:LOCALAPPDATA\Google\Chrome\User Data\Default\Local Extension Settings",
+        "$env:LOCALAPPDATA\Microsoft\Edge\User Data\Default\Extensions",
+        "$env:LOCALAPPDATA\Microsoft\Edge\User Data\Default\Local Extension Settings",
+        "$env:APPDATA\Opera Software\Opera Stable\Extensions",
+        "$env:APPDATA\Mozilla\Firefox\Profiles\*\extensions"
+    )
+    
+    foreach ($path in $browserPaths) {
+        if (Test-Path $path) {
+            Get-ChildItem $path -Recurse -File -ErrorAction SilentlyContinue | Where-Object { 
+                $_.Name -match "prestige|blur|inject" -or
+                (Get-Content $_.FullName -Raw -ErrorAction SilentlyContinue) -match "prestige|blur|inject"
+            } | ForEach-Object {
+                Add-Found -Path $_.FullName -Type "BROWSER-EXTENSION" -Details "Mögliche Prestige-Erweiterung"
+            }
+        }
+    }
+}
+
+# ============================= FUNKTION: STARTUP-ORDNER SCANNEN =============================
+function Scan-Startup {
+    Write-Host "`n🚀 Scanne Startup-Ordner..." -ForegroundColor $Colors.Info
+    
+    $startupPaths = @(
+        "$env:APPDATA\Microsoft\Windows\Start Menu\Programs\Startup",
+        "C:\ProgramData\Microsoft\Windows\Start Menu\Programs\Startup",
+        "$env:LOCALAPPDATA\Microsoft\Windows\Start Menu\Programs\Startup"
+    )
+    
+    foreach ($path in $startupPaths) {
+        if (Test-Path $path) {
+            Get-ChildItem $path -File -ErrorAction SilentlyContinue | ForEach-Object {
+                foreach ($term in $PrestigeTerms) {
+                    if ($_.Name -match $term -or (Get-Content $_.FullName -Raw -ErrorAction SilentlyContinue) -match $term) {
+                        Add-Found -Path $_.FullName -Type "STARTUP-EINTRAG" -Details "Autostart: $($_.Name)"
+                        break
+                    }
+                }
+            }
+        }
+    }
+}
+
+# ============================= FUNKTION: MINIDUMPS SCANNEN =============================
+function Scan-Minidumps {
+    Write-Host "`n💥 Scanne Minidumps und Crash-Reports..." -ForegroundColor $Colors.Info
+    
+    $dumpPaths = @(
+        "$env:LOCALAPPDATA\CrashDumps",
+        "$env:SystemRoot\Minidump",
+        "$env:SystemRoot\LiveKernelReports",
+        "$env:USERPROFILE\Desktop\*.dmp",
+        "$env:USERPROFILE\Desktop\*.mdmp",
+        "$env:USERPROFILE\Desktop\*.hdmp",
+        "$env:APPDATA\.minecraft\*.dmp",
+        "$env:LOCALAPPDATA\Temp\*.dmp"
+    )
+    
+    foreach ($pattern in $dumpPaths) {
+        Get-ChildItem -Path $pattern -ErrorAction SilentlyContinue | ForEach-Object {
+            if ($_.Length -gt 0) {
+                Add-Found -Path $_.FullName -Type "MINIDUMP" -Details "Größe: $([math]::Round($_.Length/1MB,2)) MB | Geändert: $($_.LastWriteTime)"
+            }
+        }
+    }
+}
+
+# ============================= FUNKTION: PRESTIGE-PROZESS-ANALYSE =============================
+function Analyze-PrestigeProcess {
+    param([string]$ExePath)
+    
+    Write-Host "`n🔬 Analysiere Prestige-Prozess: $ExePath" -ForegroundColor $Colors.Info
+    
+    if (-not (Test-Path $ExePath)) {
+        Write-Host "❌ Datei nicht gefunden!" -ForegroundColor $Colors.Error
+        return
+    }
+    
+    $file = Get-Item $ExePath
+    
+    # Datei-Info
+    Add-Found -Path $ExePath -Type "PRESTIGE-EXE" -Details "Größe: $([math]::Round($file.Length/1MB,2)) MB | Erstellt: $($file.CreationTime) | Geändert: $($file.LastWriteTime)"
+    
+    # Versuche Datei-Version zu lesen
+    try {
+        $versionInfo = $file.VersionInfo
+        Add-Found -Path $ExePath -Type "PRESTIGE-EXE" -Details "Version: $($versionInfo.FileVersion) | Produkt: $($versionInfo.ProductName) | Beschreibung: $($versionInfo.FileDescription)"
+    } catch {}
+    
+    # Prüfe ob Prozess läuft
+    $processName = [System.IO.Path]::GetFileNameWithoutExtension($ExePath)
+    $proc = Get-Process -Name $processName -ErrorAction SilentlyContinue
+    if ($proc) {
+        Add-Found -Path "PROZESS" -Type "PRESTIGE-LAUFEND" -Details "PID: $($proc.Id) | Startzeit: $($proc.StartTime) | CPU: $($proc.CPU) | Speicher: $([math]::Round($proc.WorkingSet/1MB,2)) MB"
+        
+        # Zeige Kommandozeile
+        try {
+            $cmdLine = (Get-WmiObject Win32_Process -Filter "ProcessId=$($proc.Id)").CommandLine
+            Add-Found -Path "PROZESS" -Type "PRESTIGE-COMMAND" -Details "Kommandozeile: $cmdLine"
+        } catch {}
+    }
+}
+
+# ============================= FUNKTION: BERICHT ERSTELLEN =============================
+function Generate-Report {
+    param([string]$OutputPath)
+    
+    $endTime = Get-Date
+    $duration = $endTime - $Global:ScanStartTime
+    
+    $report = @"
+╔══════════════════════════════════════════════════════════════════════════════════════╗
+║                         PRESTIGE CLIENT SCAN REPORT                                  ║
+╚══════════════════════════════════════════════════════════════════════════════════════╝
+
+SCAN INFORMATION
+═══════════════════════════════════════════════════════════════════════════════════════
+Script Version : $Version
+Scan Date      : $ScanDate
+Duration       : $($duration.Hours)h $($duration.Minutes)m $($duration.Seconds)s
+User           : $env:USERNAME
+Computer       : $env:COMPUTERNAME
+OS             : $(Get-WmiObject Win32_OperatingSystem).Caption
+
+SCAN STATISTICS
+═══════════════════════════════════════════════════════════════════════════════════════
+Ordner gescannt    : $Global:TotalDirsScanned
+Dateien gescannt   : $Global:TotalFilesScanned
+Funde gesamt       : $Global:FoundCount
+Fehler             : $($Global:Errors.Count)
+Warnungen          : $($Global:Warnings.Count)
+
+GEFUNDENE PRESTIGE-SPUREN
+═══════════════════════════════════════════════════════════════════════════════════════
+
+"@
+    
+    $grouped = $Global:FoundItems | Group-Object Type
+    foreach ($group in $grouped) {
+        $report += "`n[$($group.Name)] - $($group.Count) Funde"
+        $report += "-" * 80 + "`n"
+        
+        $group.Group | Sort-Object Path | ForEach-Object {
+            $report += "📁 $($_.Path)`n"
+            $report += "   📝 $($_.Details) | ⏰ $($_.Time)`n"
+        }
+        $report += "`n"
+    }
+    
+    $report += @"
+
+FEHLER
+═══════════════════════════════════════════════════════════════════════════════════════
+"@
+    
+    if ($Global:Errors.Count -eq 0) {
+        $report += "`nKeine Fehler aufgetreten.`n"
+    } else {
+        $Global:Errors | ForEach-Object { $report += "❌ $_`n" }
+    }
+    
+    $report += @"
+
+WARNUNGEN
+═══════════════════════════════════════════════════════════════════════════════════════
+"@
+    
+    if ($Global:Warnings.Count -eq 0) {
+        $report += "`nKeine Warnungen.`n"
+    } else {
+        $Global:Warnings | ForEach-Object { $report += "⚠️ $_`n" }
+    }
+    
+    $report += @"
+
+EMPFEHLUNGEN
+═══════════════════════════════════════════════════════════════════════════════════════
+"@
+    
+    if ($Global:FoundCount -gt 0) {
+        $report += @"
+✅ Prestige Client wurde auf Ihrem System gefunden!
+✅ Die gefundenen Dateien können Sie manuell löschen.
+✅ Empfehlung: Führen Sie einen Virenscan mit aktuellem Scanner durch.
+✅ Überprüfen Sie die Startup-Ordner und Task-Scheduler.
+"@
+    } else {
+        $report += @"
+❌ Keine Prestige Client Spuren gefunden.
+✅ Ihr System scheint sauber zu sein.
+✅ Falls Sie den Client trotzdem installiert haben, wurde er möglicherweise gelöscht.
+"@
+    }
+    
+    $report += @"
+
+
+═══════════════════════════════════════════════════════════════════════════════════════
+Ende des Berichts - $((Get-Date).ToString("yyyy-MM-dd HH:mm:ss"))
+═══════════════════════════════════════════════════════════════════════════════════════
+"@
+    
+    # Bericht speichern
+    $report | Out-File -FilePath "$OutputPath\Prestige_Scan_Report.txt" -Encoding UTF8
+    $Global:FoundItems | Export-Csv -Path "$OutputPath\Prestige_Funde.csv" -NoTypeInformation -Delimiter ";"
+    $Global:FoundItems | ConvertTo-Json -Depth 3 | Out-File -FilePath "$OutputPath\Prestige_Funde.json"
+    
+    Write-Host "`n📄 Bericht gespeichert in: $OutputPath" -ForegroundColor $Colors.Success
+}
+
+# ============================= HAUPTFUNKTION =============================
+function Start-MainScan {
+    Show-Header
+    
+    Write-Host "Starte Prestige Client Deep Scan v$Version" -ForegroundColor $Colors.Header
+    Write-Host "Scan wird durchgeführt von: $env:USERNAME@$env:COMPUTERNAME" -ForegroundColor $Colors.Info
+    Write-Host "Startzeit: $ScanDate" -ForegroundColor $Colors.Info
+    Write-Host ""
+    
+    # Admin-Prüfung
+    $isAdmin = ([Security.Principal.WindowsPrincipal] [Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole] "Administrator")
+    if (-not $isAdmin) {
+        Write-Host "⚠️ Achtung: Nicht als Administrator ausgeführt!" -ForegroundColor $Colors.Warning
+        Write-Host "   Einige Bereiche (Registry, Systemordner) können nicht gescannt werden." -ForegroundColor $Colors.Warning
+        $Global:Warnings += "Nicht als Administrator ausgeführt - eingeschränkter Scan"
+    } else {
+        Write-Host "✅ Als Administrator ausgeführt - Vollzugriff!" -ForegroundColor $Colors.Success
+    }
+    
+    Write-Host ""
+    
+    # ===== DATEISYSTEM SCANNEN =====
+    Write-Host "╔" + ("═" * 50) + "╗" -ForegroundColor $Colors.Separator
+    Write-Host "║                 DATEISYSTEM-SCAN                 ║" -ForegroundColor $Colors.Header
+    Write-Host "╚" + ("═" * 50) + "╝" -ForegroundColor $Colors.Separator
+    
+    $pathIndex = 0
+    foreach ($path in $ScanPaths) {
+        $pathIndex++
+        $percent = [math]::Round(($pathIndex / $ScanPaths.Count) * 100)
+        Show-Progress -Activity "Scanne Pfad $pathIndex von $($ScanPaths.Count)" -Status $path -PercentComplete $percent
+        
+        if (Test-Path $path) {
+            Scan-FileSystem -Path $path -MaxDepth 15
+        }
+    }
+    Write-Host ""
+    
+    # ===== REGISTRY SCANNEN =====
+    if ($isAdmin) {
+        Write-Host "`n╔" + ("═" * 50) + "╗" -ForegroundColor $Colors.Separator
+        Write-Host "║                   REGISTRY-SCAN                   ║" -ForegroundColor $Colors.Header
+        Write-Host "╚" + ("═" * 50) + "╝" -ForegroundColor $Colors.Separator
+        Scan-Registry
+    }
+    
+    # ===== PROZESSE SCANNEN =====
+    Write-Host "`n╔" + ("═" * 50) + "╗" -ForegroundColor $Colors.Separator
+    Write-Host "║                   PROZESS-SCAN                    ║" -ForegroundColor $Colors.Header
+    Write-Host "╚" + ("═" * 50) + "╝" -ForegroundColor $Colors.Separator
+    Scan-Processes
+    
+    # ===== NETZWERK SCANNEN =====
+    if ($isAdmin) {
+        Write-Host "`n╔" + ("═" * 50) + "╗" -ForegroundColor $Colors.Separator
+        Write-Host "║                   NETZWERK-SCAN                   ║" -ForegroundColor $Colors.Header
+        Write-Host "╚" + ("═" * 50) + "╝" -ForegroundColor $Colors.Separator
+        Scan-Network
+    }
+    
+    # ===== TASK-SCHEDULER SCANNEN =====
+    if ($isAdmin) {
+        Write-Host "`n╔" + ("═" * 50) + "╗" -ForegroundColor $Colors.Separator
+        Write-Host "║                   TASK-SCHEDULER-SCAN              ║" -ForegroundColor $Colors.Header
+        Write-Host "╚" + ("═" * 50) + "╝" -ForegroundColor $Colors.Separator
+        Scan-TaskScheduler
+    }
+    
+    # ===== DIENSTE SCANNEN =====
+    if ($isAdmin) {
+        Write-Host "`n╔" + ("═" * 50) + "╗" -ForegroundColor $Colors.Separator
+        Write-Host "║                   DIENSTE-SCAN                    ║" -ForegroundColor $Colors.Header
+        Write-Host "╚" + ("═" * 50) + "╝" -ForegroundColor $Colors.Separator
+        Scan-Services
+    }
+    
+    # ===== PAPIERKORB SCANNEN =====
+    Write-Host "`n╔" + ("═" * 50) + "╗" -ForegroundColor $Colors.Separator
+    Write-Host "║                   PAPIERKORB-SCAN                  ║" -ForegroundColor $Colors.Header
+    Write-Host "╚" + ("═" * 50) + "╝" -ForegroundColor $Colors.Separator
+    Scan-RecycleBin
+    
+    # ===== PRESTIGE-SPEZIFISCHE SUCHE =====
+    Write-Host "`n╔" + ("═" * 50) + "╗" -ForegroundColor $Colors.Separator
+    Write-Host "║              PRESTIGE-SPEZIFISCHE SUCHE             ║" -ForegroundColor $Colors.Header
+    Write-Host "╚" + ("═" * 50) + "╝" -ForegroundColor $Colors.Separator
+    Scan-PrestigeSpecific
+    
+    # ===== JVM-PARAMETER SCANNEN =====
+    Write-Host "`n╔" + ("═" * 50) + "╗" -ForegroundColor $Colors.Separator
+    Write-Host "║                   JVM-PARAMETER-SCAN               ║" -ForegroundColor $Colors.Header
+    Write-Host "╚" + ("═" * 50) + "╝" -ForegroundColor $Colors.Separator
+    Scan-JVMParameters
+    
+    # ===== BROWSER-EXTENSIONS SCANNEN =====
+    Write-Host "`n╔" + ("═" * 50) + "╗" -ForegroundColor $Colors.Separator
+    Write-Host "║              BROWSER-EXTENSIONS-SCAN                ║" -ForegroundColor $Colors.Header
+    Write-Host "╚" + ("═" * 50) + "╝" -ForegroundColor $Colors.Separator
+    Scan-BrowserExtensions
+    
+    # ===== STARTUP SCANNEN =====
+    Write-Host "`n╔" + ("═" * 50) + "╗" -ForegroundColor $Colors.Separator
+    Write-Host "║                   STARTUP-SCAN                     ║" -ForegroundColor $Colors.Header
+    Write-Host "╚" + ("═" * 50) + "╝" -ForegroundColor $Colors.Separator
+    Scan-Startup
+    
+    # ===== MINIDUMPS SCANNEN =====
+    Write-Host "`n╔" + ("═" * 50) + "╗" -ForegroundColor $Colors.Separator
+    Write-Host "║                   MINIDUMP-SCAN                    ║" -ForegroundColor $Colors.Header
+    Write-Host "╚" + ("═" * 50) + "╝" -ForegroundColor $Colors.Separator
+    Scan-Minidumps
+    
+    # ===== SPEZIELLE DESKTOP-EXE ANALYSE =====
+    Write-Host "`n╔" + ("═" * 50) + "╗" -ForegroundColor $Colors.Separator
+    Write-Host "║              DESKTOP-EXE ANALYSE                   ║" -ForegroundColor $Colors.Header
+    Write-Host "╚" + ("═" * 50) + "╝" -ForegroundColor $Colors.Separator
+    
+    $desktopExes = Get-ChildItem "$env:USERPROFILE\Desktop" -File | Where-Object { $_.Extension -match "\.(exe|jar|bat|cmd|ps1)" }
+    foreach ($exe in $desktopExes) {
+        foreach ($term in $PrestigeTerms) {
+            if ($exe.Name -match $term) {
+                Analyze-PrestigeProcess -ExePath $exe.FullName
+                break
+            }
+        }
+    }
+    
+    # ===== ERGEBNISSE ANZEIGEN =====
+    Write-Host "`n╔" + ("═" * 50) + "╗" -ForegroundColor $Colors.Separator
+    Write-Host "║                   SCAN-ERGEBNIS                    ║" -ForegroundColor $Colors.Header
+    Write-Host "╚" + ("═" * 50) + "╝" -ForegroundColor $Colors.Separator
+    
+    Write-Host ""
+    Write-Host "📊 STATISTIK:" -ForegroundColor $Colors.Header
+    Write-Host "   ├─ Ordner gescannt: $Global:TotalDirsScanned" -ForegroundColor $Colors.Info
+    Write-Host "   ├─ Dateien gescannt: $Global:TotalFilesScanned" -ForegroundColor $Colors.Info
+    Write-Host "   ├─ Funde gesamt: $Global:FoundCount" -ForegroundColor $(if ($Global:FoundCount -gt 0) { $Colors.Found } else { $Colors.Success })
+    Write-Host "   └─ Fehler: $($Global:Errors.Count)" -ForegroundColor $(if ($Global:Errors.Count -gt 0) { $Colors.Error } else { $Colors.Success })
+    
+    if ($Global:FoundCount -gt 0) {
+        Write-Host ""
+        Write-Host "🔥 GEFUNDENE PRESTIGE-SPUREN:" -ForegroundColor $Colors.Found
+        $Global:FoundItems | Group-Object Type | ForEach-Object {
+            Write-Host "   [$($_.Name)] - $($_.Count) Funde" -ForegroundColor $Colors.Warning
+        }
+        
+        Write-Host ""
+        Write-Host "📁 DETAILS DER FUNDE:" -ForegroundColor $Colors.Header
+        $Global:FoundItems | Sort-Object Type, Path | ForEach-Object {
+            Write-Host "   🔴 $($_.Type)" -ForegroundColor $Colors.Found
+            Write-Host "      📍 $($_.Path)" -ForegroundColor $Colors.Path
+            Write-Host "      📝 $($_.Details)" -ForegroundColor $Colors.Info
+            Write-Host "      ⏰ $($_.Time)" -ForegroundColor $Colors.Warning
+            Write-Host ""
+        }
+    } else {
+        Write-Host ""
+        Write-Host "✅ KEINE Prestige Client Spuren gefunden!" -ForegroundColor $Colors.Success
+        Write-Host "   Ihr System scheint sauber zu sein." -ForegroundColor $Colors.Info
+    }
+    
+    # ===== BERICHT ERSTELLEN =====
+    if ($Global:FoundCount -gt 0 -or $Force) {
+        New-Item -ItemType Directory -Path $OutputPath -Force | Out-Null
+        Generate-Report -OutputPath $OutputPath
+        
+        Write-Host ""
+        Write-Host "📁 Bericht wurde gespeichert in: $OutputPath" -ForegroundColor $Colors.Success
+        Write-Host "   - Prestige_Scan_Report.txt (Textbericht)" -ForegroundColor $Colors.Info
+        Write-Host "   - Prestige_Funde.csv (CSV-Format)" -ForegroundColor $Colors.Info
+        Write-Host "   - Prestige_Funde.json (JSON-Format)" -ForegroundColor $Colors.Info
+        
+        # Automatisch öffnen wenn gewünscht
+        if ($AutoCopy) {
+            explorer $OutputPath
+        }
+    }
+    
+    # ===== ABSCHLUSS =====
+    $endTime = Get-Date
+    $duration = $endTime - $Global:ScanStartTime
+    
+    Write-Host ""
+    Write-Host "╔" + ("═" * 50) + "╗" -ForegroundColor $Colors.Separator
+    Write-Host "║                   SCAN ABGESCHLOSSEN                ║" -ForegroundColor $Colors.Header
+    Write-Host "╚" + ("═" * 50) + "╝" -ForegroundColor $Colors.Separator
+    Write-Host ""
+    Write-Host "✅ Scan erfolgreich beendet!" -ForegroundColor $Colors.Success
+    Write-Host "⏱️  Dauer: $($duration.Hours)h $($duration.Minutes)m $($duration.Seconds)s" -ForegroundColor $Colors.Info
+    Write-Host "📊 Insgesamt $Global:TotalFilesScanned Dateien in $Global:TotalDirsScanned Ordnern durchsucht" -ForegroundColor $Colors.Info
+    Write-Host ""
+    Write-Host "Press any key to exit..." -ForegroundColor $Colors.Warning
+    $null = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
+}
+
+# ============================= SKRIPT STARTEN =============================
+# Parameter auswerten
+if ($args -contains "-autocopy") { $AutoCopy = $true }
+if ($args -contains "-force") { $Force = $true }
+
+# Prüfe ob als Admin gestartet werden soll
+if (-not ([Security.Principal.WindowsPrincipal] [Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole] "Administrator")) {
+    $choice = Read-Host "Als Administrator ausführen? (j/n)"
+    if ($choice -eq "j") {
+        $arguments = "-NoProfile -ExecutionPolicy Bypass -File `"$PSCommandPath`""
+        if ($AutoCopy) { $arguments += " -autocopy" }
+        if ($Force) { $arguments += " -force" }
+        Start-Process powershell -Verb RunAs -ArgumentList $arguments
+        exit
+    }
+}
+
+# Hauptscan starten
+Start-MainScan
+# ============================= ENDE DES SKRIPTS =============================
