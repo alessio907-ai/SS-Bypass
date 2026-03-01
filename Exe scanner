@@ -1,43 +1,37 @@
 # =========================================
-# SAFE PRESTIGE / BLUR SCANNER
-# NOTHING gets deleted or modified
+# SAFE PRESTIGE / BLUR CONFIG SCANNER
+# NOTHING gets deleted
 # =========================================
 
 $ErrorActionPreference = "SilentlyContinue"
 
-Write-Host "=== PRESTIGE / BLUR SCAN START ===" -ForegroundColor Cyan
+Write-Host "=== BLUR / PRESTIGE SCAN START ===" -ForegroundColor Cyan
 
-# ---------------- Scan Paths ----------------
 $scanPaths = @(
-    [System.Environment]::GetFolderPath('Desktop'),
-    [System.Environment]::GetFolderPath('CommonDesktopDirectory'),
+    "$env:USERPROFILE",
+    "$env:APPDATA",
+    "$env:LOCALAPPDATA",
     "$env:USERPROFILE\Downloads",
-    "$env:USERPROFILE\AppData",
-    "$env:PUBLIC\Desktop",
-    "$env:PUBLIC\Downloads",
-    "$env:APPDATA\.minecraft\mods"
+    "$env:USERPROFILE\Desktop"
 )
 
-# ---------------- Keywords ----------------
-$nameKeywords = @("prestige", "blur.exe")
-$contentKeywords = @("prestige")
+$keywords = @("prestige", "blur", ".blur-config")
 
-# ---------------- FILE NAME SCAN ----------------
-Write-Host "`n--- FILE NAME SCAN ---" -ForegroundColor Yellow
-
-$foundFiles = @()
+$found = @()
 
 foreach ($path in $scanPaths) {
     if (Test-Path $path) {
         Write-Host "Scanning $path ..."
-        
-        $files = Get-ChildItem -Path $path -Recurse -File -Force
-        
+
+        $files = Get-ChildItem -Path $path -Recurse -Force -File
+
         foreach ($file in $files) {
-            foreach ($keyword in $nameKeywords) {
-                if ($file.Name.ToLower().Contains($keyword)) {
+            $lowerName = $file.Name.ToLower()
+
+            foreach ($keyword in $keywords) {
+                if ($lowerName.Contains($keyword)) {
                     Write-Host "FOUND: $($file.FullName)" -ForegroundColor Red
-                    $foundFiles += $file.FullName
+                    $found += $file.FullName
                     break
                 }
             }
@@ -45,42 +39,5 @@ foreach ($path in $scanPaths) {
     }
 }
 
-Write-Host "`nTotal suspicious name matches: $($foundFiles.Count)" -ForegroundColor Green
-
-# ---------------- JAR CONTENT SCAN ----------------
-Write-Host "`n--- JAR CONTENT SCAN ---" -ForegroundColor Yellow
-
-Add-Type -AssemblyName System.IO.Compression.FileSystem
-
-$tempRoot = "$env:TEMP\PrestigeScanTemp"
-if(Test-Path $tempRoot){ Remove-Item $tempRoot -Recurse -Force }
-New-Item -ItemType Directory -Path $tempRoot | Out-Null
-
-$jarPaths = Get-ChildItem "$env:APPDATA\.minecraft\mods" -Recurse -Filter *.jar -File
-
-foreach ($jar in $jarPaths) {
-    $extractPath = Join-Path $tempRoot ([Guid]::NewGuid().ToString())
-    
-    try {
-        [System.IO.Compression.ZipFile]::ExtractToDirectory($jar.FullName, $extractPath)
-        $classes = Get-ChildItem $extractPath -Recurse -Filter "*.class"
-
-        foreach ($c in $classes) {
-            $bytes = [System.IO.File]::ReadAllBytes($c.FullName)
-            $text = [System.Text.Encoding]::ASCII.GetString($bytes).ToLower()
-
-            foreach ($keyword in $contentKeywords) {
-                if ($text.Contains($keyword)) {
-                    Write-Host "FOUND STRING '$keyword' in: $($jar.FullName)" -ForegroundColor Red
-                    break
-                }
-            }
-        }
-
-        Remove-Item $extractPath -Recurse -Force
-    }
-    catch {}
-}
-
-Write-Host "`n=== SCAN FINISHED ===" -ForegroundColor Cyan
-Write-Host "No files were deleted or modified." -ForegroundColor Green
+Write-Host "`nScan finished." -ForegroundColor Green
+Write-Host "Total matches: $($found.Count)"
