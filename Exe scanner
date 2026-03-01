@@ -1,56 +1,62 @@
 # ============================================================================
-# PRESTIGE CLIENT EXAKT-SCANNER - 750KB bis 1MB
+# PRESTIGE CLIENT SCANNER - NACH GRÖSSE (750KB-1MB) - MIT BACKUP!
 # ============================================================================
-# Sucht gezielt nach EXE-Dateien zwischen 750KB und 1MB
-# Prestige ist genau 853 KB - das finden wir!
+# Sucht ALLE .exe Dateien zwischen 750KB und 1MB
+# ZEIGT sie an - UND KOPIERT verdächtige Dateien auf Desktop!
+# KEINE Namenssuche - NUR nach GRÖSSE!
 # ============================================================================
 
-# Admin-Rechte fordern
+# Admin-Rechte für vollen Zugriff
 if (-NOT ([Security.Principal.WindowsPrincipal] [Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole] "Administrator")) {
     Start-Process powershell -Verb RunAs -ArgumentList "-NoProfile -ExecutionPolicy Bypass -File `"$PSCommandPath`""
     exit
 }
 
 Clear-Host
-Write-Host "╔═══════════════════════════════════════════════════════════════╗" -ForegroundColor Red
-Write-Host "║           PRESTIGE CLIENT EXAKT-SCANNER v3.0                 ║" -ForegroundColor Red
-Write-Host "║              Sucht nach Dateien zwischen 750KB-1MB           ║" -ForegroundColor Red
-Write-Host "║              Prestige ist genau 853 KB!                      ║" -ForegroundColor Red
-Write-Host "╚═══════════════════════════════════════════════════════════════╝" -ForegroundColor Red
+Write-Host "╔═══════════════════════════════════════════════════════════════╗" -ForegroundColor Cyan
+Write-Host "║         PRESTIGE CLIENT SCANNER - NACH GRÖSSE                ║" -ForegroundColor Cyan
+Write-Host "║         Sucht ALLE .exe Dateien zwischen 750KB-1MB           ║" -ForegroundColor Cyan
+Write-Host "║         KEINE Namenssuche - NUR Größe!                       ║" -ForegroundColor Cyan
+Write-Host "║         Prestige ist genau 853 KB - das finden wir!          ║" -ForegroundColor Cyan
+Write-Host "║         📋 MIT BACKUP-FUNKTION!                              ║" -ForegroundColor Green
+Write-Host "╚═══════════════════════════════════════════════════════════════╝" -ForegroundColor Cyan
 Write-Host ""
 
-$foundFiles = @()
-$foundLogs = @()
+$foundExes = @()
 $timestamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
 Write-Host "[$timestamp] Scan gestartet..." -ForegroundColor Green
 Write-Host ""
 
-# ===== DEFINITION: PRESTIGE-GRÖSSENBEREICH =====
-$minSize = 750KB   # 750 Kilobyte
-$maxSize = 1MB     # 1 Megabyte
-$prestigeExact = 853KB  # 873.472 Bytes
+# ===== DEFINITION: NUR .exe IM BEREICH 750KB - 1MB =====
+$minSize = 750KB    # 750 Kilobyte (768.000 Bytes)
+$maxSize = 1MB      # 1 Megabyte (1.048.576 Bytes)
+$prestigeExact = 873472  # 853 KB exakt
 
-Write-Host "📊 Suche nach Dateien zwischen $([math]::Round($minSize/1KB,0)) KB und $([math]::Round($maxSize/1KB,0)) KB" -ForegroundColor Cyan
-Write-Host "   (Prestige ist genau 873.472 Bytes / 853 KB)" -ForegroundColor Yellow
+Write-Host "📊 Suche AUSSCHLIESSLICH nach .exe Dateien zwischen $([math]::Round($minSize/1KB,0)) KB und $([math]::Round($maxSize/1KB,0)) KB" -ForegroundColor Yellow
+Write-Host "   (Prestige ist genau 873.472 Bytes / 853 KB)" -ForegroundColor Cyan
 Write-Host ""
 
-# ===== 1. ALLE WICHTIGEN ORTEN =====
+# ===== ALLE WICHTIGEN ORTEN =====
 $scanPaths = @(
     # Desktop & Downloads (Hauptverdächtige!)
     "$env:USERPROFILE\Desktop",
     "$env:USERPROFILE\Downloads",
-    "$env:USERPROFILE\Desktop\*",
     "$env:USERPROFILE\Desktop\Render",
     "$env:USERPROFILE\Desktop\Neuer Ordner",
     "$env:USERPROFILE\Desktop\Ordner",
     "$env:USERPROFILE\Desktop\Tools",
     "$env:USERPROFILE\Desktop\Client",
+    "$env:USERPROFILE\Desktop\Hacks",
+    "$env:USERPROFILE\Desktop\Cheats",
+    "$env:USERPROFILE\Desktop\Games",
+    "$env:USERPROFILE\Desktop\Programme",
     
     # Temp-Ordner
-    "$env:LOCALAPPAATA\Temp",
+    "$env:LOCALAPPDATA\Temp",
     "$env:TEMP",
     "$env:USERPROFILE\AppData\Local\Temp",
     "C:\Windows\Temp",
+    "C:\Temp",
     
     # AppData
     "$env:APPDATA",
@@ -65,230 +71,255 @@ $scanPaths = @(
     
     # Benutzer-Ordner
     "$env:USERPROFILE\Documents",
-    "$env:USERPROFILE\Music",
     "$env:USERPROFILE\Videos",
+    "$env:USERPROFILE\Music",
     "$env:USERPROFILE\Pictures",
+    "$env:USERPROFILE\Favorites",
+    "$env:USERPROFILE\Links",
+    "$env:USERPROFILE\Saved Games",
+    "$env:USERPROFILE\Downloads\*",
     
-    # Versteckte Orte
+    # Root-Verzeichnisse
     "$env:USERPROFILE\*",
     "C:\",
-    "C:\Temp",
     "C:\Users\Public",
     "C:\Users\Public\Desktop",
-    "C:\Users\Public\Downloads"
+    "C:\Users\Public\Downloads",
+    "C:\Users\Public\Documents",
+    
+    # Versteckte Orte
+    "$env:USERPROFILE\AppData\Local\Microsoft\Windows\INetCache",
+    "$env:USERPROFILE\AppData\Local\Microsoft\Windows\Temporary Internet Files",
+    "$env:LOCALAPPDATA\Microsoft\Windows\Caches",
+    "$env:APPDATA\Microsoft\Windows\Recent",
+    "$env:APPDATA\Microsoft\Windows\Recent\AutomaticDestinations",
+    
+    # Weitere Orte
+    "C:\Temp",
+    "C:\Windows\Prefetch",
+    "C:\Windows\System32\config\systemprofile\Desktop",
+    "C:\Windows\System32\config\systemprofile\Documents",
+    "C:\Windows\System32\config\systemprofile\Downloads",
+    "C:\Recovery",
+    "C:\$Recycle.Bin"
 )
 
-Write-Host "📁 [1/4] Scanne ALLE Verzeichnisse nach EXE-Dateien..." -ForegroundColor Cyan
+Write-Host "📁 [1/3] Scanne ALLE Verzeichnisse nach .exe Dateien..." -ForegroundColor Green
 Write-Host ""
 
 $totalScanned = 0
 $pathCount = $scanPaths.Count
 $currentPath = 0
+$allFoundExes = @()
 
 foreach ($path in $scanPaths) {
     $currentPath++
     Write-Host "   [$currentPath/$pathCount] Scanne: $path" -ForegroundColor Gray
     
     if (Test-Path $path) {
+        # NUR .exe Dateien! GAR NICHTS ANDERES!
         $files = Get-ChildItem $path -Recurse -File -ErrorAction SilentlyContinue | 
             Where-Object { 
+                $_.Extension -eq ".exe" -and
                 $_.Length -ge $minSize -and 
-                $_.Length -le $maxSize -and
-                $_.Extension -match "\.(exe|dll|jar|bat|cmd|ps1|bin|scr|com)"
+                $_.Length -le $maxSize
             }
         
         foreach ($file in $files) {
             $totalScanned++
-            $sizeKB = [math]::Round($file.Length/1KB, 2)
-            $sizeBytes = $file.Length
-            $sizeDiff = [math]::Abs($sizeBytes - 873472)  # Abweichung von 853KB
-            $diffPercent = [math]::Round(($sizeDiff / 873472) * 100, 1)
-            
-            # PREISTIGE-ERKENNUNG:
-            $isPrestige = $false
-            $indicators = @()
-            
-            # 1. Größen-Check (zwischen 750KB-1MB)
-            $indicators += "GRÖSSE: $sizeKB KB"
-            
-            # 2. Exakte Prestige-Größe? (853 KB)
-            if ($sizeBytes -ge 870000 -and $sizeBytes -le 880000) {
-                $isPrestige = $true
-                $indicators += "🎯 EXAKTE PRESTIGE-GRÖSSE!"
-            }
-            
-            # 3. Name mit Punkt? (.blur-config.exe)
-            if ($file.Name -match "^\.") {
-                $isPrestige = $true
-                $indicators += "🔴 PUNKT-NAME"
-            }
-            
-            # 4. Verdächtige Namen
-            if ($file.Name -match "prestige|Prestige|blur|Blur|inject|loader|config|client|ghost") {
-                $isPrestige = $true
-                $indicators += "🔥 VERDÄCHTIGER NAME"
-            }
-            
-            # 5. Zufälliger Name?
-            if ($file.Name -match "^[a-f0-9]{8,}\.exe$" -or
-                $file.Name -match "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.exe$") {
-                $isPrestige = $true
-                $indicators += "🎲 ZUFALLSNAME"
-            }
-            
-            # 6. Versteckt?
-            if ($file.Attributes -match "Hidden") {
-                $indicators += "👁️ VERSTECKT"
-            }
-            
-            # 7. In Temp-Ordner?
-            if ($file.FullName -match "Temp|Temporary|Cache") {
-                $indicators += "📁 IM TEMP"
-            }
-            
-            # 8. Kürzlich erstellt?
-            if ($file.CreationTime -gt (Get-Date).AddDays(-30)) {
-                $indicators += "🆕 NEU (letzte 30 Tage)"
-            }
-            
-            # AUSGABE - IMMER wenn im Größenbereich!
-            Write-Host "`n   🔍 DATEI GEFUNDEN (#$totalScanned)" -ForegroundColor Yellow
-            Write-Host "      📄 Name: $($file.Name)" -ForegroundColor White
-            Write-Host "      📁 Pfad: $($file.FullName)" -ForegroundColor White
-            Write-Host "      📏 Größe: $sizeKB KB (genau: $sizeBytes Bytes)" -ForegroundColor Cyan
-            
-            # Zusätzliche Infos bei Prestige-Verdacht
-            if ($isPrestige) {
-                Write-Host "      🚨🚨🚨 PRESTIGE-VERDACHT! 🚨🚨🚨" -ForegroundColor Red
-                Write-Host "      Indizien:" -ForegroundColor Red
-                foreach ($indicator in $indicators) {
-                    Write-Host "         - $indicator" -ForegroundColor Yellow
-                }
-                
-                # Datei merken
-                $foundFiles += [PSCustomObject]@{
-                    Name = $file.Name
-                    Path = $file.FullName
-                    SizeKB = $sizeKB
-                    Created = $file.CreationTime
-                    Modified = $file.LastWriteTime
-                    Indicators = $indicators -join ", "
-                }
-            }
+            $allFoundExes += $file
         }
     }
 }
 
-# ===== 2. TEMP-ORDNER NACH LOGS DURCHSUCHEN =====
-Write-Host "`n📋 [2/4] Durchsuche Temp-Ordner nach Prestige-Logs..." -ForegroundColor Cyan
+# ===== NACH PRESTIGE-GRÖSSE FILTERN =====
+Write-Host "`n🔍 [2/3] Analysiere gefundene .exe Dateien..." -ForegroundColor Green
+
+$prestigeCandidates = @()
+
+foreach ($file in $allFoundExes) {
+    $sizeKB = [math]::Round($file.Length/1KB, 2)
+    $sizeBytes = $file.Length
+    $sizeDiff = [math]::Abs($sizeBytes - $prestigeExact)
+    $diffPercent = [math]::Round(($sizeDiff / $prestigeExact) * 100, 1)
+    
+    # PRESTIGE-INDIKATOREN (NACH GRÖSSE!)
+    $indicators = @()
+    
+    # Größe immer anzeigen
+    $indicators += "$sizeKB KB"
+    
+    # 1. Exakte Prestige-Größe? (853 KB / 873.472 Bytes)
+    if ($sizeBytes -ge 870000 -and $sizeBytes -le 880000) {
+        $indicators += "🎯 PRESTIGE-GRÖSSE! (nur $diffPercent% Abweichung)"
+    }
+    
+    # 2. Sehr nah an Prestige-Größe?
+    if ($sizeBytes -ge 850000 -and $sizeBytes -le 900000) {
+        $indicators += "📊 NAH AN PRESTIGE"
+    }
+    
+    # 3. Im Temp-Ordner?
+    if ($file.FullName -match "Temp|Temporary|Cache") {
+        $indicators += "📁 TEMP-ORDNER"
+    }
+    
+    # 4. Kürzlich erstellt? (letzte 30 Tage)
+    if ($file.CreationTime -gt (Get-Date).AddDays(-30)) {
+        $indicators += "🆕 NEU"
+    }
+    
+    # 5. Sehr jung? (letzte 24h)
+    if ($file.CreationTime -gt (Get-Date).AddDays(-1)) {
+        $indicators += "⚡ HEUTE"
+    }
+    
+    # 6. Versteckt?
+    if ($file.Attributes -match "Hidden") {
+        $indicators += "👁️ VERSTECKT"
+    }
+    
+    # Kandidat merken
+    $prestigeCandidates += [PSCustomObject]@{
+        Name = $file.Name
+        Path = $file.FullName
+        SizeKB = $sizeKB
+        SizeBytes = $sizeBytes
+        Created = $file.CreationTime
+        Modified = $file.LastWriteTime
+        Indicators = $indicators -join " | "
+        DiffFromPrestige = $sizeDiff
+    }
+}
+
+# ===== NACH ÄHNLICHKEIT ZU PRESTIGE SORTIEREN =====
+$sortedCandidates = $prestigeCandidates | Sort-Object DiffFromPrestige
+
+# ===== BACKUP-ORDNER ERSTELLEN (BEVOR WIR DIE DATEIEN ZEIGEN!) =====
+$backupPath = "$env:USERPROFILE\Desktop\Prestige_Funde_$(Get-Date -Format 'yyyy-MM-dd_HH-mm-ss')"
+New-Item -ItemType Directory -Path $backupPath -Force | Out-Null
+Write-Host "`n📁 Backup-Ordner erstellt: $backupPath" -ForegroundColor Green
+
+# ===== ERGEBNISSE ANZEIGEN =====
+Write-Host "`n📋 [3/3] Ergebnisse - NACH GRÖSSE SORTIERT (nähe zu 853 KB)" -ForegroundColor Green
+Write-Host ""
+
+$copiedFiles = @()
+$copiedCount = 0
+
+if ($sortedCandidates.Count -gt 0) {
+    Write-Host "🔥 GEFUNDENE .exe DATEIEN ZWISCHEN 750KB-1MB: $($sortedCandidates.Count)" -ForegroundColor Yellow
+    
+    $counter = 0
+    foreach ($exe in $sortedCandidates) {
+        $counter++
+        
+        # Farbgebung basierend auf Nähe zu Prestige
+        $color = "White"
+        if ($exe.DiffFromPrestige -lt 10000) { $color = "Red" }        # <10KB Abweichung = SEHR VERDÄCHTIG
+        elseif ($exe.DiffFromPrestige -lt 50000) { $color = "Magenta" } # <50KB Abweichung = VERDÄCHTIG
+        elseif ($exe.DiffFromPrestige -lt 100000) { $color = "Yellow" } # <100KB Abweichung = MÖGLICH
+        
+        Write-Host ""
+        Write-Host "   [$counter] 🚨 $($exe.Name)" -ForegroundColor $color
+        Write-Host "      📁 Pfad: $($exe.Path)" -ForegroundColor Gray
+        Write-Host "      📏 Größe: $($exe.SizeKB) KB (exakt: $($exe.SizeBytes) Bytes)" -ForegroundColor Cyan
+        Write-Host "      📅 Erstellt: $($exe.Created)" -ForegroundColor Gray
+        Write-Host "      📅 Geändert: $($exe.Modified)" -ForegroundColor Gray
+        Write-Host "      🔍 Abweichung von Prestige: $([math]::Round($exe.DiffFromPrestige/1KB,2)) KB" -ForegroundColor Yellow
+        Write-Host "      📊 Indizien: $($exe.Indicators)" -ForegroundColor White
+        
+        # ===== JEDE GEFUNDENE .exe WIRD KOPIERT! =====
+        try {
+            $destPath = Join-Path $backupPath (Split-Path $exe.Path -Leaf)
+            Copy-Item $exe.Path $destPath -Force
+            Write-Host "      ✅ KOPIERT NACH: $destPath" -ForegroundColor Green
+            $copiedCount++
+            $copiedFiles += $exe.Path
+        } catch {
+            Write-Host "      ❌ FEHLER BEIM KOPIEREN: $($_.Exception.Message)" -ForegroundColor Red
+        }
+    }
+    
+    # ===== SPEZIAL-ANALYSE: DIE TOP 10 PRESTIGE-KANDIDATEN =====
+    $topCandidates = $sortedCandidates | Where-Object { $_.DiffFromPrestige -lt 100000 } | Select-Object -First 10
+    
+    if ($topCandidates.Count -gt 0) {
+        Write-Host "`n" + ("=" * 70) -ForegroundColor Red
+        Write-Host "🔥 TOP-PRESTIGE-KANDIDATEN (unter 100KB Abweichung)" -ForegroundColor Red
+        Write-Host ("=" * 70) -ForegroundColor Red
+        
+        foreach ($exe in $topCandidates) {
+            Write-Host ""
+            Write-Host "   🚨 $($exe.Name)" -ForegroundColor Red
+            Write-Host "      📁 $($exe.Path)" -ForegroundColor Yellow
+            Write-Host "      📏 $($exe.SizeKB) KB (Prestige: 853 KB)" -ForegroundColor White
+            Write-Host "      📊 Abweichung: $([math]::Round($exe.DiffFromPrestige/1KB,2)) KB" -ForegroundColor Cyan
+        }
+    }
+    
+} else {
+    Write-Host "❌ KEINE .exe Dateien zwischen 750KB-1MB gefunden!" -ForegroundColor Red
+}
+
+# ===== TEMP-LOGS FINDEN UND KOPIEREN =====
+Write-Host "`n" + ("=" * 70) -ForegroundColor Cyan
+Write-Host "📋 ZUSÄTZLICH: Suche nach Prestige-Logs im Temp-Ordner" -ForegroundColor Cyan
+Write-Host ("=" * 70) -ForegroundColor Cyan
 
 $tempLogs = Get-ChildItem "$env:LOCALAPPDATA\Temp" -Recurse -File -ErrorAction SilentlyContinue |
     Where-Object { 
-        $_.Name -match "prestige|Prestige|blur|Blur|inject|loader|log|crash|dmp|error|exception|tmp|temp" -or
-        $_.Extension -match "\.(log|txt|crash|dmp|json|cfg|conf|properties|tmp|temp|cache)"
-    }
+        $_.Extension -match "\.(log|txt|crash|dmp|tmp)" -and
+        $_.Length -gt 1KB -and
+        $_.Length -lt 10MB
+    } | Sort-Object LastWriteTime -Descending | Select-Object -First 20
 
-foreach ($log in $tempLogs) {
-    $sizeKB = [math]::Round($log.Length/1KB, 2)
+$logCounter = 0
+if ($tempLogs.Count -gt 0) {
+    Write-Host "🔥 Neueste Logs im Temp-Ordner:" -ForegroundColor Yellow
     
-    Write-Host "`n   📄 LOG GEFUNDEN: $($log.Name)" -ForegroundColor Green
-    Write-Host "      📁 Pfad: $($log.FullName)" -ForegroundColor Gray
-    Write-Host "      📏 Größe: $sizeKB KB" -ForegroundColor Gray
-    Write-Host "      📅 Geändert: $($log.LastWriteTime)" -ForegroundColor Gray
-    
-    # Bei kleinen Logs den Inhalt anzeigen
-    if ($log.Length -lt 500KB -and $log.Length -gt 0) {
-        Write-Host "      📝 Erste 10 Zeilen:" -ForegroundColor Yellow
+    foreach ($log in $tempLogs) {
+        $sizeKB = [math]::Round($log.Length/1KB, 2)
+        Write-Host ""
+        Write-Host "   📄 $($log.Name)" -ForegroundColor Green
+        Write-Host "      📁 $($log.FullName)" -ForegroundColor Gray
+        Write-Host "      📏 $sizeKB KB" -ForegroundColor Gray
+        Write-Host "      📅 $($log.LastWriteTime)" -ForegroundColor Gray
+        
+        # Logs auch kopieren
         try {
-            Get-Content $log.FullName -TotalCount 10 -ErrorAction Stop | ForEach-Object {
-                if ($_) { 
-                    Write-Host "         $_" -ForegroundColor White
-                    
-                    # Nach Prestige-typischen Strings suchen
-                    if ($_ -match "prestige|Prestige|blur|Blur|inject|success|loaded|module|config|auth|login|bypass") {
-                        Write-Host "            🔥 PRESTIGE-KEYWORD GEFUNDEN!" -ForegroundColor Red
-                    }
-                }
-            }
+            $destPath = Join-Path $backupPath $log.Name
+            Copy-Item $log.FullName $destPath -Force
+            Write-Host "      ✅ LOG KOPIERT" -ForegroundColor Green
+            $logCounter++
         } catch {}
     }
-    
-    $foundLogs += $log.FullName
-}
-
-# ===== 3. SPEZIELL NACH .BLUR-CONFIG SUCHEN =====
-Write-Host "`n🔎 [3/4] Spezielle Suche nach .blur-config..." -ForegroundColor Cyan
-
-$blurPaths = @(
-    "$env:USERPROFILE\Desktop\.blur-config.exe",
-    "$env:USERPROFILE\Desktop\Render\.blur-config.exe",
-    "$env:USERPROFILE\Desktop\Neuer Ordner\.blur-config.exe",
-    "$env:USERPROFILE\Desktop\*\.blur-config.exe",
-    "$env:USERPROFILE\*\.blur-config.exe",
-    "$env:LOCALAPPDATA\Temp\*\.blur-config.exe"
-)
-
-foreach ($path in $blurPaths) {
-    $files = Get-ChildItem -Path $path -ErrorAction SilentlyContinue
-    foreach ($file in $files) {
-        $sizeKB = [math]::Round($file.Length/1KB, 2)
-        Write-Host "`n   🚨🚨🚨 .BLUR-CONFIG.EXE GEFUNDEN! 🚨🚨🚨" -ForegroundColor Red
-        Write-Host "      📄 Name: $($file.Name)" -ForegroundColor Yellow
-        Write-Host "      📁 Pfad: $($file.FullName)" -ForegroundColor Yellow
-        Write-Host "      📏 Größe: $sizeKB KB" -ForegroundColor White
-        Write-Host "      📅 Erstellt: $($file.CreationTime)" -ForegroundColor Gray
-        $foundFiles += $file.FullName
-    }
-}
-
-# ===== 4. ZUSAMMENFASSUNG =====
-Write-Host "`n" + ("=" * 80) -ForegroundColor Cyan
-Write-Host "📊 ZUSAMMENFASSUNG" -ForegroundColor Cyan
-Write-Host ("=" * 80) -ForegroundColor Cyan
-Write-Host ""
-
-Write-Host "📁 GESCANNTE DATEIEN: $totalScanned" -ForegroundColor White
-Write-Host ""
-
-if ($foundFiles.Count -gt 0) {
-    Write-Host "🔥 PRESTIGE-VERDÄCHTIGE EXE-DATEIEN: $($foundFiles.Count)" -ForegroundColor Red
-    $foundFiles | ForEach-Object {
-        Write-Host ""
-        Write-Host "   🚨 $($_.Name)" -ForegroundColor Red
-        Write-Host "      📁 $($_.Path)" -ForegroundColor Yellow
-        Write-Host "      📏 $($_.SizeKB) KB" -ForegroundColor Gray
-        Write-Host "      📅 Erstellt: $($_.Created)" -ForegroundColor Gray
-        Write-Host "      🔍 Indizien: $($_.Indicators)" -ForegroundColor Cyan
-    }
-    
-    # Backup-Ordner erstellen
-    $backupPath = "$env:USERPROFILE\Desktop\Prestige_Funde_$(Get-Date -Format 'yyyy-MM-dd_HH-mm-ss')"
-    New-Item -ItemType Directory -Path $backupPath -Force | Out-Null
-    
-    $foundFiles | ForEach-Object {
-        try {
-            Copy-Item $_.Path $backupPath -Force
-            Write-Host "   ✅ Kopiert: $($_.Name)" -ForegroundColor Green
-        } catch {
-            Write-Host "   ❌ Konnte nicht kopieren: $($_.Name)" -ForegroundColor Red
-        }
-    }
-    
-    Write-Host "`n   📁 Alle Dateien gesichert in: $backupPath" -ForegroundColor Green
 } else {
-    Write-Host "❌ KEINE Prestige-verdächtigen EXE-Dateien gefunden!" -ForegroundColor Yellow
+    Write-Host "❌ Keine Logs im Temp-Ordner gefunden" -ForegroundColor Gray
 }
 
-if ($foundLogs.Count -gt 0) {
-    Write-Host "`n📋 GEFUNDENE LOGS: $($foundLogs.Count)" -ForegroundColor Green
-    $foundLogs | ForEach-Object {
-        Write-Host "   📄 $_" -ForegroundColor Gray
-    }
-}
-
-Write-Host "`n" + ("=" * 80) -ForegroundColor Cyan
+# ===== ZUSAMMENFASSUNG =====
+Write-Host "`n" + ("=" * 70) -ForegroundColor Cyan
+Write-Host "📊 ZUSAMMENFASSUNG" -ForegroundColor Cyan
+Write-Host ("=" * 70) -ForegroundColor Cyan
+Write-Host ""
+Write-Host "📁 GESCANNTE ORDNER: $pathCount" -ForegroundColor White
+Write-Host "📁 GEFUNDENE .exe DATEIEN (750KB-1MB): $($sortedCandidates.Count)" -ForegroundColor Yellow
+Write-Host "📁 KOPIERTE .exe DATEIEN: $copiedCount" -ForegroundColor Green
+Write-Host "📁 KOPIERTE LOGS: $logCounter" -ForegroundColor Green
+Write-Host ""
+Write-Host "📂 BACKUP-ORDNER: $backupPath" -ForegroundColor Cyan
+Write-Host ""
+Write-Host "🔴 ROTE DATEIEN = Sehr nah an Prestige-Größe (<10KB Abweichung)" -ForegroundColor Red
+Write-Host "🟣 MAGENTA DATEIEN = Nah an Prestige-Größe (<50KB Abweichung)" -ForegroundColor Magenta
+Write-Host "🟡 GELBE DATEIEN = Im Bereich (<100KB Abweichung)" -ForegroundColor Yellow
+Write-Host "⚪ WEISSE DATEIEN = Im Größenbereich aber weiter weg" -ForegroundColor White
+Write-Host ""
+Write-Host "✅ ALLE GEFUNDENEN DATEIEN WURDEN KOPIERT NACH:" -ForegroundColor Green
+Write-Host "   $backupPath" -ForegroundColor Yellow
+Write-Host ""
+Write-Host "📌 DIE ORIGINAL-DATEIEN BLEIBEN UNBERÜHRT!" -ForegroundColor Cyan
+Write-Host ""
 Write-Host "✅ SCAN ABGESCHLOSSEN" -ForegroundColor Green
-Write-Host "   Gefundene EXEs: $($foundFiles.Count)" -ForegroundColor Yellow
-Write-Host "   Gefundene Logs: $($foundLogs.Count)" -ForegroundColor Yellow
 Write-Host ""
 Read-Host "Enter drücken zum Beenden"
