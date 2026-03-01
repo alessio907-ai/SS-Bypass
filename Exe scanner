@@ -1,155 +1,82 @@
-# =========================================
-# PRESTIGE / INJECTABLE CLIENT SCANNER
-# =========================================
+# ===== ULTIMATIVE PRESTIGE-ORDNER SUCHE =====
 
-$ErrorActionPreference = "SilentlyContinue"
+Write-Host "Scanne nach Prestige-Ordnern mit Logs/Crashes..." -ForegroundColor Cyan
 
-Write-Host "=== PRESTIGE CLIENT / INJECTABLE SCANNER ===" -ForegroundColor Cyan
-Write-Host "Suchbegriffe: prestige, inject, cheat-spezifische DLLs" -ForegroundColor Yellow
-Write-Host ""
-
-# SPEZIFISCHE SUCHBEGRIFFE FÜR PRESTIGE & INJEKTION
-$searchTerms = @(
-    "prestige",
-    "Prestige",
-    "inject",
-    "Injection",
-    "injected",
-    "loader",
-    "DLLInjector",
-    "jni",
-    "agent",
-    "javaagent",
-    "-javaagent",
-    "native"
-)
-
-# DLL-Dateien, die auf Injektion hindeuten
-$dllPatterns = @(
-    "inject*.dll",
-    "prestige*.dll",
-    "loader*.dll",
-    "agent*.dll"
-)
-
-# TYPISCHE ORTE FÜR INJEKTIONS-CLIENTS
-$scanPaths = @(
-    "$env:APPDATA\.minecraft",
-    "$env:APPDATA\.minecraft\bin",
-    "$env:APPDATA\.minecraft\Cache_60",
-    "$env:APPDATA\.minecraft\natives",
-    "$env:APPDATA\.minecraft\versions",
-    "$env:APPDATA\.feather",
-    "$env:APPDATA\.lunarclient",
-    "$env:LOCALAPPDATA\Temp",
-    "$env:USERPROFILE\Downloads",
+$searchPaths = @(
     "$env:USERPROFILE\Desktop",
-    "$env:USERPROFILE\Documents",
-    "$env:ProgramData"
+    "$env:USERPROFILE\Downloads",
+    "$env:APPDATA",
+    "$env:LOCALAPPDATA",
+    "$env:ProgramData",
+    "C:\"
 )
 
-# ZUSÄTZLICHE VERSTECKE ORTE
-$extraPaths = @(
-    "$env:LOCALAPPDATA\Programs",
-    "$env:APPDATA\Microsoft\Windows\Start Menu\Programs\Startup",
-    "C:\ProgramData\Microsoft\Windows\Start Menu\Programs\Startup"
-)
+$foundFolders = @()
 
-$scanPaths += $extraPaths
-
-# GEFUNDENE DATEIEN SPEICHERN
-$foundItems = @()
-
-Write-Host "Starte Tiefenscan..." -ForegroundColor Green
-Write-Host ""
-
-foreach ($basePath in $scanPaths) {
-    if (Test-Path $basePath) {
-        Write-Host "Scanning $basePath ..." -ForegroundColor Gray
-
-        # SCAN NACH DATEIEN MIT PRESTIGE/INJEKT-BEGRIFFEN
-        Get-ChildItem $basePath -Recurse -File -Force -ErrorAction SilentlyContinue |
+foreach ($path in $searchPaths) {
+    if (Test-Path $path) {
+        Get-ChildItem -Path $path -Directory -Recurse -ErrorAction SilentlyContinue | 
+        Where-Object { 
+            $_.Name -like "*prestige*" -or 
+            $_.Name -like "*Prestige*" -or
+            $_.Name -like "*inject*" -or
+            $_.FullName -like "*\Prestige\*" -or
+            $_.FullName -like "*\prestige-client\*"
+        } |
         ForEach-Object {
-            $file = $_.FullName
-            $fileName = $_.Name
-
-            # 1. NACH DATEINAMEN SUCHEN
-            foreach ($term in $searchTerms) {
-                if ($fileName -like "*$term*") {
-                    Write-Host "MATCH FOUND (Filename): $file" -ForegroundColor Red
-                    $foundItems += $file
-                    break
+            Write-Host "🚨 PRESTIGE ORDENER GEFUNDEN: $($_.FullName)" -ForegroundColor Red
+            
+            # Zeige Unterordner-Struktur
+            Write-Host "  └─ Unterordner:" -ForegroundColor Yellow
+            Get-ChildItem -Path $_.FullName -Directory | ForEach-Object {
+                Write-Host "      ├─ $($_.Name)" -ForegroundColor Gray
+            }
+            
+            # Zeige LOG-Dateien
+            $logs = Get-ChildItem -Path $_.FullName -File -Recurse -Include "*.log", "*.txt", "*.json", "*.crash", "*.dmp", "*.mdmp"
+            if ($logs) {
+                Write-Host "  └─ LOG-DATEIEN:" -ForegroundColor Yellow
+                $logs | ForEach-Object {
+                    $size = [math]::Round($_.Length/1KB, 2)
+                    Write-Host "      ├─ $($_.Name) (${size} KB) - $($_.LastWriteTime)" -ForegroundColor Green
                 }
             }
-
-            # 2. NACH DLL-PATTERN SUCHEN
-            foreach ($pattern in $dllPatterns) {
-                if ($fileName -like $pattern) {
-                    Write-Host "MATCH FOUND (DLL Pattern): $file" -ForegroundColor Red
-                    $foundItems += $file
-                    break
-                }
-            }
-
-            # 3. IN DATEIEN SUCHEN (NUR BEI BESTIMMTEN TYPEN)
-            if ($file -match "\.(log|txt|json|properties|class|jar|exe|dll|cfg|bat|ps1)$") {
-                try {
-                    $content = Get-Content $file -TotalCount 50 -ErrorAction SilentlyContinue
-                    foreach ($term in $searchTerms) {
-                        if ($content -match $term) {
-                            Write-Host "MATCH FOUND (Content): $file" -ForegroundColor Red
-                            $foundItems += $file
-                            break
-                        }
-                    }
-                } catch {}
-            }
+            
+            $foundFolders += $_.FullName
         }
-    } else {
-        Write-Host "Path not found: $basePath" -ForegroundColor DarkGray
     }
 }
 
-# SPEZIAL-SCAN: PRÜFE AUF UNGEWÖHNLICHE JVM-PARAMETER
-Write-Host ""
-Write-Host "Prüfe auf JVM-Parameter..." -ForegroundColor Yellow
+# Speziell nach Crash-Reports suchen
+Write-Host "`n[2] Scanne speziell nach Crash-Reports..." -ForegroundColor Cyan
 
-$jvmFiles = @(
-    "$env:APPDATA\.minecraft\launcher_profiles.json",
-    "$env:APPDATA\.minecraft\launcher_accounts.json",
-    "$env:APPDATA\.minecraft\options.txt"
+$crashLocations = @(
+    "$env:USERPROFILE\Desktop\*crash*",
+    "$env:USERPROFILE\Downloads\*crash*",
+    "$env:APPDATA\*crash*",
+    "$env:LOCALAPPDATA\Temp\*crash*"
 )
 
-foreach ($jvmFile in $jvmFiles) {
-    if (Test-Path $jvmFile) {
-        $content = Get-Content $jvmFile -Raw -ErrorAction SilentlyContinue
-        if ($content -match "-javaagent" -or $content -match "inject" -or $content -match "prestige") {
-            Write-Host "JVM PARAMETER FOUND in $jvmFile" -ForegroundColor Red
-            $foundItems += "$jvmFile (JVM-Parameter)"
+foreach ($pattern in $crashLocations) {
+    Get-ChildItem -Path $pattern -Recurse -ErrorAction SilentlyContinue | 
+    Where-Object { $_ -is [System.IO.FileInfo] } |
+    ForEach-Object {
+        if ($_.Name -match "prestige|Prestige|client|inject") {
+            Write-Host "🚨 CRASH-REPORT GEFUNDEN: $($_.FullName)" -ForegroundColor Red
+            Write-Host "    Datum: $($_.LastWriteTime)" -ForegroundColor Yellow
+            Write-Host "    Größe: $([math]::Round($_.Length/1KB, 2)) KB" -ForegroundColor Yellow
+            $foundItems += $_.FullName
         }
     }
 }
 
-# SPEZIAL-SCAN: PRÜFE AUF VERSTECKTE PROZESSE
-Write-Host ""
-Write-Host "Prüfe auf laufende Prozesse..." -ForegroundColor Yellow
-
-$processes = Get-Process | Where-Object { $_.ProcessName -like "*prestige*" -or $_.ProcessName -like "*inject*" -or $_.ProcessName -like "*loader*" }
-if ($processes) {
-    Write-Host "VERDÄCHTIGE PROZESSE GEFUNDEN:" -ForegroundColor Red
-    $processes | ForEach-Object { Write-Host "  $($_.ProcessName) (PID: $($_.Id))" -ForegroundColor Red }
-}
-
-# ZUSAMMENFASSUNG
-Write-Host ""
-Write-Host "========== SCAN ERGEBNIS ==========" -ForegroundColor Cyan
-if ($foundItems.Count -gt 0) {
-    Write-Host "GEFUNDENE VERDÄCHTIGE DATEIEN: $($foundItems.Count)" -ForegroundColor Red
-    $foundItems | ForEach-Object { Write-Host "  - $_" -ForegroundColor Yellow }
+# Zusammenfassung
+Write-Host "`n========== ERGEBNIS ==========" -ForegroundColor Magenta
+if ($foundFolders.Count -gt 0) {
+    Write-Host "GEFUNDENE PRESTIGE-ORDNER:" -ForegroundColor Red
+    $foundFolders | ForEach-Object { Write-Host "  📁 $_" -ForegroundColor Yellow }
 } else {
-    Write-Host "KEINE PRESTIGE/INJEKT-DATEIEN GEFUNDEN" -ForegroundColor Green
+    Write-Host "❌ KEINE Prestige-Ordner gefunden!" -ForegroundColor Red
 }
 
-Write-Host ""
-Write-Host "Scan finished. NOTHING was deleted." -ForegroundColor Green
-Write-Host "Prüfe die gefundenen Dateien manuell!" -ForegroundColor Yellow
+Write-Host "`nTipp: Prestige-Ordner heißen oft: .prestige, Prestige, prestige-client, prestige_data" -ForegroundColor Cyan
