@@ -1,43 +1,42 @@
 # =========================================
-# SAFE PRESTIGE / BLUR CONFIG SCANNER
-# NOTHING gets deleted
+# DEEP INJECTABLE CLIENT SCANNER
 # =========================================
 
 $ErrorActionPreference = "SilentlyContinue"
 
-Write-Host "=== BLUR / PRESTIGE SCAN START ===" -ForegroundColor Cyan
+Write-Host "=== INJECTABLE CLIENT DEEP SCAN ===" -ForegroundColor Cyan
 
+# Suchbegriffe im Inhalt
+$searchTerms = @("prestige","blur","inject","client")
+
+# Typische Orte
 $scanPaths = @(
-    "$env:USERPROFILE",
+    "$env:APPDATA\.minecraft\logs",
+    "$env:APPDATA\.minecraft\crash-reports",
     "$env:APPDATA",
     "$env:LOCALAPPDATA",
     "$env:USERPROFILE\Downloads",
-    "$env:USERPROFILE\Desktop"
+    "$env:USERPROFILE\Desktop",
+    "$env:APPDATA\.minecraft\mods"
 )
-
-$keywords = @("prestige", "blur", ".blur-config")
-
-$found = @()
 
 foreach ($path in $scanPaths) {
     if (Test-Path $path) {
         Write-Host "Scanning $path ..."
 
-        $files = Get-ChildItem -Path $path -Recurse -Force -File
-
-        foreach ($file in $files) {
-            $lowerName = $file.Name.ToLower()
-
-            foreach ($keyword in $keywords) {
-                if ($lowerName.Contains($keyword)) {
-                    Write-Host "FOUND: $($file.FullName)" -ForegroundColor Red
-                    $found += $file.FullName
-                    break
-                }
+        Get-ChildItem $path -Recurse -File -Force -Include *.log,*.txt,*.class,*.* |
+        ForEach-Object {
+            $file = $_.FullName
+            foreach ($term in $searchTerms) {
+                try {
+                    if (Select-String -Path $file -Pattern $term -Quiet) {
+                        Write-Host "MATCH FOUND in $file" -ForegroundColor Red
+                        break
+                    }
+                } catch {}
             }
         }
     }
 }
 
-Write-Host "`nScan finished." -ForegroundColor Green
-Write-Host "Total matches: $($found.Count)"
+Write-Host "`nScan finished. NOTHING was deleted." -ForegroundColor Green
