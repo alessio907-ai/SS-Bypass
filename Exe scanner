@@ -1,102 +1,98 @@
 # ============================================================================
-# PRESTIGE CLIENT SMART SCANNER - 800KB BIS 900KB + INHALT!
+# PRESTIGE CLIENT ANALYZER - SUCHT .exe (750KB-900KB) MIT STRING-ANALYSE
 # ============================================================================
-# 1. FILTER: Nur .exe zwischen 800KB-900KB (Prestige: 853KB)
-# 2. ANALYSE: Öffnet .exe und sucht nach Prestige-Strings
+# Findet .exe Dateien zwischen 750KB-900KB und sucht im Inhalt nach:
+# prestige, client, java, agent, injectable
+# KEINE Löschung - NUR Analyse!
 # ============================================================================
 
-# Admin-Rechte
+# Admin-Rechte für Zugriff auf alle Ordner
 if (-NOT ([Security.Principal.WindowsPrincipal] [Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole] "Administrator")) {
     Start-Process powershell -Verb RunAs -ArgumentList "-NoProfile -ExecutionPolicy Bypass -File `"$PSCommandPath`""
     exit
 }
 
-# .NET für ZIP laden
-Add-Type -AssemblyName System.IO.Compression.FileSystem
-
 Clear-Host
-Write-Host "╔═══════════════════════════════════════════════════════════════╗" -ForegroundColor Red
-Write-Host "║         PRESTIGE CLIENT SMART SCANNER v3.0                   ║" -ForegroundColor Red
-Write-Host "║         1. Größen-Filter: 800KB - 900KB                      ║" -ForegroundColor Yellow
-Write-Host "║         2. .exe INHALT-Analyse                               ║" -ForegroundColor Yellow
-Write-Host "║         Prestige ist genau 853 KB!                           ║" -ForegroundColor Red
-Write-Host "╚═══════════════════════════════════════════════════════════════╝" -ForegroundColor Red
+Write-Host "╔═══════════════════════════════════════════════════════════════╗" -ForegroundColor Cyan
+Write-Host "║         PRESTIGE CLIENT ANALYZER v1.0                        ║" -ForegroundColor Cyan
+Write-Host "║         Sucht .exe (750KB-900KB) + String-Analyse            ║" -ForegroundColor Cyan
+Write-Host "║         KEINE Löschung - NUR Analyse!                        ║" -ForegroundColor Red
+Write-Host "╚═══════════════════════════════════════════════════════════════╝" -ForegroundColor Cyan
 Write-Host ""
 
+$foundFiles = @()
 $timestamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
 Write-Host "[$timestamp] Scan gestartet..." -ForegroundColor Green
 Write-Host ""
 
-# ===== GRÖSSEN-FILTER (ENGER!) =====
-$minSize = 800KB    # 819.200 Bytes
-$maxSize = 900KB    # 921.600 Bytes
-$prestigeExact = 873472  # 853 KB (873.472 Bytes)
-
-Write-Host "📊 FILTER 1: Nur .exe zwischen 800KB - 900KB" -ForegroundColor Cyan
-Write-Host "   (Prestige ist genau 873.472 Bytes / 853 KB)" -ForegroundColor Yellow
-Write-Host "   Das spart 99.9% Zeit!`n" -ForegroundColor Green
-
-# ===== PRESTIGE-STRINGS (WONACH WIR SUCHEN) =====
-$prestigeStrings = @(
-    "PrestigeClient",
-    "Prestige Client",
-    "prestige.inject",
-    "blur-config",
-    ".blur-config",
-    ".blur",
-    "Injection successful",
-    "Loaded prestige modules",
-    "Screenshare bypass",
-    "Undetected since",
-    "ghost client",
-    "competitive play",
-    "injection method",
-    "cloud config",
-    "Stringless",
-    "Advanced Anti-Cheat bypass",
-    "Standard injection method",
-    "Prestige Inje",
-    "The best choice on the market",
-    "Select You",
-    "Two powerful options",
-    "Launch Changelog Account",
-    "Status: Undetected",
-    "Prestige.Injector",
-    "Prestige.Launcher",
-    "prestige.agent",
-    "prestige.core",
-    "prestige.ui",
-    "Prestige Main Class",
-    "PrestigeLoader",
-    "prestige.injection"
+# ===== SUCHBEGRIFFE (IN KLEINBUCHSTABEN FÜR VERGLEICH) =====
+$searchTerms = @(
+    "prestige",
+    "client",
+    "java",
+    "agent",
+    "injectable",
+    "inject",
+    "loader",
+    "bypass",
+    "cheat",
+    "ghost",
+    "blur",
+    "config"
 )
 
-# ===== NUR DIE WICHTIGSTEN ORDNER =====
+Write-Host "📋 Suchbegriffe: $($searchTerms -join ', ')" -ForegroundColor Yellow
+Write-Host ""
+
+# ===== GRÖSSEN-FILTER =====
+$minSize = 750KB    # 768.000 Bytes
+$maxSize = 900KB    # 921.600 Bytes
+$prestigeExact = 873472  # 853 KB
+
+Write-Host "📊 Größen-Filter: 750KB - 900KB" -ForegroundColor Cyan
+Write-Host "   (Prestige ist genau 873.472 Bytes / 853 KB)" -ForegroundColor Yellow
+Write-Host ""
+
+# ===== ZU DURCHSUCHENDE ORDNER =====
 $scanPaths = @(
+    # Desktop & Downloads
     "$env:USERPROFILE\Desktop",
     "$env:USERPROFILE\Downloads",
     "$env:USERPROFILE\Desktop\Render",
     "$env:USERPROFILE\Desktop\Neuer Ordner",
-    "$env:USERPROFILE\Desktop\Ordner",
-    "$env:USERPROFILE\Desktop\Tools",
-    "$env:USERPROFILE\Desktop\Client",
-    "$env:LOCALAPPDATA\Temp",
+    
+    # AppData
+    "$env:APPDATA",
+    "$env:LOCALAPPDATA",
     "$env:USERPROFILE\AppData\Local\Temp",
-    "$env:USERPROFILE\AppData\Roaming",
-    "$env:USERPROFILE\Documents"
+    "$env:LOCALAPPDATA\Temp",
+    
+    # Programme
+    "C:\Program Files",
+    "C:\Program Files (x86)",
+    "C:\ProgramData",
+    
+    # Benutzer-Ordner
+    "$env:USERPROFILE\Documents",
+    "$env:USERPROFILE\Videos",
+    "$env:USERPROFILE\Music",
+    "$env:USERPROFILE\Pictures"
 )
 
-Write-Host "📁 [1/3] Scanne nach .exe Dateien (800KB-900KB)..." -ForegroundColor Cyan
+Write-Host "📁 Durchsuche $($scanPaths.Count) Ordner nach .exe Dateien..." -ForegroundColor Cyan
 Write-Host ""
 
-$foundExes = @()
 $totalChecked = 0
+$pathCount = $scanPaths.Count
+$currentPath = 0
 
 foreach ($path in $scanPaths) {
+    $currentPath++
+    Write-Host "[$currentPath/$pathCount] Scanne: $path" -ForegroundColor Gray
+    
     if (Test-Path $path) {
-        Write-Host "   Scanne: $path" -ForegroundColor Gray
-        
-        $exes = Get-ChildItem $path -File -ErrorAction SilentlyContinue | 
+        # ALLE .exe Dateien im Größenbereich finden
+        $exes = Get-ChildItem $path -Recurse -File -ErrorAction SilentlyContinue | 
             Where-Object { 
                 $_.Extension -eq ".exe" -and
                 $_.Length -ge $minSize -and 
@@ -107,143 +103,132 @@ foreach ($path in $scanPaths) {
             $totalChecked++
             $sizeKB = [math]::Round($exe.Length/1KB, 2)
             $sizeDiff = [math]::Abs($exe.Length - $prestigeExact)
+            $diffKB = [math]::Round($sizeDiff/1KB, 2)
             
-            Write-Host "`n   🔍 Prüfe: $($exe.Name) ($sizeKB KB)" -ForegroundColor Yellow
+            Write-Host "`n   🔍 Prüfe: $($exe.Name)" -ForegroundColor Yellow
+            Write-Host "      📁 $($exe.FullName)" -ForegroundColor Gray
+            Write-Host "      📏 $sizeKB KB (Abweichung von 853KB: $diffKB KB)" -ForegroundColor Gray
             
-            # ===== INHALT-ANALYSE =====
-            $foundStrings = @()
+            # ===== STRING-ANALYSE =====
+            $foundTerms = @()
             
             try {
-                # .exe als ZIP öffnen und nach Strings suchen
-                $zip = [System.IO.Compression.ZipFile]::OpenRead($exe.FullName)
+                # Versuche Datei als Text zu lesen
+                $content = Get-Content $exe.FullName -Raw -Encoding Byte -ErrorAction Stop
                 
-                foreach ($entry in $zip.Entries) {
-                    # Nur relevante Dateien durchsuchen
-                    if ($entry.Name -match "\.(class|jar|json|xml|properties|config|txt|dll|exe)$" -or $entry.Length -lt 1MB) {
-                        
-                        # Datei aus ZIP lesen
-                        $reader = New-Object System.IO.StreamReader($entry.Open())
-                        $content = $reader.ReadToEnd()
-                        $reader.Close()
-                        
-                        # Nach Prestige-Strings suchen
-                        foreach ($string in $prestigeStrings) {
-                            if ($content -match $string) {
-                                $foundStrings += "$string in $($entry.Name)"
-                            }
-                        }
+                # In String konvertieren (nur druckbare Zeichen)
+                $text = [System.Text.Encoding]::ASCII.GetString($content)
+                
+                # Nach Suchbegriffen suchen (case-insensitive)
+                foreach ($term in $searchTerms) {
+                    if ($text -match $term) {
+                        $foundTerms += $term
                     }
                 }
-                $zip.Dispose()
                 
-                # Auch direkt in der .exe nach Strings suchen (falls nicht gepackt)
-                if ($foundStrings.Count -eq 0) {
-                    $content = Get-Content $exe.FullName -Raw -ErrorAction SilentlyContinue
-                    if ($content) {
-                        foreach ($string in $prestigeStrings) {
-                            if ($content -match $string) {
-                                $foundStrings += "$string (direkt in .exe)"
-                            }
-                        }
-                    }
-                }
+                # Zusätzlich nach Prestige-typischen Hex-Strings suchen
+                if ($text -match "50 72 65 73 74 69 67 65") { $foundTerms += "PRESTIGE-HEX" }
+                if ($text -match "62 6C 75 72") { $foundTerms += "BLUR-HEX" }
+                if ($text -match "69 6E 6A 65 63 74") { $foundTerms += "INJECT-HEX" }
                 
             } catch {
-                # Wenn ZIP-Öffnen fehlschlägt, direkt einlesen
+                # Wenn direktes Lesen fehlschlägt, versuche kleine Blöcke
                 try {
-                    $content = Get-Content $exe.FullName -Raw -ErrorAction SilentlyContinue
-                    if ($content) {
-                        foreach ($string in $prestigeStrings) {
-                            if ($content -match $string) {
-                                $foundStrings += "$string (direkt)"
-                            }
+                    $stream = [System.IO.File]::OpenRead($exe.FullName)
+                    $buffer = New-Object byte[] 1000000  # Lese 1MB
+                    $bytesRead = $stream.Read($buffer, 0, $buffer.Length)
+                    $stream.Close()
+                    
+                    $text = [System.Text.Encoding]::ASCII.GetString($buffer, 0, $bytesRead)
+                    
+                    foreach ($term in $searchTerms) {
+                        if ($text -match $term) {
+                            $foundTerms += $term
                         }
                     }
                 } catch {}
             }
             
-            # ===== AUSWERTUNG =====
-            if ($foundStrings.Count -gt 0) {
-                Write-Host "   🚨🚨🚨 PRESTIGE GEFUNDEN! 🚨🚨🚨" -ForegroundColor Red
-                Write-Host "      📁 Pfad: $($exe.FullName)" -ForegroundColor Yellow
-                Write-Host "      📏 Größe: $sizeKB KB (exakt: $($exe.Length) Bytes)" -ForegroundColor Cyan
+            # ===== AUSGABE BEI TREFFER =====
+            if ($foundTerms.Count -gt 0) {
+                Write-Host ""
+                Write-Host "      🚨🚨🚨 TREFFER GEFUNDEN! 🚨🚨🚨" -ForegroundColor Red
+                Write-Host "      📍 $($exe.FullName)" -ForegroundColor Yellow
+                Write-Host "      📏 Größe: $sizeKB KB ($($exe.Length) Bytes)" -ForegroundColor Cyan
+                Write-Host "      📊 Abweichung von Prestige: $diffKB KB" -ForegroundColor Yellow
+                Write-Host "      🔍 Gefundene Begriffe: $($foundTerms -join ', ')" -ForegroundColor Magenta
                 Write-Host "      📅 Erstellt: $($exe.CreationTime)" -ForegroundColor Gray
                 Write-Host "      📅 Geändert: $($exe.LastWriteTime)" -ForegroundColor Gray
-                Write-Host "      🔍 Abweichung von 853KB: $([math]::Round($sizeDiff/1KB,2)) KB" -ForegroundColor Yellow
-                Write-Host "      🎯 Gefundene Prestige-Strings:" -ForegroundColor Red
+                Write-Host ""
                 
-                foreach ($str in $foundStrings) {
-                    Write-Host "         • $str" -ForegroundColor Magenta
-                }
-                
-                # Fund merken
-                $foundExes += [PSCustomObject]@{
-                    Name = $exe.Name
+                # Speichern für Zusammenfassung
+                $foundFiles += [PSCustomObject]@{
                     Path = $exe.FullName
+                    Name = $exe.Name
                     SizeKB = $sizeKB
                     SizeBytes = $exe.Length
+                    DiffKB = $diffKB
+                    Terms = $foundTerms -join ', '
                     Created = $exe.CreationTime
-                    Modified = $exe.LastWriteTime
-                    Strings = $foundStrings -join ", "
-                    DiffKB = [math]::Round($sizeDiff/1KB,2)
                 }
-            } else {
-                Write-Host "   ❌ Keine Prestige-Strings gefunden" -ForegroundColor Gray
             }
         }
     }
 }
 
-# ===== BACKUP DER GEFUNDENEN DATEIEN =====
-if ($foundExes.Count -gt 0) {
-    $backupPath = "$env:USERPROFILE\Desktop\Prestige_Funde_$(Get-Date -Format 'yyyy-MM-dd_HH-mm-ss')"
-    New-Item -ItemType Directory -Path $backupPath -Force | Out-Null
-    Write-Host "`n📁 Backup-Ordner erstellt: $backupPath" -ForegroundColor Green
-    
-    foreach ($exe in $foundExes) {
-        try {
-            $destPath = Join-Path $backupPath (Split-Path $exe.Path -Leaf)
-            Copy-Item $exe.Path $destPath -Force
-            Write-Host "   ✅ Kopiert: $($exe.Name)" -ForegroundColor Green
-        } catch {
-            Write-Host "   ❌ Fehler beim Kopieren: $($exe.Name)" -ForegroundColor Red
-        }
-    }
-}
-
 # ===== ZUSAMMENFASSUNG =====
-Write-Host "`n" + ("=" * 70) -ForegroundColor Red
-Write-Host "📊 ZUSAMMENFASSUNG" -ForegroundColor Red
-Write-Host ("=" * 70) -ForegroundColor Red
+Write-Host "`n" + ("=" * 80) -ForegroundColor Cyan
+Write-Host "📊 ZUSAMMENFASSUNG" -ForegroundColor Cyan
+Write-Host ("=" * 80) -ForegroundColor Cyan
 Write-Host ""
 
-Write-Host "📁 GEPRÜFTE .exe DATEIEN (800KB-900KB): $totalChecked" -ForegroundColor White
+Write-Host "📁 GEPRÜFTE .exe DATEIEN: $totalChecked" -ForegroundColor White
 
-if ($foundExes.Count -gt 0) {
+if ($foundFiles.Count -gt 0) {
     Write-Host ""
-    Write-Host "🔥 PRESTIGE GEFUNDEN! $($foundExes.Count) Datei(en)" -ForegroundColor Red
+    Write-Host "🔥 GEFUNDENE TREFFER: $($foundFiles.Count)" -ForegroundColor Red
     
-    foreach ($exe in $foundExes) {
+    foreach ($file in $foundFiles) {
         Write-Host ""
-        Write-Host "   🚨 $($exe.Name)" -ForegroundColor Red
-        Write-Host "      📁 $($exe.Path)" -ForegroundColor Yellow
-        Write-Host "      📏 $($exe.SizeKB) KB (exakt: $($exe.SizeBytes) Bytes)" -ForegroundColor Cyan
-        Write-Host "      📊 Abweichung: $($exe.DiffKB) KB von 853KB" -ForegroundColor Yellow
-        Write-Host "      🎯 Strings: $($exe.Strings)" -ForegroundColor Magenta
+        Write-Host "   🚨 $($file.Name)" -ForegroundColor Red
+        Write-Host "      📁 $($file.Path)" -ForegroundColor Yellow
+        Write-Host "      📏 $($file.SizeKB) KB (exakt: $($file.SizeBytes) Bytes)" -ForegroundColor Cyan
+        Write-Host "      📊 Abweichung: $($file.DiffKB) KB von 853KB" -ForegroundColor Yellow
+        Write-Host "      🔍 Begriffe: $($file.Terms)" -ForegroundColor Magenta
+        Write-Host "      📅 Erstellt: $($file.Created)" -ForegroundColor Gray
     }
     
-    Write-Host ""
-    Write-Host "📂 ALLE DATEIEN KOPIERT NACH:" -ForegroundColor Green
-    Write-Host "   $backupPath" -ForegroundColor Yellow
-    Write-Host ""
-    Write-Host "📌 ORIGINAL-DATEIEN BLEIBEN UNBERÜHRT!" -ForegroundColor Cyan
+    # Speichere Ergebnisse in Textdatei
+    $reportPath = "$env:USERPROFILE\Desktop\Prestige_Analyse_$(Get-Date -Format 'yyyy-MM-dd_HH-mm-ss').txt"
+    
+    $report = "PRESTIGE CLIENT ANALYSE REPORT`n"
+    $report += "=" * 50 + "`n"
+    $report += "Scan-Zeitpunkt: $(Get-Date)`n"
+    $report += "Geprüfte Dateien: $totalChecked`n"
+    $report += "Gefundene Treffer: $($foundFiles.Count)`n`n"
+    
+    foreach ($file in $foundFiles) {
+        $report += "Datei: $($file.Name)`n"
+        $report += "Pfad: $($file.Path)`n"
+        $report += "Größe: $($file.SizeKB) KB ($($file.SizeBytes) Bytes)`n"
+        $report += "Abweichung: $($file.DiffKB) KB`n"
+        $report += "Begriffe: $($file.Terms)`n"
+        $report += "Erstellt: $($file.Created)`n"
+        $report += "-" * 30 + "`n"
+    }
+    
+    $report | Out-File -FilePath $reportPath -Encoding UTF8
+    Write-Host "`n   📄 Bericht gespeichert: $reportPath" -ForegroundColor Green
     
 } else {
     Write-Host ""
-    Write-Host "❌ KEINE Prestige.exe im Bereich 800KB-900KB gefunden!" -ForegroundColor Yellow
-    Write-Host "   (Entweder kein Prestige oder andere Größe)" -ForegroundColor Gray
+    Write-Host "❌ KEINE Dateien mit den Suchbegriffen gefunden!" -ForegroundColor Yellow
+    Write-Host "   (Es wurden nur $totalChecked .exe Dateien im Größenbereich gefunden)" -ForegroundColor Gray
 }
 
+Write-Host ""
+Write-Host "📌 WICHTIG: Dieses Script hat KEINE Dateien gelöscht oder verändert!" -ForegroundColor Green
+Write-Host "   Es wurden NUR Analysedaten gesammelt." -ForegroundColor Green
 Write-Host ""
 Write-Host "✅ SCAN ABGESCHLOSSEN" -ForegroundColor Green
 Write-Host ""
