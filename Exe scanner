@@ -1,73 +1,57 @@
 # =========================================
-# PRESTIGE LIVE-SCANNER (NUR BEI LAUFENDEM CLIENT!)
+# PRESTIGE .BLUR-CONFIG SCANNER
 # =========================================
 
-Write-Host "=== 🔴 LIVE PRESTIGE SCANNER ===" -ForegroundColor Red
-Write-Host "Stelle sicher, dass Prestige Client gestartet ist!" -ForegroundColor Yellow
-Write-Host "Drücke Enter um fortzufahren..."
-Read-Host
+$configPath = "$env:USERPROFILE\.blur-config"
 
-# Temporäre Ordner
-Write-Host "`n[1] Scanne Temp-Ordner..." -ForegroundColor Cyan
-$tempDirs = Get-ChildItem "$env:LOCALAPPDATA\Temp" -Directory | Where-Object { 
-    $_.CreationTime -gt (Get-Date).AddMinutes(-10) 
-}
-foreach ($dir in $tempDirs) {
-    Write-Host "📁 Neu erstellt: $($dir.FullName)" -ForegroundColor Yellow
-    $files = Get-ChildItem $dir.FullName -File
-    foreach ($file in $files) {
-        Write-Host "  └─ $($file.Name) ($([math]::Round($file.Length/1KB,2)) KB)" -ForegroundColor Gray
+if (Test-Path $configPath) {
+    Write-Host "🚨 PRESTIGE CLIENT GEFUNDEN!" -ForegroundColor Red -BackgroundColor Black
+    Write-Host "Ordner: $configPath" -ForegroundColor Yellow
+    
+    # Zeige alle Dateien im Ordner
+    Write-Host "`n📁 Ordner-Inhalt:" -ForegroundColor Cyan
+    Get-ChildItem $configPath -Recurse | ForEach-Object {
+        if ($_.PSIsContainer) {
+            Write-Host "  📂 $($_.Name)" -ForegroundColor Magenta
+        } else {
+            $size = [math]::Round($_.Length/1KB, 2)
+            Write-Host "  ├─ $($_.Name) (${size} KB) - $($_.LastWriteTime)" -ForegroundColor Gray
+        }
+    }
+    
+    # Speziell nach LOGS suchen
+    Write-Host "`n📋 LOG-DATEIEN:" -ForegroundColor Green
+    $logs = Get-ChildItem $configPath -Recurse -Include "*.log", "*.txt", "*.crash", "*.dmp"
+    if ($logs) {
+        $logs | ForEach-Object {
+            Write-Host "  📄 $($_.FullName)" -ForegroundColor Red
+            Write-Host "     Größe: $([math]::Round($_.Length/1KB, 2)) KB" -ForegroundColor Yellow
+            Write-Host "     Geändert: $($_.LastWriteTime)" -ForegroundColor Yellow
+            
+            # Zeige die ersten 5 Zeilen des Logs
+            Write-Host "     Erste Zeilen:" -ForegroundColor Cyan
+            Get-Content $_.FullName -TotalCount 5 | ForEach-Object {
+                Write-Host "       $_" -ForegroundColor Gray
+            }
+        }
+    } else {
+        Write-Host "  Keine Logs gefunden" -ForegroundColor Gray
+    }
+    
+    # Prüfe ob Prestige gerade läuft
+    Write-Host "`n🔄 Prüfe auf laufende Prestige-Prozesse..." -ForegroundColor Yellow
+    $prestigeProc = Get-Process | Where-Object { $_.ProcessName -like "*prestige*" -or $_.Path -like "*prestige*" }
+    if ($prestigeProc) {
+        Write-Host "✅ Prestige läuft: $($prestigeProc.Path)" -ForegroundColor Red
+    } else {
+        Write-Host "❌ Prestige läuft nicht" -ForegroundColor Green
+    }
+    
+} else {
+    Write-Host "❌ .blur-config Ordner nicht gefunden!" -ForegroundColor Red
+    Write-Host "Suche im ganzen Benutzerverzeichnis..." -ForegroundColor Yellow
+    
+    Get-ChildItem "$env:USERPROFILE" -Directory -Hidden | Where-Object { $_.Name -like "*.blur*" -or $_.Name -like "*prestige*" } | ForEach-Object {
+        Write-Host "🚨 Gefunden: $($_.FullName)" -ForegroundColor Red
     }
 }
-
-# Versteckte Ordner im Benutzerverzeichnis
-Write-Host "`n[2] Scanne versteckte Ordner..." -ForegroundColor Cyan
-$hiddenDirs = Get-ChildItem "$env:USERPROFILE" -Directory -Hidden | Where-Object {
-    $_.CreationTime -gt (Get-Date).AddHours(-24)
-}
-foreach ($dir in $hiddenDirs) {
-    Write-Host "📁 Versteckt: $($dir.FullName)" -ForegroundColor Magenta
-}
-
-# DLLs im Minecraft-Prozess
-Write-Host "`n[3] Analysiere Minecraft-Prozess..." -ForegroundColor Cyan
-$minecraft = Get-Process "javaw" -ErrorAction SilentlyContinue
-if ($minecraft) {
-    Write-Host "✅ Minecraft läuft (PID: $($minecraft.Id))" -ForegroundColor Green
-    Write-Host "Geladene DLLs (ungewöhnlich):" -ForegroundColor Yellow
-    $minecraft.Modules | Where-Object { 
-        $_.ModuleName -notlike "java*" -and 
-        $_.ModuleName -notlike "jvm*" -and
-        $_.ModuleName -notlike "awt*" -and
-        $_.ModuleName -notlike "netty*"
-    } | ForEach-Object {
-        Write-Host "  └─ $($_.ModuleName)" -ForegroundColor Red
-    }
-} else {
-    Write-Host "❌ Minecraft läuft nicht!" -ForegroundColor Red
-}
-
-# Geöffnete Handles auf Prestige-EXE
-Write-Host "`n[4] Prüfe ob Prestige.EXE noch geöffnet ist..." -ForegroundColor Cyan
-$prestigeProc = Get-Process | Where-Object { $_.Path -like "*Prestige*" }
-if ($prestigeProc) {
-    Write-Host "✅ Prestige läuft: $($prestigeProc.Path)" -ForegroundColor Green
-    Write-Host "   PID: $($prestigeProc.Id)" -ForegroundColor Yellow
-} else {
-    Write-Host "❌ Prestige Prozess nicht gefunden" -ForegroundColor Red
-}
-
-# Speicher-Dump (nur wenn du tief graben willst)
-Write-Host "`n[5] Erstelle Speicher-Dump?" -ForegroundColor Cyan
-Write-Host "Das kann sehr groß werden (500MB+)" -ForegroundColor Yellow
-$choice = Read-Host "Dump erstellen? (j/n)"
-if ($choice -eq "j" -and $minecraft) {
-    $dumpPath = "$env:USERPROFILE\Desktop\prestige_dump.dmp"
-    Write-Host "Erstelle Dump von Minecraft (PID: $($minecraft.Id))..."
-    # Hier müsste procdump von Sysinternals installiert sein
-    # .\procdump -ma $minecraft.Id $dumpPath
-    Write-Host "Dump erstellt: $dumpPath" -ForegroundColor Green
-}
-
-Write-Host "`n========== DONE ==========" -ForegroundColor Green
-Write-Host "Prüfe die gefundenen Ordner manuell!" -ForegroundColor Yellow
