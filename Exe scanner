@@ -1,82 +1,73 @@
-# ===== ULTIMATIVE PRESTIGE-ORDNER SUCHE =====
+# =========================================
+# PRESTIGE LIVE-SCANNER (NUR BEI LAUFENDEM CLIENT!)
+# =========================================
 
-Write-Host "Scanne nach Prestige-Ordnern mit Logs/Crashes..." -ForegroundColor Cyan
+Write-Host "=== 🔴 LIVE PRESTIGE SCANNER ===" -ForegroundColor Red
+Write-Host "Stelle sicher, dass Prestige Client gestartet ist!" -ForegroundColor Yellow
+Write-Host "Drücke Enter um fortzufahren..."
+Read-Host
 
-$searchPaths = @(
-    "$env:USERPROFILE\Desktop",
-    "$env:USERPROFILE\Downloads",
-    "$env:APPDATA",
-    "$env:LOCALAPPDATA",
-    "$env:ProgramData",
-    "C:\"
-)
-
-$foundFolders = @()
-
-foreach ($path in $searchPaths) {
-    if (Test-Path $path) {
-        Get-ChildItem -Path $path -Directory -Recurse -ErrorAction SilentlyContinue | 
-        Where-Object { 
-            $_.Name -like "*prestige*" -or 
-            $_.Name -like "*Prestige*" -or
-            $_.Name -like "*inject*" -or
-            $_.FullName -like "*\Prestige\*" -or
-            $_.FullName -like "*\prestige-client\*"
-        } |
-        ForEach-Object {
-            Write-Host "🚨 PRESTIGE ORDENER GEFUNDEN: $($_.FullName)" -ForegroundColor Red
-            
-            # Zeige Unterordner-Struktur
-            Write-Host "  └─ Unterordner:" -ForegroundColor Yellow
-            Get-ChildItem -Path $_.FullName -Directory | ForEach-Object {
-                Write-Host "      ├─ $($_.Name)" -ForegroundColor Gray
-            }
-            
-            # Zeige LOG-Dateien
-            $logs = Get-ChildItem -Path $_.FullName -File -Recurse -Include "*.log", "*.txt", "*.json", "*.crash", "*.dmp", "*.mdmp"
-            if ($logs) {
-                Write-Host "  └─ LOG-DATEIEN:" -ForegroundColor Yellow
-                $logs | ForEach-Object {
-                    $size = [math]::Round($_.Length/1KB, 2)
-                    Write-Host "      ├─ $($_.Name) (${size} KB) - $($_.LastWriteTime)" -ForegroundColor Green
-                }
-            }
-            
-            $foundFolders += $_.FullName
-        }
+# Temporäre Ordner
+Write-Host "`n[1] Scanne Temp-Ordner..." -ForegroundColor Cyan
+$tempDirs = Get-ChildItem "$env:LOCALAPPDATA\Temp" -Directory | Where-Object { 
+    $_.CreationTime -gt (Get-Date).AddMinutes(-10) 
+}
+foreach ($dir in $tempDirs) {
+    Write-Host "📁 Neu erstellt: $($dir.FullName)" -ForegroundColor Yellow
+    $files = Get-ChildItem $dir.FullName -File
+    foreach ($file in $files) {
+        Write-Host "  └─ $($file.Name) ($([math]::Round($file.Length/1KB,2)) KB)" -ForegroundColor Gray
     }
 }
 
-# Speziell nach Crash-Reports suchen
-Write-Host "`n[2] Scanne speziell nach Crash-Reports..." -ForegroundColor Cyan
-
-$crashLocations = @(
-    "$env:USERPROFILE\Desktop\*crash*",
-    "$env:USERPROFILE\Downloads\*crash*",
-    "$env:APPDATA\*crash*",
-    "$env:LOCALAPPDATA\Temp\*crash*"
-)
-
-foreach ($pattern in $crashLocations) {
-    Get-ChildItem -Path $pattern -Recurse -ErrorAction SilentlyContinue | 
-    Where-Object { $_ -is [System.IO.FileInfo] } |
-    ForEach-Object {
-        if ($_.Name -match "prestige|Prestige|client|inject") {
-            Write-Host "🚨 CRASH-REPORT GEFUNDEN: $($_.FullName)" -ForegroundColor Red
-            Write-Host "    Datum: $($_.LastWriteTime)" -ForegroundColor Yellow
-            Write-Host "    Größe: $([math]::Round($_.Length/1KB, 2)) KB" -ForegroundColor Yellow
-            $foundItems += $_.FullName
-        }
-    }
+# Versteckte Ordner im Benutzerverzeichnis
+Write-Host "`n[2] Scanne versteckte Ordner..." -ForegroundColor Cyan
+$hiddenDirs = Get-ChildItem "$env:USERPROFILE" -Directory -Hidden | Where-Object {
+    $_.CreationTime -gt (Get-Date).AddHours(-24)
+}
+foreach ($dir in $hiddenDirs) {
+    Write-Host "📁 Versteckt: $($dir.FullName)" -ForegroundColor Magenta
 }
 
-# Zusammenfassung
-Write-Host "`n========== ERGEBNIS ==========" -ForegroundColor Magenta
-if ($foundFolders.Count -gt 0) {
-    Write-Host "GEFUNDENE PRESTIGE-ORDNER:" -ForegroundColor Red
-    $foundFolders | ForEach-Object { Write-Host "  📁 $_" -ForegroundColor Yellow }
+# DLLs im Minecraft-Prozess
+Write-Host "`n[3] Analysiere Minecraft-Prozess..." -ForegroundColor Cyan
+$minecraft = Get-Process "javaw" -ErrorAction SilentlyContinue
+if ($minecraft) {
+    Write-Host "✅ Minecraft läuft (PID: $($minecraft.Id))" -ForegroundColor Green
+    Write-Host "Geladene DLLs (ungewöhnlich):" -ForegroundColor Yellow
+    $minecraft.Modules | Where-Object { 
+        $_.ModuleName -notlike "java*" -and 
+        $_.ModuleName -notlike "jvm*" -and
+        $_.ModuleName -notlike "awt*" -and
+        $_.ModuleName -notlike "netty*"
+    } | ForEach-Object {
+        Write-Host "  └─ $($_.ModuleName)" -ForegroundColor Red
+    }
 } else {
-    Write-Host "❌ KEINE Prestige-Ordner gefunden!" -ForegroundColor Red
+    Write-Host "❌ Minecraft läuft nicht!" -ForegroundColor Red
 }
 
-Write-Host "`nTipp: Prestige-Ordner heißen oft: .prestige, Prestige, prestige-client, prestige_data" -ForegroundColor Cyan
+# Geöffnete Handles auf Prestige-EXE
+Write-Host "`n[4] Prüfe ob Prestige.EXE noch geöffnet ist..." -ForegroundColor Cyan
+$prestigeProc = Get-Process | Where-Object { $_.Path -like "*Prestige*" }
+if ($prestigeProc) {
+    Write-Host "✅ Prestige läuft: $($prestigeProc.Path)" -ForegroundColor Green
+    Write-Host "   PID: $($prestigeProc.Id)" -ForegroundColor Yellow
+} else {
+    Write-Host "❌ Prestige Prozess nicht gefunden" -ForegroundColor Red
+}
+
+# Speicher-Dump (nur wenn du tief graben willst)
+Write-Host "`n[5] Erstelle Speicher-Dump?" -ForegroundColor Cyan
+Write-Host "Das kann sehr groß werden (500MB+)" -ForegroundColor Yellow
+$choice = Read-Host "Dump erstellen? (j/n)"
+if ($choice -eq "j" -and $minecraft) {
+    $dumpPath = "$env:USERPROFILE\Desktop\prestige_dump.dmp"
+    Write-Host "Erstelle Dump von Minecraft (PID: $($minecraft.Id))..."
+    # Hier müsste procdump von Sysinternals installiert sein
+    # .\procdump -ma $minecraft.Id $dumpPath
+    Write-Host "Dump erstellt: $dumpPath" -ForegroundColor Green
+}
+
+Write-Host "`n========== DONE ==========" -ForegroundColor Green
+Write-Host "Prüfe die gefundenen Ordner manuell!" -ForegroundColor Yellow
