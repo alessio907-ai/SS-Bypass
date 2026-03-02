@@ -1,225 +1,33 @@
-# ============================================================================
-# PRESTIGE CLIENT ANALYZER - SUCHT .exe (750KB-900KB) MIT STRING-ANALYSE
-# ============================================================================
-# Findet .exe Dateien zwischen 750KB-900KB und sucht im Inhalt nach:
-# prestige, client, java, agent, injectable
-# KEINE Löschung - NUR Analyse!
-# ============================================================================
-
-# Admin-Rechte für Zugriff auf alle Ordner
-if (-NOT ([Security.Principal.WindowsPrincipal] [Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole] "Administrator")) {
-    Start-Process powershell -Verb RunAs -ArgumentList "-NoProfile -ExecutionPolicy Bypass -File `"$PSCommandPath`""
-    exit
-}
+# ================================
+# DESKTOP TROLL - EINMALIG
+# ================================
 
 Clear-Host
-Write-Host "╔═══════════════════════════════════════════════════════════════╗" -ForegroundColor Cyan
-Write-Host "║         PRESTIGE CLIENT ANALYZER v1.0                        ║" -ForegroundColor Cyan
-Write-Host "║         Sucht .exe (750KB-900KB) + String-Analyse            ║" -ForegroundColor Cyan
-Write-Host "║         KEINE Löschung - NUR Analyse!                        ║" -ForegroundColor Red
-Write-Host "╚═══════════════════════════════════════════════════════════════╝" -ForegroundColor Cyan
-Write-Host ""
+Write-Host "😈 Desktop wird vorbereitet..." -ForegroundColor Magenta
+Start-Sleep -Seconds 2
 
-$foundFiles = @()
-$timestamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
-Write-Host "[$timestamp] Scan gestartet..." -ForegroundColor Green
-Write-Host ""
+$desktop = [Environment]::GetFolderPath("Desktop")
+$fileCount = 50
+$createdFiles = @()
 
-# ===== SUCHBEGRIFFE (IN KLEINBUCHSTABEN FÜR VERGLEICH) =====
-$searchTerms = @(
-    "prestige",
-    "inject"
-)
+# Dateien erstellen
+for ($i = 1; $i -le $fileCount; $i++) {
+    $filePath = Join-Path $desktop "DU_WURDEST_GETROLLT_$i.txt"
+    "😈 Überraschung! Datei Nummer $i" | Out-File $filePath -Encoding UTF8
+    $createdFiles += $filePath
+}
 
-Write-Host "📋 Suchbegriffe: $($searchTerms -join ', ')" -ForegroundColor Yellow
-Write-Host ""
+Write-Host "🔥 $fileCount Dateien erstellt!" -ForegroundColor Red
+Write-Host "🕒 Verschwinden in 30 Sekunden..." -ForegroundColor Yellow
 
-# ===== GRÖSSEN-FILTER =====
-$minSize = 750KB    # 768.000 Bytes
-$maxSize = 900KB    # 921.600 Bytes
-$prestigeExact = 873472  # 853 KB
+Start-Sleep -Seconds 300000
 
-Write-Host "📊 Größen-Filter: 750KB - 900KB" -ForegroundColor Cyan
-Write-Host "   (Prestige ist genau 873.472 Bytes / 853 KB)" -ForegroundColor Yellow
-Write-Host ""
-
-# ===== ZU DURCHSUCHENDE ORDNER =====
-$scanPaths = @(
-    # Desktop & Downloads
-    "$env:USERPROFILE\Desktop",
-    "$env:USERPROFILE\Downloads",
-    "$env:USERPROFILE\Desktop\Render",
-    "$env:USERPROFILE\Desktop\Neuer Ordner",
-    
-    # AppData
-    "$env:APPDATA",
-    "$env:LOCALAPPDATA",
-    "$env:USERPROFILE\AppData\Local\Temp",
-    "$env:LOCALAPPDATA\Temp",
-    
-    # Programme
-    "C:\Program Files",
-    "C:\Program Files (x86)",
-    "C:\ProgramData",
-    
-    # Benutzer-Ordner
-    "$env:USERPROFILE\Documents",
-    "$env:USERPROFILE\Videos",
-    "$env:USERPROFILE\Music",
-    "$env:USERPROFILE\Pictures"
-)
-
-Write-Host "📁 Durchsuche $($scanPaths.Count) Ordner nach .exe Dateien..." -ForegroundColor Cyan
-Write-Host ""
-
-$totalChecked = 0
-$pathCount = $scanPaths.Count
-$currentPath = 0
-
-foreach ($path in $scanPaths) {
-    $currentPath++
-    Write-Host "[$currentPath/$pathCount] Scanne: $path" -ForegroundColor Gray
-    
-    if (Test-Path $path) {
-        # ALLE .exe Dateien im Größenbereich finden
-        $exes = Get-ChildItem $path -Recurse -File -ErrorAction SilentlyContinue | 
-            Where-Object { 
-                $_.Extension -eq ".exe" -and
-                $_.Length -ge $minSize -and 
-                $_.Length -le $maxSize
-            }
-        
-        foreach ($exe in $exes) {
-            $totalChecked++
-            $sizeKB = [math]::Round($exe.Length/1KB, 2)
-            $sizeDiff = [math]::Abs($exe.Length - $prestigeExact)
-            $diffKB = [math]::Round($sizeDiff/1KB, 2)
-            
-            Write-Host "`n   🔍 Prüfe: $($exe.Name)" -ForegroundColor Yellow
-            Write-Host "      📁 $($exe.FullName)" -ForegroundColor Gray
-            Write-Host "      📏 $sizeKB KB (Abweichung von 853KB: $diffKB KB)" -ForegroundColor Gray
-            
-            # ===== STRING-ANALYSE =====
-            $foundTerms = @()
-            
-            try {
-                # Versuche Datei als Text zu lesen
-                $content = Get-Content $exe.FullName -Raw -Encoding Byte -ErrorAction Stop
-                
-                # In String konvertieren (nur druckbare Zeichen)
-                $text = [System.Text.Encoding]::ASCII.GetString($content)
-                
-                # Nach Suchbegriffen suchen (case-insensitive)
-                foreach ($term in $searchTerms) {
-                    if ($text -match $term) {
-                        $foundTerms += $term
-                    }
-                }
-                
-                # Zusätzlich nach Prestige-typischen Hex-Strings suchen
-                if ($text -match "50 72 65 73 74 69 67 65") { $foundTerms += "PRESTIGE-HEX" }
-                if ($text -match "62 6C 75 72") { $foundTerms += "BLUR-HEX" }
-                if ($text -match "69 6E 6A 65 63 74") { $foundTerms += "INJECT-HEX" }
-                
-            } catch {
-                # Wenn direktes Lesen fehlschlägt, versuche kleine Blöcke
-                try {
-                    $stream = [System.IO.File]::OpenRead($exe.FullName)
-                    $buffer = New-Object byte[] 1000000  # Lese 1MB
-                    $bytesRead = $stream.Read($buffer, 0, $buffer.Length)
-                    $stream.Close()
-                    
-                    $text = [System.Text.Encoding]::ASCII.GetString($buffer, 0, $bytesRead)
-                    
-                    foreach ($term in $searchTerms) {
-                        if ($text -match $term) {
-                            $foundTerms += $term
-                        }
-                    }
-                } catch {}
-            }
-            
-            # ===== AUSGABE BEI TREFFER =====
-            if ($foundTerms.Count -gt 0) {
-                Write-Host ""
-                Write-Host "      🚨🚨🚨 TREFFER GEFUNDEN! 🚨🚨🚨" -ForegroundColor Red
-                Write-Host "      📍 $($exe.FullName)" -ForegroundColor Yellow
-                Write-Host "      📏 Größe: $sizeKB KB ($($exe.Length) Bytes)" -ForegroundColor Cyan
-                Write-Host "      📊 Abweichung von Prestige: $diffKB KB" -ForegroundColor Yellow
-                Write-Host "      🔍 Gefundene Begriffe: $($foundTerms -join ', ')" -ForegroundColor Magenta
-                Write-Host "      📅 Erstellt: $($exe.CreationTime)" -ForegroundColor Gray
-                Write-Host "      📅 Geändert: $($exe.LastWriteTime)" -ForegroundColor Gray
-                Write-Host ""
-                
-                # Speichern für Zusammenfassung
-                $foundFiles += [PSCustomObject]@{
-                    Path = $exe.FullName
-                    Name = $exe.Name
-                    SizeKB = $sizeKB
-                    SizeBytes = $exe.Length
-                    DiffKB = $diffKB
-                    Terms = $foundTerms -join ', '
-                    Created = $exe.CreationTime
-                }
-            }
-        }
+# Dateien wieder löschen
+foreach ($file in $createdFiles) {
+    if (Test-Path $file) {
+        Remove-Item $file -Force
     }
 }
 
-# ===== ZUSAMMENFASSUNG =====
-Write-Host "`n" + ("=" * 80) -ForegroundColor Cyan
-Write-Host "📊 ZUSAMMENFASSUNG" -ForegroundColor Cyan
-Write-Host ("=" * 80) -ForegroundColor Cyan
-Write-Host ""
-
-Write-Host "📁 GEPRÜFTE .exe DATEIEN: $totalChecked" -ForegroundColor White
-
-if ($foundFiles.Count -gt 0) {
-    Write-Host ""
-    Write-Host "🔥 GEFUNDENE TREFFER: $($foundFiles.Count)" -ForegroundColor Red
-    
-    foreach ($file in $foundFiles) {
-        Write-Host ""
-        Write-Host "   🚨 $($file.Name)" -ForegroundColor Red
-        Write-Host "      📁 $($file.Path)" -ForegroundColor Yellow
-        Write-Host "      📏 $($file.SizeKB) KB (exakt: $($file.SizeBytes) Bytes)" -ForegroundColor Cyan
-        Write-Host "      📊 Abweichung: $($file.DiffKB) KB von 853KB" -ForegroundColor Yellow
-        Write-Host "      🔍 Begriffe: $($file.Terms)" -ForegroundColor Magenta
-        Write-Host "      📅 Erstellt: $($file.Created)" -ForegroundColor Gray
-    }
-    
-    # Speichere Ergebnisse in Textdatei
-    $reportPath = "$env:USERPROFILE\Desktop\Prestige_Analyse_$(Get-Date -Format 'yyyy-MM-dd_HH-mm-ss').txt"
-    
-    $report = "PRESTIGE CLIENT ANALYSE REPORT`n"
-    $report += "=" * 50 + "`n"
-    $report += "Scan-Zeitpunkt: $(Get-Date)`n"
-    $report += "Geprüfte Dateien: $totalChecked`n"
-    $report += "Gefundene Treffer: $($foundFiles.Count)`n`n"
-    
-    foreach ($file in $foundFiles) {
-        $report += "Datei: $($file.Name)`n"
-        $report += "Pfad: $($file.Path)`n"
-        $report += "Größe: $($file.SizeKB) KB ($($file.SizeBytes) Bytes)`n"
-        $report += "Abweichung: $($file.DiffKB) KB`n"
-        $report += "Begriffe: $($file.Terms)`n"
-        $report += "Erstellt: $($file.Created)`n"
-        $report += "-" * 30 + "`n"
-    }
-    
-    $report | Out-File -FilePath $reportPath -Encoding UTF8
-    Write-Host "`n   📄 Bericht gespeichert: $reportPath" -ForegroundColor Green
-    
-} else {
-    Write-Host ""
-    Write-Host "❌ KEINE Dateien mit den Suchbegriffen gefunden!" -ForegroundColor Yellow
-    Write-Host "   (Es wurden nur $totalChecked .exe Dateien im Größenbereich gefunden)" -ForegroundColor Gray
-}
-
-Write-Host ""
-Write-Host "📌 WICHTIG: Dieses Script hat KEINE Dateien gelöscht oder verändert!" -ForegroundColor Green
-Write-Host "   Es wurden NUR Analysedaten gesammelt." -ForegroundColor Green
-Write-Host ""
-Write-Host "✅ SCAN ABGESCHLOSSEN" -ForegroundColor Green
-Write-Host ""
-Read-Host "Enter drücken zum Beenden"
+Write-Host "✅ Alles wieder sauber 😇" -ForegroundColor Green
+Start-Sleep -Seconds 2
