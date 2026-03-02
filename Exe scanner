@@ -105,7 +105,7 @@ public static extern bool SetWindowPos(IntPtr hWnd, int hWndInsertAfter, int X, 
 
 # ===== KONFIGURATION =====
 $global:currentRound = 0
-$global:maxRounds = 10  # 10 Runden x 200 Dateien = 2.000 DATEIEN! (Weniger für Test)
+$global:maxRounds = 10
 $desktop = [Environment]::GetFolderPath("Desktop")
 $documents = [Environment]::GetFolderPath("MyDocuments")
 $downloads = [Environment]::GetFolderPath("UserProfiles") + "\Downloads"
