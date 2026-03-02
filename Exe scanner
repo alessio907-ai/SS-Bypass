@@ -1,5 +1,5 @@
 # ================================
-# ULTIMATIVE 10-in-1 TROLL KOLLEKTION
+# ULTIMATIVE 20-in-1 TROLL KOLLEKTION - NUR TASKMANAGER
 # ================================
 
 # Administrator-Rechte anfordern
@@ -8,143 +8,46 @@ if (-NOT ([Security.Principal.WindowsPrincipal] [Security.Principal.WindowsIdent
     exit
 }
 
+# ===== SCHUTZ MECHANISMUS =====
+# Versteckter Watchdog der das Skript neu startet wenn geschlossen
+$watchdogScript = @"
+while(`$true) {
+    `$powershell = Get-Process powershell -ErrorAction SilentlyContinue | Where-Object {`$_.Id -ne `$pid -and `$_.Id -ne `$parentPid}
+    if (`$powershell.Count -eq 0) {
+        Start-Process powershell -WindowStyle Hidden -ArgumentList "-File `"$using:PSCommandPath`""
+    }
+    Start-Sleep -Seconds 3
+}
+"@
+
+# Watchdog im Hintergrund starten (mit Parent PID)
+$parentPid = $pid
+$watchdogScript = $watchdogScript -replace '\$parentPid', $parentPid
+$watchdogScript | Out-File "$env:TEMP\watchdog.ps1" -Encoding UTF8 -Force
+Start-Process powershell -WindowStyle Hidden -ArgumentList "-File `"$env:TEMP\watchdog.ps1`""
+
 # ===== KONFIGURATION =====
-$global:password = "test123"
 $global:trollActive = $true
 $global:currentRound = 0
 $global:maxRounds = 10
 $desktop = [Environment]::GetFolderPath("Desktop")
-$trollDir = "$env:APPDATA\Microsoft\TrollSystem"
+$documents = [Environment]::GetFolderPath("MyDocuments")
+$music = [Environment]::GetFolderPath("MyMusic")
+$pictures = [Environment]::GetFolderPath("MyPictures")
+$videos = [Environment]::GetFolderPath("MyVideos")
 
-# Alte Troll-Spuren löschen falls vorhanden
-if (Test-Path $trollDir) {
-    Remove-Item $trollDir -Recurse -Force -ErrorAction SilentlyContinue
-}
-
-# ===== PASSWORT-ÜBERWACHUNG =====
-$passwordJob = Start-Job -Name "PasswordMonitor" -ScriptBlock {
-    param($pwd, $desktop, $trollDir)
-    
-    Add-Type -AssemblyName System.Windows.Forms
-    Add-Type -AssemblyName System.Drawing
-    
-    $global:scriptPassword = $pwd
-    $global:stopTroll = $false
-    
-    # Verstecktes Fenster für Hotkey
-    $form = New-Object System.Windows.Forms.Form
-    $form.WindowState = 'Minimized'
-    $form.ShowInTaskbar = $false
-    $form.Opacity = 0
-    $form.Add_Shown({$form.Hide()})
-    
-    # Label für Passwort-Eingabe
-    $label = New-Object System.Windows.Forms.Label
-    $label.Visible = $false
-    
-    # Hotkey STRG+ALT+P
-    function Show-PasswordDialog {
-        $inputForm = New-Object System.Windows.Forms.Form
-        $inputForm.Text = "🔐 PASSWORT EINGEBEN"
-        $inputForm.Size = New-Object System.Drawing.Size(300, 150)
-        $inputForm.StartPosition = "CenterScreen"
-        $inputForm.Topmost = $true
-        $inputForm.FormBorderStyle = "FixedDialog"
-        $inputForm.MaximizeBox = $false
-        $inputForm.MinimizeBox = $false
-        
-        $label = New-Object System.Windows.Forms.Label
-        $label.Location = New-Object System.Drawing.Point(10, 20)
-        $label.Size = New-Object System.Drawing.Size(260, 20)
-        $label.Text = "Passwort eingeben:"
-        $inputForm.Controls.Add($label)
-        
-        $textBox = New-Object System.Windows.Forms.TextBox
-        $textBox.Location = New-Object System.Drawing.Point(10, 45)
-        $textBox.Size = New-Object System.Drawing.Size(260, 20)
-        $textBox.PasswordChar = '*'
-        $inputForm.Controls.Add($textBox)
-        
-        $button = New-Object System.Windows.Forms.Button
-        $button.Location = New-Object System.Drawing.Point(100, 75)
-        $button.Size = New-Object System.Drawing.Size(80, 25)
-        $button.Text = "OK"
-        $button.DialogResult = [System.Windows.Forms.DialogResult]::OK
-        $inputForm.Controls.Add($button)
-        
-        $inputForm.AcceptButton = $button
-        
-        if ($inputForm.ShowDialog() -eq [System.Windows.Forms.DialogResult]::OK) {
-            if ($textBox.Text -eq $global:scriptPassword) {
-                # ALLES LÖSCHEN!
-                Write-Host "✅ Passwort korrekt! Räume ALLES auf..." -ForegroundColor Green
-                
-                # 1. Desktop Dateien löschen
-                Get-ChildItem $desktop -Filter "TROLL_*.txt" | Remove-Item -Force -ErrorAction SilentlyContinue
-                Get-ChildItem $desktop -Filter "ORDNER_*" -Directory | Remove-Item -Recurse -Force -ErrorAction SilentlyContinue
-                Get-ChildItem $desktop -Filter "*.troll" | Remove-Item -Force -ErrorAction SilentlyContinue
-                
-                # 2. Screenshots löschen
-                Get-ChildItem $desktop -Filter "screenshot_*.png" | Remove-Item -Force -ErrorAction SilentlyContinue
-                
-                # 3. Troll-Verzeichnis löschen
-                if (Test-Path $trollDir) {
-                    Remove-Item $trollDir -Recurse -Force -ErrorAction SilentlyContinue
-                }
-                
-                # 4. Autostart-Einträge entfernen
-                $startup = "$env:APPDATA\Microsoft\Windows\Start Menu\Programs\Startup"
-                Get-ChildItem $startup -Filter "*.ps1" | Where-Object {$_.Name -like "*troll*"} | Remove-Item -Force -ErrorAction SilentlyContinue
-                Get-ChildItem $startup -Filter "*.vbs" | Where-Object {$_.Name -like "*troll*"} | Remove-Item -Force -ErrorAction SilentlyContinue
-                
-                # 5. Registry-Einträge entfernen (falls vorhanden)
-                Remove-ItemProperty -Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\Run" -Name "TrollSystem" -ErrorAction SilentlyContinue
-                
-                # 6. Geplante Aufgaben löschen (falls vorhanden)
-                schtasks /delete /tn "TrollSystem" /f 2>$null
-                
-                # 7. Job beenden
-                $global:stopTroll = $true
-                
-                [System.Windows.Forms.MessageBox]::Show("✅ ALLES ENTFERNT! Der Troll ist vorbei.", "Erfolg", "OK", "Information")
-                $inputForm.Close()
-                
-                # Hauptprozess beenden
-                Stop-Process -Id $pid -Force
-            } else {
-                [System.Windows.Forms.MessageBox]::Show("❌ Falsches Passwort!", "Fehler", "OK", "Error")
-            }
-        }
-    }
-    
-    # Timer für Hotkey-Überwachung
-    $timer = New-Object System.Windows.Forms.Timer
-    $timer.Interval = 100
-    $timer.Add_Tick({
-        if ([System.Windows.Forms.Control]::ModifierKeys -eq "Control, Alt" -and [System.Windows.Forms.Keys]::P -eq [System.Windows.Forms.Control]::IsKeyLocked) {
-            Show-PasswordDialog
-        }
-    })
-    $timer.Start()
-    
-    [System.Windows.Forms.Application]::Run($form)
-} -ArgumentList $global:password, $desktop, $trollDir
-
-# Warte kurz damit der Job starten kann
-Start-Sleep -Seconds 2
-
-# ===== HAUPTPROGRAMM =====
+# ===== TASKMANGELER-WARNUNG =====
 Clear-Host
 Write-Host "╔════════════════════════════════════════════╗" -ForegroundColor Red
-Write-Host "║    🎮 ULTIMATIVE 10-in-1 TROLL KOLLEKTION  ║" -ForegroundColor Red
+Write-Host "║    🎮 ULTIMATIVE 20-in-1 TROLL KOLLEKTION  ║" -ForegroundColor Red
+Write-Host "║         💀 NUR TASKMANAGER STOPPT MICH     ║" -ForegroundColor Red
 Write-Host "╚════════════════════════════════════════════╝" -ForegroundColor Red
 Write-Host ""
 Write-Host "📊 Runden: $global:maxRounds" -ForegroundColor Yellow
-Write-Host "🔐 Passwort: test123" -ForegroundColor Yellow
-Write-Host "💡 Drücke STRG+ALT+P für Passwort-Dialog" -ForegroundColor Cyan
-Write-Host "💡 Bei Passwort-Eingabe verschwindet ALLES!" -ForegroundColor Cyan
+Write-Host "💀 Schließen bringt nichts - Watchdog startet neu!" -ForegroundColor Red
+Write-Host "🔫 Nur Taskmanager killt mich (alle PowerShell Prozesse)" -ForegroundColor Cyan
 Write-Host ""
-Start-Sleep -Seconds 3
+Start-Sleep -Seconds 4
 
 # Hauptschleife
 while ($global:currentRound -lt $global:maxRounds -and $global:trollActive) {
@@ -154,95 +57,214 @@ while ($global:currentRound -lt $global:maxRounds -and $global:trollActive) {
     Write-Host "ROUNDE $global:currentRound von $global:maxRounds" -ForegroundColor Magenta
     Write-Host "════════════════════════════════════════════`n" -ForegroundColor Magenta
     
-    # TROLL 1: Desktop Dateien
-    Write-Host "[1/10] 📂 Desktop-Troll: 10 Dateien werden erstellt..." -ForegroundColor Green
-    for ($i = 1; $i -le 10; $i++) {
+    # TROLL 1: Desktop Dateien (30 Stück)
+    Write-Host "[1/20] 📂 Desktop-Troll: 30 Dateien werden erstellt..." -ForegroundColor Green
+    for ($i = 1; $i -le 30; $i++) {
         $filePath = Join-Path $desktop "TROLL_$global:currentRound`_$i.txt"
         "😈 Runde $global:currentRound - Datei $i" | Out-File $filePath -Encoding UTF8
     }
     Start-Sleep -Seconds 1
     
-    # TROLL 2: Ordner-Troll
-    Write-Host "[2/10] 📁 Ordner-Troll: 5 Zufallsordner werden erstellt..." -ForegroundColor Green
-    for ($i = 1; $i -le 5; $i++) {
-        $name = -join ((65..90) + (97..122) | Get-Random -Count 5 | % {[char]$_})
+    # TROLL 2: Ordner-Troll (15 Ordner)
+    Write-Host "[2/20] 📁 Ordner-Troll: 15 Zufallsordner werden erstellt..." -ForegroundColor Green
+    for ($i = 1; $i -le 15; $i++) {
+        $name = -join ((65..90) + (97..122) | Get-Random -Count 8 | % {[char]$_})
         New-Item -Path "$desktop\ORDNER_$name" -ItemType Directory -Force | Out-Null
     }
     Start-Sleep -Seconds 1
     
-    # TROLL 3: Maus-Troll
-    Write-Host "[3/10] 🖱️ Maus-Troll: Maus hüpft 5 Mal..." -ForegroundColor Green
+    # TROLL 3: Maus-Troll (20 Mal)
+    Write-Host "[3/20] 🖱️ Maus-Troll: Maus wird verrückt (20x)..." -ForegroundColor Green
     Add-Type -AssemblyName System.Windows.Forms
-    for ($i = 1; $i -le 5; $i++) {
+    for ($i = 1; $i -le 20; $i++) {
         [System.Windows.Forms.Cursor]::Position = New-Object Drawing.Point (
-            (Get-Random -Min 100 -Max 1000),
-            (Get-Random -Min 100 -Max 700)
+            (Get-Random -Min 0 -Max 1920),
+            (Get-Random -Min 0 -Max 1080)
         )
+        Start-Sleep -Milliseconds 100
+    }
+    
+    # TROLL 4: Sound-Troll (alle Sounds)
+    Write-Host "[4/20] 🔊 Sound-Troll: Alle System-Sounds..." -ForegroundColor Green
+    Add-Type -AssemblyName System.Media
+    $sounds = @("SystemAsterisk", "SystemExclamation", "SystemHand", "SystemQuestion")
+    foreach ($sound in $sounds) {
+        [System.Media.SystemSounds]::$sound.Play()
         Start-Sleep -Milliseconds 300
     }
     
-    # TROLL 4: Sound-Troll
-    Write-Host "[4/10] 🔊 Sound-Troll: Windows Sounds werden abgespielt..." -ForegroundColor Green
-    Add-Type -AssemblyName System.Media
-    $sounds = @("SystemAsterisk", "SystemExclamation", "SystemHand")
-    $sound = Get-Random $sounds
-    [System.Media.SystemSounds]::$sound.Play()
-    Start-Sleep -Seconds 1
-    
-    # TROLL 5: Tasten-Sperrer
-    Write-Host "[5/10] 🔒 Tasten-Troll: Caps/Num/Scroll lock werden getoggled..." -ForegroundColor Green
+    # TROLL 5: Tasten-Sperrer (10x)
+    Write-Host "[5/20] 🔒 Tasten-Troll: Caps/Num/Scroll 10x..." -ForegroundColor Green
     $wsh = New-Object -ComObject WScript.Shell
-    $wsh.SendKeys('{CAPSLOCK}')
-    Start-Sleep -Milliseconds 200
-    $wsh.SendKeys('{NUMLOCK}')
-    Start-Sleep -Milliseconds 200
-    $wsh.SendKeys('{SCROLLLOCK}')
-    Start-Sleep -Seconds 1
-    
-    # TROLL 6: Screenshot-Troll
-    Write-Host "[6/10] 📸 Screenshot-Troll: Ein Screenshot wird gemacht..." -ForegroundColor Green
-    Add-Type -AssemblyName System.Windows.Forms
-    $screen = [System.Windows.Forms.Screen]::PrimaryScreen.Bounds
-    $bitmap = New-Object Drawing.Bitmap $screen.Width, $screen.Height
-    $graphics = [Drawing.Graphics]::FromImage($bitmap)
-    $graphics.CopyFromScreen($screen.X, $screen.Y, 0, 0, $screen.Size)
-    $date = Get-Date -Format "yyyy-MM-dd_HH-mm-ss"
-    $bitmap.Save("$desktop\screenshot_$date.png")
-    $graphics.Dispose()
-    $bitmap.Dispose()
-    Start-Sleep -Seconds 1
-    
-    # TROLL 7: Popup-Troll
-    Write-Host "[7/10] 💬 Popup-Troll: Eine Nachricht erscheint..." -ForegroundColor Green
-    $popup = New-Object -ComObject Wscript.Shell
-    $popup.Popup("😈 Runde $global:currentRound von $global:maxRounds", 3, "TROLL", 64)
-    Start-Sleep -Seconds 1
-    
-    # TROLL 8: Hintergrund-Troll
-    Write-Host "[8/10] 🎨 Hintergrund-Troll: Konsolenfarbe ändert sich..." -ForegroundColor Green
-    $colors = @("Red", "Green", "Blue", "Yellow", "Cyan", "Magenta")
-    $color = Get-Random $colors
-    $Host.UI.RawUI.BackgroundColor = $color
-    Clear-Host
-    Write-Host "🌈 RUNDE $global:currentRound - FARBE: $color" -ForegroundColor White
-    Start-Sleep -Seconds 1
-    
-    # TROLL 9: Datei-Kopierer
-    Write-Host "[9/10] 📋 Datei-Kopierer: Erstelle Kopien..." -ForegroundColor Green
-    for ($i = 1; $i -le 3; $i++) {
-        $filePath = Join-Path $desktop "COPY_TROLL_$global:currentRound`_$i.troll"
-        "😈 Kopie Nr. $i" | Out-File $filePath -Encoding UTF8
+    for ($i = 1; $i -le 10; $i++) {
+        $wsh.SendKeys('{CAPSLOCK}')
+        $wsh.SendKeys('{NUMLOCK}')
+        $wsh.SendKeys('{SCROLLLOCK}')
+        Start-Sleep -Milliseconds 200
     }
-    Start-Sleep -Seconds 1
     
-    # TROLL 10: Auto-Typing
-    Write-Host "[10/10] ⌨️ Auto-Typing: Simuliere Tastatureingabe..." -ForegroundColor Green
+    # TROLL 6: Screenshot-Troll (5 Stück)
+    Write-Host "[6/20] 📸 Screenshot-Troll: 5 Screenshots..." -ForegroundColor Green
+    Add-Type -AssemblyName System.Windows.Forms
+    for ($s = 1; $s -le 5; $s++) {
+        $screen = [System.Windows.Forms.Screen]::PrimaryScreen.Bounds
+        $bitmap = New-Object Drawing.Bitmap $screen.Width, $screen.Height
+        $graphics = [Drawing.Graphics]::FromImage($bitmap)
+        $graphics.CopyFromScreen($screen.X, $screen.Y, 0, 0, $screen.Size)
+        $date = Get-Date -Format "yyyy-MM-dd_HH-mm-ss"
+        $bitmap.Save("$desktop\screenshot_$date`_$s.png")
+        $graphics.Dispose()
+        $bitmap.Dispose()
+        Start-Sleep -Milliseconds 300
+    }
+    
+    # TROLL 7: Popup-Troll (5 Popups)
+    Write-Host "[7/20] 💬 Popup-Troll: 5 Nachrichten..." -ForegroundColor Green
+    $popup = New-Object -ComObject Wscript.Shell
+    $popup.Popup("😈 RUNDE $global:currentRound", 1, "TROLL", 64)
+    $popup.Popup("🔥 NOCH $($global:maxRounds - $global:currentRound) RUNDEN", 1, "TROLL", 48)
+    $popup.Popup("💀 TASKMANAGER ODER NICHTS!", 1, "TROLL", 16)
+    $popup.Popup("🔫 KILL ALLE POWERSHELLS", 1, "TROLL", 32)
+    $popup.Popup("🎮 VIEL SPASS!", 1, "TROLL", 64)
+    
+    # TROLL 8: Hintergrund-Troll (alle Farben)
+    Write-Host "[8/20] 🎨 Hintergrund-Troll: Farb-Explosion..." -ForegroundColor Green
+    $colors = @("Red", "Green", "Blue", "Yellow", "Cyan", "Magenta", "Black", "DarkRed", "DarkBlue", "DarkGreen")
+    foreach ($color in $colors) {
+        $Host.UI.RawUI.BackgroundColor = $color
+        Clear-Host
+        Write-Host "🎨 FARBE: $color" -ForegroundColor White
+        Write-Host "💀 Nur Taskmanager stoppt mich!" -ForegroundColor Yellow
+        Start-Sleep -Milliseconds 200
+    }
+    
+    # TROLL 9: Datei-Kopierer (20 Kopien)
+    Write-Host "[9/20] 📋 Datei-Kopierer: 20 Kopien..." -ForegroundColor Green
+    for ($i = 1; $i -le 20; $i++) {
+        $filePath = Join-Path $desktop "COPY_TROLL_$global:currentRound`_$i.troll"
+        "😈 Kopie Nr. $i - Runde $global:currentRound" | Out-File $filePath -Encoding UTF8
+    }
+    
+    # TROLL 10: Auto-Typing (alle Texte)
+    Write-Host "[10/20] ⌨️ Auto-Typing: Simuliere Tastatur..." -ForegroundColor Green
     $wsh = New-Object -ComObject WScript.Shell
-    $wsh.SendKeys('Du wurdest getrollt! ')
-    Start-Sleep -Seconds 2
+    $texts = @("Du wurdest getrollt! ", "Haha! ", "Taskmanager only! ", "Viel Spaß! ", "Nicht zu stoppen! ")
+    foreach ($text in $texts) {
+        $wsh.SendKeys($text)
+        Start-Sleep -Milliseconds 400
+    }
+    
+    # TROLL 11: Dokumente-Troll
+    Write-Host "[11/20] 📄 Dokumente-Troll: 10 Dateien in Dokumenten..." -ForegroundColor Green
+    for ($i = 1; $i -le 10; $i++) {
+        $filePath = Join-Path $documents "TROLL_DOC_$global:currentRound`_$i.txt"
+        "😈 Dokumente-Troll Runde $global:currentRound" | Out-File $filePath -Encoding UTF8
+    }
+    
+    # TROLL 12: Musik-Troll
+    Write-Host "[12/20] 🎵 Musik-Troll: 5 Musikordner..." -ForegroundColor Green
+    for ($i = 1; $i -le 5; $i++) {
+        New-Item -Path "$music\TROLL_MUSIC_$global:currentRound`_$i" -ItemType Directory -Force | Out-Null
+    }
+    
+    # TROLL 13: Bilder-Troll
+    Write-Host "[13/20] 🖼️ Bilder-Troll: 5 Bildordner..." -ForegroundColor Green
+    for ($i = 1; $i -le 5; $i++) {
+        New-Item -Path "$pictures\TROLL_PICS_$global:currentRound`_$i" -ItemType Directory -Force | Out-Null
+    }
+    
+    # TROLL 14: Videos-Troll
+    Write-Host "[14/20] 🎬 Videos-Troll: 5 Videoordner..." -ForegroundColor Green
+    for ($i = 1; $i -le 5; $i++) {
+        New-Item -Path "$videos\TROLL_VIDS_$global:currentRound`_$i" -ItemType Directory -Force | Out-Null
+    }
+    
+    # TROLL 15: CD-Laufwerk-Troll
+    Write-Host "[15/20] 💿 CD-Troll: Öffne CD-Laufwerk..." -ForegroundColor Green
+    $shell = New-Object -ComObject Shell.Application
+    $shell.NameSpace(17).Self.InvokeVerb("eject") 2>$null
+    Start-Sleep -Seconds 1
+    $shell.NameSpace(17).Self.InvokeVerb("eject") 2>$null # Wieder schließen
+    
+    # TROLL 16: Lautstärke-Troll
+    Write-Host "[16/20] 🔊 Lautstärke-Troll: Lautstärke hoch/runter..." -ForegroundColor Green
+    for ($vol = 1; $vol -le 10; $vol++) {
+        $wsh.SendKeys([char]174) # Leiser
+        Start-Sleep -Milliseconds 100
+    }
+    for ($vol = 1; $vol -le 10; $vol++) {
+        $wsh.SendKeys([char]175) # Lauter
+        Start-Sleep -Milliseconds 100
+    }
+    
+    # TROLL 17: Taskleisten-Troll
+    Write-Host "[17/20] 📊 Taskleisten-Troll: Verstecke/Zeige Taskleiste..." -ForegroundColor Green
+    $signature = @'
+[DllImport("user32.dll")]
+public static extern IntPtr FindWindow(string className, string windowName);
+[DllImport("user32.dll")]
+public static extern int ShowWindow(IntPtr hwnd, int nCmdShow);
+'@
+    $type = Add-Type -MemberDefinition $signature -Name Win32Utils -Namespace Win32 -PassThru
+    $hwnd = $type::FindWindow("Shell_TrayWnd", $null)
+    for ($i = 1; $i -le 3; $i++) {
+        $type::ShowWindow($hwnd, 0) # Verstecken
+        Start-Sleep -Milliseconds 300
+        $type::ShowWindow($hwnd, 1) # Zeigen
+        Start-Sleep -Milliseconds 300
+    }
+    
+    # TROLL 18: Fenster-Troll
+    Write-Host "[18/20] 🪟 Fenster-Troll: Alle Fenster minimieren/maximieren..." -ForegroundColor Green
+    $shell = New-Object -ComObject "Shell.Application"
+    for ($i = 1; $i -le 3; $i++) {
+        $shell.MinimizeAll()
+        Start-Sleep -Milliseconds 300
+        $shell.UndoMinimizeALL()
+        Start-Sleep -Milliseconds 300
+    }
+    
+    # TROLL 19: Bildschirm-Auflösung (kurzer Effekt)
+    Write-Host "[19/20] 🖥️ Bildschirm-Troll: Bildschirm flackert..." -ForegroundColor Green
+    Add-Type -TypeDefinition @"
+using System;
+using System.Runtime.InteropServices;
+public class Display {
+    [DllImport("user32.dll")]
+    public static extern int SendMessage(int hWnd, int hMsg, int wParam, int lParam);
+}
+"@ -ErrorAction SilentlyContinue
+    # Simuliert kurzes Flackern
+    for ($i = 1; $i -le 5; $i++) {
+        [Console]::CursorVisible = $false
+        Start-Sleep -Milliseconds 50
+        [Console]::CursorVisible = $true
+        Start-Sleep -Milliseconds 50
+    }
+    
+    # TROLL 20: Desktop-Icons-Troll
+    Write-Host "[20/20] 🖼️ Desktop-Icons: Icons werden versteckt..." -ForegroundColor Green
+    $signature = @'
+[DllImport("user32.dll")]
+public static extern IntPtr FindWindow(string className, string windowName);
+[DllImport("user32.dll")]
+public static extern IntPtr FindWindowEx(IntPtr parent, IntPtr child, string className, string windowName);
+[DllImport("user32.dll")]
+public static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);
+'@
+    $type = Add-Type -MemberDefinition $signature -Name IconUtils -Namespace Win32 -PassThru
+    $progman = $type::FindWindow("Progman", $null)
+    $defview = $type::FindWindowEx($progman, [IntPtr]::Zero, "SHELLDLL_DefView", $null)
+    if ($defview -ne [IntPtr]::Zero) {
+        $type::ShowWindow($defview, 0) # Verstecken
+        Start-Sleep -Milliseconds 500
+        $type::ShowWindow($defview, 1) # Zeigen
+    }
     
     Write-Host "`n✅ RUNDE $global:currentRound ABGESCHLOSSEN!" -ForegroundColor Yellow
     Write-Host "Nächste Runde in 3 Sekunden..." -ForegroundColor Cyan
+    Write-Host "💀 Watchdog läuft - Schließen bringt nichts!" -ForegroundColor Red
+    Write-Host "🔫 Taskmanager: Alle PowerShell-Prozesse killen!" -ForegroundColor Magenta
     Start-Sleep -Seconds 3
 }
 
@@ -255,10 +277,18 @@ Get-ChildItem $desktop -Filter "ORDNER_*" -Directory | Remove-Item -Recurse -For
 Get-ChildItem $desktop -Filter "*.troll" | Remove-Item -Force -ErrorAction SilentlyContinue
 Get-ChildItem $desktop -Filter "screenshot_*.png" | Remove-Item -Force -ErrorAction SilentlyContinue
 
-if (Test-Path $trollDir) {
-    Remove-Item $trollDir -Recurse -Force -ErrorAction SilentlyContinue
+Get-ChildItem $documents -Filter "TROLL_DOC_*" -File | Remove-Item -Force -ErrorAction SilentlyContinue
+Get-ChildItem $music -Filter "TROLL_MUSIC_*" -Directory | Remove-Item -Recurse -Force -ErrorAction SilentlyContinue
+Get-ChildItem $pictures -Filter "TROLL_PICS_*" -Directory | Remove-Item -Recurse -Force -ErrorAction SilentlyContinue
+Get-ChildItem $videos -Filter "TROLL_VIDS_*" -Directory | Remove-Item -Recurse -Force -ErrorAction SilentlyContinue
+
+# Watchdog löschen und beenden
+if (Test-Path "$env:TEMP\watchdog.ps1") {
+    Remove-Item "$env:TEMP\watchdog.ps1" -Force -ErrorAction SilentlyContinue
 }
+Get-Process -Name "powershell" | Where-Object {$_.Id -ne $pid} | Stop-Process -Force -ErrorAction SilentlyContinue
 
 Write-Host "✅ ALLES ENTFERNT! Der Troll ist vorbei." -ForegroundColor Green
+Write-Host "🔫 Taskmanager war der einzige Ausweg!" -ForegroundColor Cyan
 Write-Host ""
-Start-Sleep -Seconds 3
+Start-Sleep -Seconds 5
