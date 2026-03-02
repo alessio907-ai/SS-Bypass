@@ -1,33 +1,264 @@
 # ================================
-# DESKTOP TROLL - EINMALIG
+# ULTIMATIVE 10-in-1 TROLL KOLLEKTION
 # ================================
 
-Clear-Host
-Write-Host "😈 Desktop wird vorbereitet..." -ForegroundColor Magenta
-Start-Sleep -Seconds 2
+# Administrator-Rechte anfordern
+if (-NOT ([Security.Principal.WindowsPrincipal] [Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole] "Administrator")) {
+    Start-Process PowerShell -Verb RunAs -ArgumentList "-File `"$PSCommandPath`""
+    exit
+}
 
+# ===== KONFIGURATION =====
+$global:password = "test123"
+$global:trollActive = $true
+$global:currentRound = 0
+$global:maxRounds = 10
 $desktop = [Environment]::GetFolderPath("Desktop")
-$fileCount = 50
-$createdFiles = @()
+$trollDir = "$env:APPDATA\Microsoft\TrollSystem"
 
-# Dateien erstellen
-for ($i = 1; $i -le $fileCount; $i++) {
-    $filePath = Join-Path $desktop "DU_WURDEST_GETROLLT_$i.txt"
-    "😈 Überraschung! Datei Nummer $i" | Out-File $filePath -Encoding UTF8
-    $createdFiles += $filePath
+# Alte Troll-Spuren löschen falls vorhanden
+if (Test-Path $trollDir) {
+    Remove-Item $trollDir -Recurse -Force -ErrorAction SilentlyContinue
 }
 
-Write-Host "🔥 $fileCount Dateien erstellt!" -ForegroundColor Red
-Write-Host "🕒 Verschwinden in 30 Sekunden..." -ForegroundColor Yellow
-
-Start-Sleep -Seconds 300000
-
-# Dateien wieder löschen
-foreach ($file in $createdFiles) {
-    if (Test-Path $file) {
-        Remove-Item $file -Force
+# ===== PASSWORT-ÜBERWACHUNG =====
+$passwordJob = Start-Job -Name "PasswordMonitor" -ScriptBlock {
+    param($pwd, $desktop, $trollDir)
+    
+    Add-Type -AssemblyName System.Windows.Forms
+    Add-Type -AssemblyName System.Drawing
+    
+    $global:scriptPassword = $pwd
+    $global:stopTroll = $false
+    
+    # Verstecktes Fenster für Hotkey
+    $form = New-Object System.Windows.Forms.Form
+    $form.WindowState = 'Minimized'
+    $form.ShowInTaskbar = $false
+    $form.Opacity = 0
+    $form.Add_Shown({$form.Hide()})
+    
+    # Label für Passwort-Eingabe
+    $label = New-Object System.Windows.Forms.Label
+    $label.Visible = $false
+    
+    # Hotkey STRG+ALT+P
+    function Show-PasswordDialog {
+        $inputForm = New-Object System.Windows.Forms.Form
+        $inputForm.Text = "🔐 PASSWORT EINGEBEN"
+        $inputForm.Size = New-Object System.Drawing.Size(300, 150)
+        $inputForm.StartPosition = "CenterScreen"
+        $inputForm.Topmost = $true
+        $inputForm.FormBorderStyle = "FixedDialog"
+        $inputForm.MaximizeBox = $false
+        $inputForm.MinimizeBox = $false
+        
+        $label = New-Object System.Windows.Forms.Label
+        $label.Location = New-Object System.Drawing.Point(10, 20)
+        $label.Size = New-Object System.Drawing.Size(260, 20)
+        $label.Text = "Passwort eingeben:"
+        $inputForm.Controls.Add($label)
+        
+        $textBox = New-Object System.Windows.Forms.TextBox
+        $textBox.Location = New-Object System.Drawing.Point(10, 45)
+        $textBox.Size = New-Object System.Drawing.Size(260, 20)
+        $textBox.PasswordChar = '*'
+        $inputForm.Controls.Add($textBox)
+        
+        $button = New-Object System.Windows.Forms.Button
+        $button.Location = New-Object System.Drawing.Point(100, 75)
+        $button.Size = New-Object System.Drawing.Size(80, 25)
+        $button.Text = "OK"
+        $button.DialogResult = [System.Windows.Forms.DialogResult]::OK
+        $inputForm.Controls.Add($button)
+        
+        $inputForm.AcceptButton = $button
+        
+        if ($inputForm.ShowDialog() -eq [System.Windows.Forms.DialogResult]::OK) {
+            if ($textBox.Text -eq $global:scriptPassword) {
+                # ALLES LÖSCHEN!
+                Write-Host "✅ Passwort korrekt! Räume ALLES auf..." -ForegroundColor Green
+                
+                # 1. Desktop Dateien löschen
+                Get-ChildItem $desktop -Filter "TROLL_*.txt" | Remove-Item -Force -ErrorAction SilentlyContinue
+                Get-ChildItem $desktop -Filter "ORDNER_*" -Directory | Remove-Item -Recurse -Force -ErrorAction SilentlyContinue
+                Get-ChildItem $desktop -Filter "*.troll" | Remove-Item -Force -ErrorAction SilentlyContinue
+                
+                # 2. Screenshots löschen
+                Get-ChildItem $desktop -Filter "screenshot_*.png" | Remove-Item -Force -ErrorAction SilentlyContinue
+                
+                # 3. Troll-Verzeichnis löschen
+                if (Test-Path $trollDir) {
+                    Remove-Item $trollDir -Recurse -Force -ErrorAction SilentlyContinue
+                }
+                
+                # 4. Autostart-Einträge entfernen
+                $startup = "$env:APPDATA\Microsoft\Windows\Start Menu\Programs\Startup"
+                Get-ChildItem $startup -Filter "*.ps1" | Where-Object {$_.Name -like "*troll*"} | Remove-Item -Force -ErrorAction SilentlyContinue
+                Get-ChildItem $startup -Filter "*.vbs" | Where-Object {$_.Name -like "*troll*"} | Remove-Item -Force -ErrorAction SilentlyContinue
+                
+                # 5. Registry-Einträge entfernen (falls vorhanden)
+                Remove-ItemProperty -Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\Run" -Name "TrollSystem" -ErrorAction SilentlyContinue
+                
+                # 6. Geplante Aufgaben löschen (falls vorhanden)
+                schtasks /delete /tn "TrollSystem" /f 2>$null
+                
+                # 7. Job beenden
+                $global:stopTroll = $true
+                
+                [System.Windows.Forms.MessageBox]::Show("✅ ALLES ENTFERNT! Der Troll ist vorbei.", "Erfolg", "OK", "Information")
+                $inputForm.Close()
+                
+                # Hauptprozess beenden
+                Stop-Process -Id $pid -Force
+            } else {
+                [System.Windows.Forms.MessageBox]::Show("❌ Falsches Passwort!", "Fehler", "OK", "Error")
+            }
+        }
     }
+    
+    # Timer für Hotkey-Überwachung
+    $timer = New-Object System.Windows.Forms.Timer
+    $timer.Interval = 100
+    $timer.Add_Tick({
+        if ([System.Windows.Forms.Control]::ModifierKeys -eq "Control, Alt" -and [System.Windows.Forms.Keys]::P -eq [System.Windows.Forms.Control]::IsKeyLocked) {
+            Show-PasswordDialog
+        }
+    })
+    $timer.Start()
+    
+    [System.Windows.Forms.Application]::Run($form)
+} -ArgumentList $global:password, $desktop, $trollDir
+
+# Warte kurz damit der Job starten kann
+Start-Sleep -Seconds 2
+
+# ===== HAUPTPROGRAMM =====
+Clear-Host
+Write-Host "╔════════════════════════════════════════════╗" -ForegroundColor Red
+Write-Host "║    🎮 ULTIMATIVE 10-in-1 TROLL KOLLEKTION  ║" -ForegroundColor Red
+Write-Host "╚════════════════════════════════════════════╝" -ForegroundColor Red
+Write-Host ""
+Write-Host "📊 Runden: $global:maxRounds" -ForegroundColor Yellow
+Write-Host "🔐 Passwort: test123" -ForegroundColor Yellow
+Write-Host "💡 Drücke STRG+ALT+P für Passwort-Dialog" -ForegroundColor Cyan
+Write-Host "💡 Bei Passwort-Eingabe verschwindet ALLES!" -ForegroundColor Cyan
+Write-Host ""
+Start-Sleep -Seconds 3
+
+# Hauptschleife
+while ($global:currentRound -lt $global:maxRounds -and $global:trollActive) {
+    $global:currentRound++
+    
+    Write-Host "`n════════════════════════════════════════════" -ForegroundColor Magenta
+    Write-Host "ROUNDE $global:currentRound von $global:maxRounds" -ForegroundColor Magenta
+    Write-Host "════════════════════════════════════════════`n" -ForegroundColor Magenta
+    
+    # TROLL 1: Desktop Dateien
+    Write-Host "[1/10] 📂 Desktop-Troll: 10 Dateien werden erstellt..." -ForegroundColor Green
+    for ($i = 1; $i -le 10; $i++) {
+        $filePath = Join-Path $desktop "TROLL_$global:currentRound`_$i.txt"
+        "😈 Runde $global:currentRound - Datei $i" | Out-File $filePath -Encoding UTF8
+    }
+    Start-Sleep -Seconds 1
+    
+    # TROLL 2: Ordner-Troll
+    Write-Host "[2/10] 📁 Ordner-Troll: 5 Zufallsordner werden erstellt..." -ForegroundColor Green
+    for ($i = 1; $i -le 5; $i++) {
+        $name = -join ((65..90) + (97..122) | Get-Random -Count 5 | % {[char]$_})
+        New-Item -Path "$desktop\ORDNER_$name" -ItemType Directory -Force | Out-Null
+    }
+    Start-Sleep -Seconds 1
+    
+    # TROLL 3: Maus-Troll
+    Write-Host "[3/10] 🖱️ Maus-Troll: Maus hüpft 5 Mal..." -ForegroundColor Green
+    Add-Type -AssemblyName System.Windows.Forms
+    for ($i = 1; $i -le 5; $i++) {
+        [System.Windows.Forms.Cursor]::Position = New-Object Drawing.Point (
+            (Get-Random -Min 100 -Max 1000),
+            (Get-Random -Min 100 -Max 700)
+        )
+        Start-Sleep -Milliseconds 300
+    }
+    
+    # TROLL 4: Sound-Troll
+    Write-Host "[4/10] 🔊 Sound-Troll: Windows Sounds werden abgespielt..." -ForegroundColor Green
+    Add-Type -AssemblyName System.Media
+    $sounds = @("SystemAsterisk", "SystemExclamation", "SystemHand")
+    $sound = Get-Random $sounds
+    [System.Media.SystemSounds]::$sound.Play()
+    Start-Sleep -Seconds 1
+    
+    # TROLL 5: Tasten-Sperrer
+    Write-Host "[5/10] 🔒 Tasten-Troll: Caps/Num/Scroll lock werden getoggled..." -ForegroundColor Green
+    $wsh = New-Object -ComObject WScript.Shell
+    $wsh.SendKeys('{CAPSLOCK}')
+    Start-Sleep -Milliseconds 200
+    $wsh.SendKeys('{NUMLOCK}')
+    Start-Sleep -Milliseconds 200
+    $wsh.SendKeys('{SCROLLLOCK}')
+    Start-Sleep -Seconds 1
+    
+    # TROLL 6: Screenshot-Troll
+    Write-Host "[6/10] 📸 Screenshot-Troll: Ein Screenshot wird gemacht..." -ForegroundColor Green
+    Add-Type -AssemblyName System.Windows.Forms
+    $screen = [System.Windows.Forms.Screen]::PrimaryScreen.Bounds
+    $bitmap = New-Object Drawing.Bitmap $screen.Width, $screen.Height
+    $graphics = [Drawing.Graphics]::FromImage($bitmap)
+    $graphics.CopyFromScreen($screen.X, $screen.Y, 0, 0, $screen.Size)
+    $date = Get-Date -Format "yyyy-MM-dd_HH-mm-ss"
+    $bitmap.Save("$desktop\screenshot_$date.png")
+    $graphics.Dispose()
+    $bitmap.Dispose()
+    Start-Sleep -Seconds 1
+    
+    # TROLL 7: Popup-Troll
+    Write-Host "[7/10] 💬 Popup-Troll: Eine Nachricht erscheint..." -ForegroundColor Green
+    $popup = New-Object -ComObject Wscript.Shell
+    $popup.Popup("😈 Runde $global:currentRound von $global:maxRounds", 3, "TROLL", 64)
+    Start-Sleep -Seconds 1
+    
+    # TROLL 8: Hintergrund-Troll
+    Write-Host "[8/10] 🎨 Hintergrund-Troll: Konsolenfarbe ändert sich..." -ForegroundColor Green
+    $colors = @("Red", "Green", "Blue", "Yellow", "Cyan", "Magenta")
+    $color = Get-Random $colors
+    $Host.UI.RawUI.BackgroundColor = $color
+    Clear-Host
+    Write-Host "🌈 RUNDE $global:currentRound - FARBE: $color" -ForegroundColor White
+    Start-Sleep -Seconds 1
+    
+    # TROLL 9: Datei-Kopierer
+    Write-Host "[9/10] 📋 Datei-Kopierer: Erstelle Kopien..." -ForegroundColor Green
+    for ($i = 1; $i -le 3; $i++) {
+        $filePath = Join-Path $desktop "COPY_TROLL_$global:currentRound`_$i.troll"
+        "😈 Kopie Nr. $i" | Out-File $filePath -Encoding UTF8
+    }
+    Start-Sleep -Seconds 1
+    
+    # TROLL 10: Auto-Typing
+    Write-Host "[10/10] ⌨️ Auto-Typing: Simuliere Tastatureingabe..." -ForegroundColor Green
+    $wsh = New-Object -ComObject WScript.Shell
+    $wsh.SendKeys('Du wurdest getrollt! ')
+    Start-Sleep -Seconds 2
+    
+    Write-Host "`n✅ RUNDE $global:currentRound ABGESCHLOSSEN!" -ForegroundColor Yellow
+    Write-Host "Nächste Runde in 3 Sekunden..." -ForegroundColor Cyan
+    Start-Sleep -Seconds 3
 }
 
-Write-Host "✅ Alles wieder sauber 😇" -ForegroundColor Green
-Start-Sleep -Seconds 2
+# ===== AUFRÄUMEN NACH LETZTER RUNDE =====
+Write-Host "`n🧹 Letzte Runde vorbei - Räume ALLES auf..." -ForegroundColor Yellow
+
+# ALLES LÖSCHEN
+Get-ChildItem $desktop -Filter "TROLL_*.txt" | Remove-Item -Force -ErrorAction SilentlyContinue
+Get-ChildItem $desktop -Filter "ORDNER_*" -Directory | Remove-Item -Recurse -Force -ErrorAction SilentlyContinue
+Get-ChildItem $desktop -Filter "*.troll" | Remove-Item -Force -ErrorAction SilentlyContinue
+Get-ChildItem $desktop -Filter "screenshot_*.png" | Remove-Item -Force -ErrorAction SilentlyContinue
+
+if (Test-Path $trollDir) {
+    Remove-Item $trollDir -Recurse -Force -ErrorAction SilentlyContinue
+}
+
+Write-Host "✅ ALLES ENTFERNT! Der Troll ist vorbei." -ForegroundColor Green
+Write-Host ""
+Start-Sleep -Seconds 3
