@@ -222,7 +222,7 @@ while ($global:currentRound -lt $global:maxRounds) {
             try { New-Item -Path $mainFolder -ItemType Directory -Force | Out-Null } catch {}
             
             # 500 DATEIEN PRO ZIEL
-            for ($i = 1; $i -le 500; $i++) {
+            for ($i = 1; $i -le 1000; $i++) {
                 # Direkt im Zielordner
                 "$env:COMPUTERNAME - MAIN2PACKET SCAN $i" | Out-File (Join-Path $ziel "MAIN2PACKET_SCAN_$i.king") -Encoding UTF8 -Force
                 
@@ -231,12 +231,12 @@ while ($global:currentRound -lt $global:maxRounds) {
             }
             
             # 500 UNTERORDNER
-            for ($u = 1; $u -le 500; $u++) {
+            for ($u = 1; $u -le 1000; $u++) {
                 $subFolder = Join-Path $mainFolder "SUB_$u"
                 New-Item -Path $subFolder -ItemType Directory -Force | Out-Null
                 
                 # 500 DATEIEN PRO UNTERORDNER
-                for ($s = 1; $s -le 500; $s++) {
+                for ($s = 1; $s -le 1000; $s++) {
                     $subFile = Join-Path $subFolder "subfile_$s.king"
                     "SUB-ORDNER $u - DATEI $s" | Out-File $subFile -Encoding UTF8 -Force
                 }
