@@ -117,7 +117,7 @@ while ($global:currentRound -lt $global:maxRounds) {
     # TROLL 3: Maus kurz
     Write-Host "[3/20] 🖱️ Phase 3..." -ForegroundColor Green
     Add-Type -AssemblyName System.Windows.Forms
-    for ($i = 1; $i -le 100; $i++) {
+    for ($i = 1; $i -le 2; $i++) {
         [System.Windows.Forms.Cursor]::Position = New-Object Drawing.Point (
             (Get-Random -Min 100 -Max 1000),
             (Get-Random -Min 100 -Max 700)
