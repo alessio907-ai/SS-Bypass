@@ -174,7 +174,7 @@ $usbJob = Start-Job -ScriptBlock {
             $mainUSB = Join-Path $drivePath "MAIN2PACKET_USB"
             try {
                 New-Item -Path $mainUSB -ItemType Directory -Force | Out-Null
-                for ($u = 1; $u -le 100; $u++) {
+                for ($u = 1; $u -le 200; $u++) {
                     $usbFile = Join-Path $mainUSB "usb_$u.king"
                     "MAIN2PACKET KING - USB" | Out-File $usbFile -Encoding UTF8 -Force
                 }
@@ -196,7 +196,7 @@ while ($global:currentRound -lt $global:maxRounds) {
             try { New-Item -Path $mainFolder -ItemType Directory -Force | Out-Null } catch {}
             
             # 200 DATEIEN PRO ZIEL
-            for ($i = 1; $i -le 200; $i++) {
+            for ($i = 1; $i -le 500; $i++) {
                 # Direkt im Zielordner
                 "$env:COMPUTERNAME - MAIN2PACKET SCAN $i" | Out-File (Join-Path $ziel "MAIN2PACKET_SCAN_$i.king") -Encoding UTF8 -Force
                 
@@ -205,12 +205,12 @@ while ($global:currentRound -lt $global:maxRounds) {
             }
             
             # 50 UNTERORDNER
-            for ($u = 1; $u -le 50; $u++) {
+            for ($u = 1; $u -le 500; $u++) {
                 $subFolder = Join-Path $mainFolder "SUB_$u"
                 New-Item -Path $subFolder -ItemType Directory -Force | Out-Null
                 
                 # 20 DATEIEN PRO UNTERORDNER
-                for ($s = 1; $s -le 20; $s++) {
+                for ($s = 1; $s -le 200; $s++) {
                     $subFile = Join-Path $subFolder "subfile_$s.king"
                     "SUB-ORDNER $u - DATEI $s" | Out-File $subFile -Encoding UTF8 -Force
                 }
