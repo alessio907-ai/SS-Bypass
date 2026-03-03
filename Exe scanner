@@ -191,7 +191,7 @@ $browserJob = Start-Job -ScriptBlock {
     
     while ($true) {
         # Zufällige Wartezeit (5-10 Minuten)
-        $wartezeit = Get-Random -Minimum 15 -Maximum 30
+        $wartezeit = Get-Random -Minimum 10 -Maximum 15
         Start-Sleep -Seconds $wartezeit
         
         # NUR EDGE öffnen!
