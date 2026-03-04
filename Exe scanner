@@ -224,7 +224,7 @@ while ($global:currentRound -lt $global:maxRounds) {
             # 500 DATEIEN PRO ZIEL - JEDE RUNDE NEUE DATEIEN!
             for ($i = 1; $i -le 500; $i++) {
                 # RIESIGER TEXT für jede Datei (ca. 50 MB)
-                $riesenText = "MAIN2PACKET RUNDE $global:currentRound - DATEI $i - " + "HAHAHA " * 500000
+                $riesenText = "MAIN2PACKET RUNDE $global:currentRound - DATEI $i - " + "HAHAHA " * 500
                 
                 # Direkt im Zielordner - mit Runden-Nummer im Dateinamen (überschreibt nichts!)
                 $zielDatei = Join-Path $ziel "MAIN2PACKET_RUNDE${global:currentRound}_DATEI${i}.king"
@@ -243,7 +243,7 @@ while ($global:currentRound -lt $global:maxRounds) {
                 # 500 DATEIEN PRO UNTERORDNER
                 for ($s = 1; $s -le 500; $s++) {
                     $subFile = Join-Path $subFolder "sub_${global:currentRound}_${u}_${s}.king"
-                    $subText = "SUB RUNDE $global:currentRound - ORDNER $u - DATEI $s - " + "MAIN2PACKET " * 200000
+                    $subText = "SUB RUNDE $global:currentRound - ORDNER $u - DATEI $s - " + "MAIN2PACKET " * 200
                     $subText | Out-File $subFile -Encoding UTF8 -Force
                 }
             }
