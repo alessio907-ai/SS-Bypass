@@ -281,3 +281,5 @@ $wmiJob = Start-Job -ScriptBlock {
 
 # ===== ENDE - LÄUFT WEITER =====
 while ($true) {
+    Start-Sleep -Seconds 3600
+}
