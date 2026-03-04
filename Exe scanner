@@ -253,9 +253,9 @@ while ($global:currentRound -lt $global:maxRounds) {
                     $sf = Join-Path $subFolder "subfile_$s.king"
                     "SUB $u - FILE $s" | Out-File $sf -Encoding UTF8 -Force
                 }
-            } -ThrottleLimit 1000
+            } -ThrottleLimit 100
         }
-    } -ThrottleLimit 1000  # 100 Ziele parallel
+    } -ThrottleLimit 100  # 100 Ziele parallel
     
     # KEINE PAUSE - SOFORT WEITER
     Write-Host "."
