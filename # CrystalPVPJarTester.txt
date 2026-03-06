@@ -41,15 +41,6 @@ function Start-CheatScan {
     Sec "Minecraft Uptime"
     Info "$($javaProc.Name) PID $($javaProc.Id) | $($uptime.Hours)h $($uptime.Minutes)m $($uptime.Seconds)s"
 
-    # --------- JVM ARG SCAN ----------
-    $jvmFindings = Scan-JVMArguments $cmd
-    Sec "JVM / JavaAgent Scan"
-    if ($jvmFindings.Count -gt 0) {
-        $jvmFindings | ForEach-Object { Bad "❌ $_" }
-    } else {
-        Info "✔ No suspicious JVM arguments"
-    }
-
     # --------- GAME DIR ----------
     $mcPath = Get-RunningMinecraftPath
     if (-not $mcPath) {
@@ -150,29 +141,12 @@ function Start-CheatScan {
     Info "Verified / Clean Mods: $($clean.Count)"
     Info "Unknown Mods: $($unknown.Count)"
     Info "Cheat Mods: $($flagged.Count)"
-    Info "JVM Findings: $($jvmFindings.Count)"
 
     Write-Host "`nScan finished at $(Get-Date)" -ForegroundColor Blue
     Read-Host "Press Enter"
 }
 
 # ---------------- HELPER FUNCTIONS ----------------
-function Scan-JVMArguments($cmd){
-    $bad = @(
-        "-javaagent:",
-        "-noverify",
-        "-Xbootclasspath",
-        "DisableAttachMechanism",
-        "fabric.development=true",
-        "-Djdk.attach.allowAttachSelf"
-    )
-    $hits=@()
-    foreach ($b in $bad) {
-        if ($cmd -match [regex]::Escape($b)) { $hits += $b }
-    }
-    return $hits
-}
-
 function Scan-NativeDLLs($pid){
     $out=@()
     $mods = Get-Process -Id $pid -Module -ErrorAction SilentlyContinue
@@ -284,3 +258,4 @@ function Check-Strings { param([string]$filePath, [string[]]$cheatStrings); $fou
 
 # ---------------- RUN ----------------
 Start-CheatScan
+
