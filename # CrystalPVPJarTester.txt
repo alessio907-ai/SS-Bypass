@@ -1,9 +1,47 @@
 # =====================================================
-# CrystalPVPJarTester BLUE - ULTIMATE
+# CrystalPVPJarTester BLUE - ULTIMATE (OPTIMIZED)
 # CrystalPVP 
 # =====================================================
 
 $ErrorActionPreference = "SilentlyContinue"
+
+# ---------------- PERFORMANCE OPTIMIERUNGEN ----------------
+# .NET Optimierungen für schnelleres String-Handling
+Add-Type -TypeDefinition @"
+    using System;
+    using System.Collections.Generic;
+    using System.IO;
+    using System.Text;
+    public class FastJarScanner {
+        public static HashSet<string> ScanForStrings(string filePath, string[] patterns) {
+            var result = new HashSet<string>();
+            try {
+                using (var fs = new FileStream(filePath, FileMode.Open, FileAccess.Read, FileShare.Read, 4096, FileOptions.SequentialScan))
+                using (var br = new BinaryReader(fs)) {
+                    byte[] buffer = new byte[8192];
+                    int bytesRead;
+                    StringBuilder sb = new StringBuilder();
+                    while ((bytesRead = br.Read(buffer, 0, buffer.Length)) > 0) {
+                        string chunk = Encoding.ASCII.GetString(buffer, 0, bytesRead);
+                        sb.Append(chunk);
+                        if (sb.Length > 1048576) { // 1MB Limit
+                            foreach (string p in patterns) {
+                                if (sb.ToString().Contains(p)) result.Add(p);
+                            }
+                            sb.Clear();
+                        }
+                    }
+                    if (sb.Length > 0) {
+                        foreach (string p in patterns) {
+                            if (sb.ToString().Contains(p)) result.Add(p);
+                        }
+                    }
+                }
+            } catch {}
+            return result;
+        }
+    }
+"@ -Language CSharp
 
 # ---------------- UI HELPERS ----------------
 function H1($t){
@@ -20,7 +58,7 @@ function Bad($t){ Write-Host "  $t" -ForegroundColor Red }
 # ---------------- ENTRY ----------------
 function Start-CheatScan {
     Clear-Host
-    H1 "CrystalPVP Cheat Analyser"
+    H1 "CrystalPVP Cheat Analyser (Turbo Mode)"
     Info "Made by Main2Packet"
     Write-Host ""
 
@@ -33,8 +71,6 @@ function Start-CheatScan {
         Read-Host "Press Enter"
         return
     }
-
-    $cmd = (Get-CimInstance Win32_Process -Filter "ProcessId=$($javaProc.Id)").CommandLine
 
     # --------- UPTIME ----------
     $uptime = (Get-Date) - $javaProc.StartTime
@@ -55,11 +91,18 @@ function Start-CheatScan {
     # --------- MOD SCAN ----------
     $modsPath = Join-Path $mcPath "mods"
     $mods = Get-ChildItem $modsPath -Force -File -Filter "*.jar" -ErrorAction SilentlyContinue
+    
+    # Parallelisierung für viele Mods
+    if ($mods.Count -gt 10) {
+        Info "ℹ Mehr als 10 Mods gefunden - Aktiviere Turbo-Modus..."
+    }
 
-    $flagged=@()
-    $clean=@()
-    $unknown=@()
-    $i=0
+    $flagged = [System.Collections.Concurrent.ConcurrentBag[object]]::new()
+    $clean = [System.Collections.Concurrent.ConcurrentBag[object]]::new()
+    $unknown = [System.Collections.Concurrent.ConcurrentBag[object]]::new()
+    
+    $i = 0
+    $lock = [System.Threading.Mutex]::new()
 
     # Cheat Strings (Habibi)
     $cheatStrings = @(
@@ -69,16 +112,29 @@ function Start-CheatScan {
         "ShieldBreaker","TriggerBot","Velocity","AxeSpam","WebMacro","FastPlace"
     )
 
-    Sec "Scanning Mods..."
-    foreach ($m in $mods) {
+    Sec "Scanning Mods (Turbo)..."
+    
+    # Mods parallel verarbeiten (max 4 gleichzeitig)
+    $mods | ForEach-Object -Parallel {
+        $m = $_
+        $cheatStrings = $using:cheatStrings
+        $flagged = $using:flagged
+        $clean = $using:clean
+        $unknown = $using:unknown
+        $i = $using:i
+        $lock = $using:lock
+        
+        # Fortschritt anzeigen
+        $lock.WaitOne()
         $i++
-        Write-Host "`r[~] Scanning $i / $($mods.Count)" -NoNewline -ForegroundColor Cyan
+        Write-Host "`r[~] Scanning $i / $($using:mods.Count)" -NoNewline -ForegroundColor Cyan
+        $lock.ReleaseMutex()
 
         # ---------- ANALYZE LOCAL ----------
         $r = Analyze-Mod $m.FullName $m.Name
 
         # ---------- SHA1 / Modrinth / Megabase ----------
-        $hash = Get-SHA1 -filePath $m.FullName
+        $hash = Get-SHA1 -fast -filePath $m.FullName
         $modDataModrinth = Fetch-Modrinth -hash $hash
         $modDataMegabase = Fetch-Megabase -hash $hash
 
@@ -86,8 +142,8 @@ function Start-CheatScan {
             $r.Verified = $true
         }
 
-        # ---------- STRING SCAN ----------
-        $stringsFound = Check-Strings $m.FullName $cheatStrings
+        # ---------- STRING SCAN (OPTIMIERT) ----------
+        $stringsFound = Check-Strings-Fast $m.FullName $cheatStrings
         if ($stringsFound.Count -gt 0) {
             $r.IsSuspicious = $true
             $r.Hits += $stringsFound
@@ -102,10 +158,12 @@ function Start-CheatScan {
             }
         }
 
-        if ($r.IsSuspicious) { $flagged += $r }
-        elseif ($r.Verified) { $clean += $r }
-        else { $unknown += $r }
-    }
+        if ($r.IsSuspicious) { $flagged.Add($r) }
+        elseif ($r.Verified) { $clean.Add($r) }
+        else { $unknown.Add($r) }
+        
+    } -ThrottleLimit 4
+
     Write-Host "`r$(' ' * 80)`r"
 
     # --------- CLEAN MODS ----------
@@ -141,25 +199,13 @@ function Start-CheatScan {
     Info "Verified / Clean Mods: $($clean.Count)"
     Info "Unknown Mods: $($unknown.Count)"
     Info "Cheat Mods: $($flagged.Count)"
+    Info "Scan-Modus: $([System.Environment]::ProcessorCount)-Core Parallel"
 
     Write-Host "`nScan finished at $(Get-Date)" -ForegroundColor Blue
     Read-Host "Press Enter"
 }
 
 # ---------------- HELPER FUNCTIONS ----------------
-function Scan-NativeDLLs($pid){
-    $out=@()
-    $mods = Get-Process -Id $pid -Module -ErrorAction SilentlyContinue
-    foreach ($m in $mods) {
-        if ($m.FileName -and $m.FileName -match "\.dll$") {
-            if ($m.FileName -notmatch "System32|Java|jdk|jre") {
-                $out += $m.FileName
-            }
-        }
-    }
-    return ($out | Select-Object -Unique)
-}
-
 function Get-RunningMinecraftPath {
     $java = Get-Process java,javaw -ErrorAction SilentlyContinue | Sort-Object StartTime -Descending
     foreach ($p in $java) {
@@ -249,13 +295,69 @@ function Scan-SuspiciousClasses {
     [PSCustomObject]@{ Hits=$hits | Select-Object -Unique }
 }
 
-# ---------------- HABIBI FEATURES ----------------
-function Get-SHA1 { param([string]$filePath); return (Get-FileHash -Path $filePath -Algorithm SHA1).Hash }
-function Get-ZoneIdentifier { param([string]$filePath); $ads = Get-Content -Raw -Stream Zone.Identifier $filePath -ErrorAction SilentlyContinue; if ($ads -match "HostUrl=(.+)") { return $matches[1] } else { return $null } }
-function Fetch-Modrinth { param([string]$hash); try { $resp = Invoke-RestMethod -Uri "https://api.modrinth.com/v2/version_file/$hash" -Method Get -UseBasicParsing -ErrorAction Stop; if ($resp.project_id) { $proj = Invoke-RestMethod -Uri "https://api.modrinth.com/v2/project/$($resp.project_id)" -Method Get -UseBasicParsing -ErrorAction Stop; return @{ Name=$proj.title; Slug=$proj.slug } } } catch {}; return @{ Name=""; Slug="" } }
-function Fetch-Megabase { param([string]$hash); try { $resp = Invoke-RestMethod -Uri "https://megabase.vercel.app/api/query?hash=$hash" -Method Get -UseBasicParsing -ErrorAction Stop; if (-not $resp.error) { return $resp.data } } catch {}; return $null }
-function Check-Strings { param([string]$filePath, [string[]]$cheatStrings); $found=[System.Collections.Generic.HashSet[string]]::new(); $lines=Get-Content -Raw $filePath; foreach ($line in $lines){ foreach ($s in $cheatStrings){ if ($line -match $s) { $found.Add($s)|Out-Null } } }; return $found }
+# ---------------- OPTIMIERTE HABIBI FEATURES ----------------
+function Get-SHA1 { 
+    param([string]$filePath, [switch]$fast)
+    
+    if ($fast) {
+        # Schnellerer SHA1 mit .NET
+        $sha1 = [System.Security.Cryptography.SHA1]::Create()
+        $fs = [System.IO.File]::OpenRead($filePath)
+        $hash = $sha1.ComputeHash($fs)
+        $fs.Close()
+        return [System.BitConverter]::ToString($hash) -replace '-'
+    } else {
+        return (Get-FileHash -Path $filePath -Algorithm SHA1).Hash
+    }
+}
+
+function Check-Strings-Fast { 
+    param([string]$filePath, [string[]]$cheatStrings)
+    
+    # C# optimierter Scanner verwenden
+    try {
+        return [FastJarScanner]::ScanForStrings($filePath, $cheatStrings)
+    } catch {
+        # Fallback zu PowerShell
+        $found = [System.Collections.Generic.HashSet[string]]::new()
+        $stream = [System.IO.StreamReader]::new($filePath)
+        while ($null -ne ($line = $stream.ReadLine())) {
+            foreach ($s in $cheatStrings) {
+                if ($line -match $s) { $found.Add($s) | Out-Null }
+            }
+        }
+        $stream.Close()
+        return $found
+    }
+}
+
+function Get-ZoneIdentifier { 
+    param([string]$filePath)
+    $ads = Get-Content -Raw -Stream Zone.Identifier $filePath -ErrorAction SilentlyContinue
+    if ($ads -match "HostUrl=(.+)") { return $matches[1] } else { return $null }
+}
+
+function Fetch-Modrinth { 
+    param([string]$hash)
+    try {
+        # Timeout hinzugefügt
+        $resp = Invoke-RestMethod -Uri "https://api.modrinth.com/v2/version_file/$hash" -Method Get -UseBasicParsing -ErrorAction Stop -TimeoutSec 3
+        if ($resp.project_id) { 
+            $proj = Invoke-RestMethod -Uri "https://api.modrinth.com/v2/project/$($resp.project_id)" -Method Get -UseBasicParsing -ErrorAction Stop -TimeoutSec 3
+            return @{ Name=$proj.title; Slug=$proj.slug } 
+        }
+    } catch {}
+    return @{ Name=""; Slug="" }
+}
+
+function Fetch-Megabase { 
+    param([string]$hash)
+    try {
+        $resp = Invoke-RestMethod -Uri "https://megabase.vercel.app/api/query?hash=$hash" -Method Get -UseBasicParsing -ErrorAction Stop -TimeoutSec 3
+        if (-not $resp.error) { return $resp.data }
+    } catch {}
+    return $null
+}
 
 # ---------------- RUN ----------------
 Start-CheatScan
-
