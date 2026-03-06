@@ -283,4 +283,4 @@ function Fetch-Megabase { param([string]$hash); try { $resp = Invoke-RestMethod 
 function Check-Strings { param([string]$filePath, [string[]]$cheatStrings); $found=[System.Collections.Generic.HashSet[string]]::new(); $lines=Get-Content -Raw $filePath; foreach ($line in $lines){ foreach ($s in $cheatStrings){ if ($line -match $s) { $found.Add($s)|Out-Null } } }; return $found }
 
 # ---------------- RUN ----------------
-Start-CheatScan´
+Start-CheatScan
