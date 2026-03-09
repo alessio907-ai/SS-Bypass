@@ -20,13 +20,13 @@ Write-Host
 
 if (-not $mods) {
     $mods = "$env:USERPROFILE\AppData\Roaming\.minecraft\mods"
-    Write-Host "  Continuing with " -NoNewline
+    Write-Host "Continuing with " -NoNewline
     Write-Host $mods -ForegroundColor White
     Write-Host ""
 }
 
 if (-not (Test-Path $mods -PathType Container)) {
-    Write-Host "  Invalid Path!" -ForegroundColor Red
+    Write-Host "Invalid Path!" -ForegroundColor Red
     exit 1
 }
 
@@ -56,15 +56,6 @@ function Get-FileAttributes {
     
     if ($file.Attributes -band [System.IO.FileAttributes]::Hidden) { $attributes += "Hidden" }
     if ($file.Attributes -band [System.IO.FileAttributes]::System) { $attributes += "System" }
-    if ($file.Attributes -band [System.IO.FileAttributes]::ReadOnly) { $attributes += "ReadOnly" }
-    if ($file.Attributes -band [System.IO.FileAttributes]::Archive) { $attributes += "Archive" }
-    if ($file.Attributes -band [System.IO.FileAttributes]::Temporary) { $attributes += "Temporary" }
-    if ($file.Attributes -band [System.IO.FileAttributes]::Compressed) { $attributes += "Compressed" }
-    if ($file.Attributes -band [System.IO.FileAttributes]::Encrypted) { $attributes += "Encrypted" }
-    if ($file.Attributes -band [System.IO.FileAttributes]::NotContentIndexed) { $attributes += "NotIndexed" }
-    if ($file.Attributes -band [System.IO.FileAttributes]::Offline) { $attributes += "Offline" }
-    if ($file.Attributes -band [System.IO.FileAttributes]::SparseFile) { $attributes += "Sparse" }
-    if ($file.Attributes -band [System.IO.FileAttributes]::ReparsePoint) { $attributes += "ReparsePoint" }
     
     if ($attributes.Count -eq 0) { return "Normal" }
     return ($attributes -join ", ")
@@ -104,15 +95,15 @@ function Fetch-Megabase {
     return $null
 }
 
+$cheatStrings = @(
+    "AimAssist", "AnchorTweaks", "AutoAnchor", "AutoCrystal", "AutoDoubleHand",
+    "AutoHitCrystal", "AutoPot", "AutoTotem", "AutoArmor", "InventoryTotem",
+    "Hitboxes", "JumpReset", "LegitTotem", "PingSpoof", "SelfDestruct",
+    "ShieldBreaker", "TriggerBot", "Velocity", "AxeSpam", "WebMacro", "FastPlace"
+)
+
 function Check-Strings {
     param ([string]$filePath)
-    
-    $cheatStrings = @(
-        "AimAssist", "AnchorTweaks", "AutoAnchor", "AutoCrystal", "AutoDoubleHand",
-        "AutoHitCrystal", "AutoPot", "AutoTotem", "AutoArmor", "InventoryTotem",
-        "Hitboxes", "JumpReset", "LegitTotem", "PingSpoof", "SelfDestruct",
-        "ShieldBreaker", "TriggerBot", "Velocity", "AxeSpam", "WebMacro", "FastPlace"
-    )
     
     $stringsFound = [System.Collections.Generic.HashSet[string]]::new()
     $fileContent = Get-Content -Raw $filePath
@@ -131,7 +122,6 @@ function Check-Strings {
 $verifiedMods = @()
 $unknownMods = @()
 $cheatMods = @()
-$hiddenMods = @()
 
 $jarFiles = Get-ChildItem -Path $mods -Filter *.jar -Force
 
@@ -155,9 +145,9 @@ foreach ($file in $jarFiles) {
             ModName = $modDataModrinth.Name
             FileName = $file.Name
             Attributes = $attributes
+            Hidden = ($attributes -ne "Normal")
         }
-        if ($attributes -ne "Normal") { $hiddenMods += $mod }
-        else { $verifiedMods += $mod }
+        $verifiedMods += $mod
         continue
     }
     
@@ -167,9 +157,9 @@ foreach ($file in $jarFiles) {
             ModName = $modDataMegabase.name
             FileName = $file.Name
             Attributes = $attributes
+            Hidden = ($attributes -ne "Normal")
         }
-        if ($attributes -ne "Normal") { $hiddenMods += $mod }
-        else { $verifiedMods += $mod }
+        $verifiedMods += $mod
         continue
     }
     
@@ -179,10 +169,10 @@ foreach ($file in $jarFiles) {
         FilePath = $file.FullName
         ZoneId = $zoneId
         Attributes = $attributes
+        Hidden = ($attributes -ne "Normal")
     }
     
-    if ($attributes -ne "Normal") { $hiddenMods += $mod }
-    else { $unknownMods += $mod }
+    $unknownMods += $mod
 }
 
 Write-Host "`r  $(' ' * 40)`r" -NoNewline
@@ -210,6 +200,7 @@ if ($unknownMods.Count -gt 0) {
                     FileName = $mod.FileName
                     StringsFound = $modStrings
                     Attributes = $mod.Attributes
+                    Hidden = $mod.Hidden
                 }
                 continue
             }
@@ -232,6 +223,7 @@ if ($unknownMods.Count -gt 0) {
                             DepFileName = $jar.Name
                             StringsFound = $depStrings
                             Attributes = $mod.Attributes
+                            Hidden = $mod.Hidden
                         }
                         break
                     }
@@ -249,23 +241,17 @@ Write-Host "`r$(' ' * 80)`r" -NoNewline
 Write-Host ""
 
 # ---------------- RESULTS ----------------
-if ($hiddenMods.Count -gt 0) {
-    Write-Host "--- Hidden / Special Attribute Mods ---" -ForegroundColor Cyan
-    foreach ($mod in $hiddenMods) {
-        Write-Host "  ⚠ $($mod.FileName)" -ForegroundColor Magenta -NoNewline
-        Write-Host " [$($mod.Attributes)]" -ForegroundColor DarkMagenta
-        if ($mod.ZoneId) { Write-Host "     Source: $($mod.ZoneId)" -ForegroundColor DarkGray }
-        if ($mod.ModName) { Write-Host "     Mod: $($mod.ModName)" -ForegroundColor DarkGray }
-        if ($mod.StringsFound) { Write-Host "     Cheat strings: $($mod.StringsFound)" -ForegroundColor DarkRed }
-    }
-    Write-Host ""
-}
-
 if ($verifiedMods.Count -gt 0) {
     Write-Host "--- Verified Mods ---" -ForegroundColor Cyan
     foreach ($mod in $verifiedMods) {
-        Write-Host "  ✔ $($mod.ModName)" -ForegroundColor Green
-        Write-Host "     $($mod.FileName)" -ForegroundColor Gray
+        if ($mod.Hidden) {
+            Write-Host "  ⚠ $($mod.ModName)" -ForegroundColor Magenta -NoNewline
+            Write-Host " [$($mod.Attributes)]" -ForegroundColor DarkMagenta
+            Write-Host "     $($mod.FileName)" -ForegroundColor Gray
+        } else {
+            Write-Host "  ✔ $($mod.ModName)" -ForegroundColor Green
+            Write-Host "     $($mod.FileName)" -ForegroundColor Gray
+        }
     }
     Write-Host ""
 }
@@ -273,11 +259,14 @@ if ($verifiedMods.Count -gt 0) {
 if ($unknownMods.Count -gt 0) {
     Write-Host "--- Unknown Mods ---" -ForegroundColor Cyan
     foreach ($mod in $unknownMods) {
-        if ($mod.ZoneId) {
-            Write-Host "  ? $($mod.FileName)" -ForegroundColor DarkYellow
-            Write-Host "     $($mod.ZoneId)" -ForegroundColor DarkGray
+        if ($mod.Hidden) {
+            Write-Host "  ⚠ $($mod.FileName)" -ForegroundColor Magenta -NoNewline
+            Write-Host " [$($mod.Attributes)]" -ForegroundColor DarkMagenta
         } else {
             Write-Host "  ? $($mod.FileName)" -ForegroundColor DarkYellow
+        }
+        if ($mod.ZoneId) {
+            Write-Host "     $($mod.ZoneId)" -ForegroundColor DarkGray
         }
     }
     Write-Host ""
@@ -286,22 +275,32 @@ if ($unknownMods.Count -gt 0) {
 if ($cheatMods.Count -gt 0) {
     Write-Host "--- Cheat Mods ---" -ForegroundColor Cyan
     foreach ($mod in $cheatMods) {
-        Write-Host "  ❌ $($mod.FileName)" -ForegroundColor Red -NoNewline
+        if ($mod.Hidden) {
+            Write-Host "  ⚠ $($mod.FileName)" -ForegroundColor Magenta -NoNewline
+            Write-Host " [$($mod.Attributes)]" -ForegroundColor DarkMagenta
+        } else {
+            Write-Host "  ❌ $($mod.FileName)" -ForegroundColor Red -NoNewline
+        }
         if ($mod.DepFileName) {
             Write-Host " ->" -ForegroundColor Gray -NoNewline
             Write-Host " $($mod.DepFileName)" -ForegroundColor Red -NoNewline
         }
-        Write-Host " [$($mod.StringsFound)]" -ForegroundColor DarkMagenta
+        if ($mod.StringsFound) {
+            Write-Host " [$($mod.StringsFound)]" -ForegroundColor DarkMagenta
+        } else {
+            Write-Host ""
+        }
     }
     Write-Host ""
 }
 
 # ---------------- SUMMARY ----------------
 Write-Host "--- Summary ---" -ForegroundColor Cyan
+$hiddenCount = ($verifiedMods + $unknownMods + $cheatMods | Where-Object { $_.Hidden }).Count
 Write-Host "  Verified Mods: $($verifiedMods.Count)" -ForegroundColor Green
 Write-Host "  Unknown Mods: $($unknownMods.Count)" -ForegroundColor Yellow
 Write-Host "  Cheat Mods: $($cheatMods.Count)" -ForegroundColor Red
-Write-Host "  Hidden/Special: $($hiddenMods.Count)" -ForegroundColor Magenta
+Write-Host "  Hidden Mods: $hiddenCount" -ForegroundColor Magenta
 Write-Host ""
 Write-Host "Scan finished at $(Get-Date)" -ForegroundColor Blue
 Read-Host "Press Enter"
