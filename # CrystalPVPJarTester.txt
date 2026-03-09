@@ -1,5 +1,5 @@
 # =====================================================
-# Habibi Mod Analyzer - CRYSTALPVP EDITION
+# Main2packet Mod Analyzer - CRYSTALPVP EDITION
 # =====================================================
 
 Clear-Host
@@ -179,7 +179,7 @@ Write-Host "`r  $(' ' * 40)`r" -NoNewline
 
 # ---------------- SCAN UNKNOWN MODS ----------------
 if ($unknownMods.Count -gt 0) {
-    $tempDir = Join-Path $env:TEMP "habibimodanalyzer"
+    $tempDir = Join-Path $env:TEMP "Main2packetmodanalyzer"
     $counter = 0
     
     try {
@@ -304,3 +304,4 @@ Write-Host "  Hidden Mods: $hiddenCount" -ForegroundColor Magenta
 Write-Host ""
 Write-Host "Scan finished at $(Get-Date)" -ForegroundColor Blue
 Read-Host "Press Enter"
+
