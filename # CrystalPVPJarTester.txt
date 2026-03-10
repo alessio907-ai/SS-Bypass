@@ -64,7 +64,7 @@ function Start-CheatScan {
         if ($jvmFindings.Count -gt 0) {
             $jvmFindings | ForEach-Object { Bad "❌ $_" }
         } else {
-            Info "✔ No suspicious JVM arguments"
+            Info "No suspicious JVM arguments"
         }
 
         # --------- Versuche gameDir zu erkennen ----------
@@ -75,11 +75,11 @@ function Start-CheatScan {
             Info "$mcPath"
             $modsPath = Join-Path $mcPath "mods"
         } else {
-            Info "ℹ Konnte Minecraft-Verzeichnis nicht automatisch erkennen."
+            Info "Konnte Minecraft-Verzeichnis nicht automatisch erkennen."
             $modsPath = $null
         }
     } else {
-        Info "ℹ Minecraft (Java) nicht gefunden."
+        Info "Minecraft (Java) nicht gefunden."
         $modsPath = $null
     }
     
@@ -338,3 +338,4 @@ function Check-Strings { param([string]$filePath, [string[]]$cheatStrings); $fou
 
 # ---------------- RUN ----------------
 Start-CheatScan
+
