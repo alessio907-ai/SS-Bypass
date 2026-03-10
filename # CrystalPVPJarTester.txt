@@ -1,5 +1,5 @@
 # =====================================================
-# CrystalPVPJarTester BLUE - ULTIMATE
+# CrystalPVPJarTester BLUE - ULTIMATE (MIT PFADABFRAGE)
 # CrystalPVP 
 # =====================================================
 
@@ -17,6 +17,28 @@ function Sec($t){ Write-Host "`n--- $t ---" -ForegroundColor Cyan }
 function Info($t){ Write-Host "  $t" -ForegroundColor Blue }
 function Bad($t){ Write-Host "  $t" -ForegroundColor Red }
 
+# ---------------- PFADABFRAGE WIE BEI HABIBI ----------------
+function Get-ModsPath {
+    Write-Host "Enter path to the mods folder: " -NoNewline
+    Write-Host "(press Enter to use default)" -ForegroundColor DarkGray
+    $path = Read-Host "PATH"
+    Write-Host ""
+    
+    if (-not $path) {
+        $path = "$env:USERPROFILE\AppData\Roaming\.minecraft\mods"
+        Write-Host "Continuing with " -NoNewline
+        Write-Host $path -ForegroundColor White
+        Write-Host ""
+    }
+    
+    if (-not (Test-Path $path -PathType Container)) {
+        Bad "✖ Invalid Path! Der Ordner existiert nicht."
+        return $null
+    }
+    
+    return $path
+}
+
 # ---------------- ENTRY ----------------
 function Start-CheatScan {
     Clear-Host
@@ -24,46 +46,61 @@ function Start-CheatScan {
     Info "Made by Main2Packet"
     Write-Host ""
 
-    # --------- JAVA PROCESS ----------
+    # --------- JAVA PROCESS (optional) ----------
     $javaProc = Get-Process java,javaw -ErrorAction SilentlyContinue |
         Sort-Object StartTime | Select-Object -First 1
 
-    if (-not $javaProc) {
-        Bad "✖ Minecraft (Java) not running"
-        Read-Host "Press Enter"
-        return
-    }
+    if ($javaProc) {
+        $cmd = (Get-CimInstance Win32_Process -Filter "ProcessId=$($javaProc.Id)").CommandLine
 
-    $cmd = (Get-CimInstance Win32_Process -Filter "ProcessId=$($javaProc.Id)").CommandLine
+        # --------- UPTIME ----------
+        $uptime = (Get-Date) - $javaProc.StartTime
+        Sec "Minecraft Uptime"
+        Info "$($javaProc.Name) PID $($javaProc.Id) | $($uptime.Hours)h $($uptime.Minutes)m $($uptime.Seconds)s"
 
-    # --------- UPTIME ----------
-    $uptime = (Get-Date) - $javaProc.StartTime
-    Sec "Minecraft Uptime"
-    Info "$($javaProc.Name) PID $($javaProc.Id) | $($uptime.Hours)h $($uptime.Minutes)m $($uptime.Seconds)s"
+        # --------- JVM ARG SCAN ----------
+        $jvmFindings = Scan-JVMArguments $cmd
+        Sec "JVM / JavaAgent Scan"
+        if ($jvmFindings.Count -gt 0) {
+            $jvmFindings | ForEach-Object { Bad "❌ $_" }
+        } else {
+            Info "✔ No suspicious JVM arguments"
+        }
 
-    # --------- JVM ARG SCAN ----------
-    $jvmFindings = Scan-JVMArguments $cmd
-    Sec "JVM / JavaAgent Scan"
-    if ($jvmFindings.Count -gt 0) {
-        $jvmFindings | ForEach-Object { Bad "❌ $_" }
+        # --------- Versuche gameDir zu erkennen ----------
+        $mcPath = Get-RunningMinecraftPath
+        
+        if ($mcPath) {
+            Sec "Detected Minecraft Instance"
+            Info "$mcPath"
+            $modsPath = Join-Path $mcPath "mods"
+        } else {
+            Info "ℹ Konnte Minecraft-Verzeichnis nicht automatisch erkennen."
+            $modsPath = $null
+        }
     } else {
-        Info "✔ No suspicious JVM arguments"
+        Info "ℹ Minecraft (Java) nicht gefunden."
+        $modsPath = $null
     }
-
-    # --------- GAME DIR ----------
-    $mcPath = Get-RunningMinecraftPath
-    if (-not $mcPath) {
-        Bad "✖ Could not determine gameDir"
-        Read-Host "Press Enter"
-        return
+    
+    # --------- Wenn kein Pfad erkannt wurde, frage manuell ----------
+    if (-not $modsPath -or -not (Test-Path $modsPath)) {
+        Sec "Mods-Ordner auswählen"
+        $modsPath = Get-ModsPath
+        if (-not $modsPath) {
+            Read-Host "Press Enter"
+            return
+        }
     }
-
-    Sec "Detected Minecraft Instance"
-    Info "$mcPath"
 
     # --------- MOD SCAN ----------
-    $modsPath = Join-Path $mcPath "mods"
     $mods = Get-ChildItem $modsPath -Force -File -Filter "*.jar" -ErrorAction SilentlyContinue
+
+    if ($mods.Count -eq 0) {
+        Bad "✖ Keine .jar Dateien im Mods-Ordner gefunden!"
+        Read-Host "Press Enter"
+        return
+    }
 
     $flagged=@()
     $clean=@()
