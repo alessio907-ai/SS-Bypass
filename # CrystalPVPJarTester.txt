@@ -1,5 +1,5 @@
 # =====================================================
-# CrystalPVPJarTester BLUE - ULTIMATE (MIT PFADABFRAGE)
+# CrystalPVPJarTester BLUE - ULTIMATE (IMMER PFADABFRAGE)
 # CrystalPVP 
 # =====================================================
 
@@ -17,7 +17,7 @@ function Sec($t){ Write-Host "`n--- $t ---" -ForegroundColor Cyan }
 function Info($t){ Write-Host "  $t" -ForegroundColor Blue }
 function Bad($t){ Write-Host "  $t" -ForegroundColor Red }
 
-# ---------------- PFADABFRAGE WIE BEI HABIBI ----------------
+# ---------------- PFADABFRAGE (IMMER) ----------------
 function Get-ModsPath {
     Write-Host "Enter path to the mods folder: " -NoNewline
     Write-Host "(press Enter to use default)" -ForegroundColor DarkGray
@@ -66,31 +66,16 @@ function Start-CheatScan {
         } else {
             Info "No suspicious JVM arguments"
         }
-
-        # --------- Versuche gameDir zu erkennen ----------
-        $mcPath = Get-RunningMinecraftPath
-        
-        if ($mcPath) {
-            Sec "Detected Minecraft Instance"
-            Info "$mcPath"
-            $modsPath = Join-Path $mcPath "mods"
-        } else {
-            Info "Konnte Minecraft-Verzeichnis nicht automatisch erkennen."
-            $modsPath = $null
-        }
     } else {
         Info "Minecraft (Java) nicht gefunden."
-        $modsPath = $null
     }
     
-    # --------- Wenn kein Pfad erkannt wurde, frage manuell ----------
-    if (-not $modsPath -or -not (Test-Path $modsPath)) {
-        Sec "Mods-Ordner auswählen"
-        $modsPath = Get-ModsPath
-        if (-not $modsPath) {
-            Read-Host "Press Enter"
-            return
-        }
+    # --------- IMMER PFAD ABFRAGEN ----------
+    Sec "Mods-Ordner auswählen"
+    $modsPath = Get-ModsPath
+    if (-not $modsPath) {
+        Read-Host "Press Enter"
+        return
     }
 
     # --------- MOD SCAN ----------
@@ -202,7 +187,9 @@ function Start-CheatScan {
     Info "Verified / Clean Mods: $($clean.Count)"
     Info "Unknown Mods: $($unknown.Count)"
     Info "Cheat Mods: $($flagged.Count)"
-    Info "JVM Findings: $($jvmFindings.Count)"
+    if ($javaProc) {
+        Info "JVM Findings: $($jvmFindings.Count)"
+    }
 
     Write-Host "`nScan finished at $(Get-Date)" -ForegroundColor Blue
     Read-Host "Press Enter"
@@ -211,7 +198,6 @@ function Start-CheatScan {
 # ---------------- HELPER FUNCTIONS ----------------
 function Scan-JVMArguments($cmd){
     $bad = @(
-        # "-javaagent:",  <-- ENTFERNT!
         "-noverify",
         "-Xbootclasspath",
         "DisableAttachMechanism",
@@ -338,5 +324,3 @@ function Check-Strings { param([string]$filePath, [string[]]$cheatStrings); $fou
 
 # ---------------- RUN ----------------
 Start-CheatScan
-
-
