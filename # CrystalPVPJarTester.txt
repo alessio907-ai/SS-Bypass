@@ -112,7 +112,7 @@ function Start-CheatScan {
         "AimAssist","AnchorTweaks","AutoAnchor","AutoCrystal","AutoDoubleHand",
         "AutoHitCrystal","AutoPot","AutoTotem","AutoArmor","InventoryTotem",
         "Hitboxes","JumpReset","LegitTotem","PingSpoof","SelfDestruct",
-        "ShieldBreaker","TriggerBot","Velocity","AxeSpam","WebMacro","FastPlace"
+        "ShieldBreaker","TriggerBot","AxeSpam","WebMacro","FastPlace"
     )
 
     Sec "Scanning Mods..."
@@ -338,4 +338,5 @@ function Check-Strings { param([string]$filePath, [string[]]$cheatStrings); $fou
 
 # ---------------- RUN ----------------
 Start-CheatScan
+
 
