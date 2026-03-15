@@ -56,7 +56,8 @@ function Start-CheatScan {
         # --------- UPTIME ----------
         $uptime = (Get-Date) - $javaProc.StartTime
         Sec "Minecraft Uptime"
-        Info "$($javaProc.Name) PID $($javaProc.Id) | $($uptime.Hours)h $uptime.Minutes)m $($uptime.Seconds)s"
+        Info "$($javaProc.Name) PID $($javaProc.Id) | $($uptime.Hours)h $($uptime.Minutes)m $($uptime.Seconds)s"
+
     } else {
         Info "Minecraft (Java) nicht gefunden."
     }
