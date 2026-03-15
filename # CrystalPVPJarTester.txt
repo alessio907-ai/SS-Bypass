@@ -382,23 +382,6 @@ function Analyze-Mod($JarPath, $ModName) {
     }
 }
 
-# ---------------- SUSPICIOUS CLASSES SCAN ----------------
-function Scan-SuspiciousClasses {
-    param($ExtractPath)
-    $hits=@()
-    $frags=@("killaura","crystalaura","autoclick","triggerbot","aimassist","autocrystal","clickcrystal",
-             "anchormacro","wtap","tpaura","placecrystal","breakcrystal","autototem","autoinv","playeresp",
-             "storageesp","fastexp","doubleanchor","autoexplode")
-    $classes=Get-ChildItem $ExtractPath -Recurse -Filter "*.class" -ErrorAction SilentlyContinue
-    foreach($c in $classes){
-        try{
-            $txt=[Text.Encoding]::UTF8.GetString([IO.File]::ReadAllBytes($c.FullName))
-            foreach($f in $frags){ if($txt -match $f){ $hits+="class:$f" } }
-        }catch{}
-    }
-    [PSCustomObject]@{ Hits=$hits | Select-Object -Unique }
-}
-
 # ---------------- DATENBANK ----------------
 function Get-SHA1 { param([string]$filePath); return (Get-FileHash -Path $filePath -Algorithm SHA1).Hash }
 function Get-ZoneIdentifier { param([string]$filePath); $ads = Get-Content -Raw -Stream Zone.Identifier $filePath -ErrorAction SilentlyContinue; if ($ads -match "HostUrl=(.+)") { return $matches[1] } else { return $null } }
