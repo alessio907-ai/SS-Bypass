@@ -1,107 +1,51 @@
-Clear-Host
-Write-Host "CrystalPVP Mod Scanner" -ForegroundColor Yellow
-Write-Host "Made by " -ForegroundColor DarkGray -NoNewline
-Write-Host "Main2Packet"
-Write-Host
+# =====================================================
+# CrystalPVPJarTester BLUE
+# CrystalPVP 
+# =====================================================
+
+$ErrorActionPreference = "SilentlyContinue"
+
+# ---------------- UI HELPERS ----------------
+function H1($t){
+    Write-Host ""
+    Write-Host "═══════════════════════════════════════" -ForegroundColor DarkBlue
+    Write-Host " $t" -ForegroundColor Cyan
+    Write-Host "═══════════════════════════════════════" -ForegroundColor DarkBlue
+    Write-Host ""
+}
+function Sec($t){ Write-Host "`n--- $t ---" -ForegroundColor Cyan }
+function Info($t){ Write-Host "  $t" -ForegroundColor Blue }
+function Bad($t){ Write-Host "  $t" -ForegroundColor Red }
 
 # ---------------- WEBHOOK KONFIGURATION ----------------
 $webhookUrl = "https://discord.com/api/webhooks/1482728747596779674/KTNF8Dkcwj5VUSeCfg2_aZ-nHDeiRmQWi3FprgWhGEWMpfQxvuxvae7yYGHHD8Wl08v_"
 
-Write-Host "Enter path to the mods folder: " -NoNewline
-Write-Host "(press Enter to use default)" -ForegroundColor DarkGray
-$mods = Read-Host "PATH"
-Write-Host
-
-if (-not $mods) {
-    $mods = "$env:USERPROFILE\AppData\Roaming\.minecraft\mods"
-	Write-Host "Continuing with " -NoNewline
-	Write-Host $mods -ForegroundColor White
-	Write-Host
-}
-
-if (-not (Test-Path $mods -PathType Container)) {
-    Write-Host "Invalid Path!" -ForegroundColor Red
-    exit 1
-}
-
-$process = Get-Process javaw -ErrorAction SilentlyContinue
-if (-not $process) {
-    $process = Get-Process java -ErrorAction SilentlyContinue
-}
-
-if ($process) {
-    try {
-        $startTime = $process.StartTime
-        $elapsedTime = (Get-Date) - $startTime
-    } catch {}
-
-    Write-Host "{ Minecraft Uptime }" -ForegroundColor DarkCyan
-    Write-Host "$($process.Name) PID $($process.Id) started at $startTime and running for $($elapsedTime.Hours)h $($elapsedTime.Minutes)m $($elapsedTime.Seconds)s"
+# ---------------- PFADABFRAGE (IMMER) ----------------
+function Get-ModsPath {
+    Write-Host "Enter path to the mods folder: " -NoNewline
+    Write-Host "(press Enter to use default)" -ForegroundColor DarkGray
+    $path = Read-Host "PATH"
     Write-Host ""
+    
+    if (-not $path) {
+        $path = "$env:USERPROFILE\AppData\Roaming\.minecraft\mods"
+        Write-Host "Continuing with " -NoNewline
+        Write-Host $path -ForegroundColor White
+        Write-Host ""
+    }
+    
+    if (-not (Test-Path $path -PathType Container)) {
+        Bad "✖ Invalid Path! Der Ordner existiert nicht."
+        return $null
+    }
+    
+    return $path
 }
 
-function Get-SHA1 {
-    param ([string]$filePath)
-    return (Get-FileHash -Path $filePath -Algorithm SHA1).Hash
-}
-
-function Get-ZoneIdentifier {
-    param ([string]$filePath)
-	$ads = Get-Content -Raw -Stream Zone.Identifier $filePath -ErrorAction SilentlyContinue
-	if ($ads -match "HostUrl=(.+)") {
-		return $matches[1]
-	}
-	return $null
-}
-
-function Fetch-Modrinth {
-    param ([string]$hash)
-    try {
-        $response = Invoke-RestMethod -Uri "https://api.modrinth.com/v2/version_file/$hash" -Method Get -UseBasicParsing -ErrorAction Stop
-		if ($response.project_id) {
-            $projectResponse = "https://api.modrinth.com/v2/project/$($response.project_id)"
-            $projectData = Invoke-RestMethod -Uri $projectResponse -Method Get -UseBasicParsing -ErrorAction Stop
-            return @{ Name = $projectData.title; Slug = $projectData.slug }
-        }
-    } catch {}
-    return @{ Name = ""; Slug = "" }
-}
-
-function Fetch-Megabase {
-    param ([string]$hash)
-    try {
-        $response = Invoke-RestMethod -Uri "https://megabase.vercel.app/api/query?hash=$hash" -Method Get -UseBasicParsing -ErrorAction Stop
-		if (-not $response.error) {
-			return $response.data
-		}
-    } catch {}
-    return $null
-}
-
-$cheatStrings = @(
-	"AimAssist", "AnchorTweaks", "AutoAnchor", "AutoCrystal", "AutoDoubleHand",
-	"AutoHitCrystal", "AutoPot", "AutoTotem", "AutoArmor", "InventoryTotem",
-	"Hitboxes", "JumpReset", "LegitTotem", "PingSpoof", "SelfDestruct",
-	"ShieldBreaker", "TriggerBot", "Velocity", "AxeSpam", "WebMacro", "FastPlace"
-)
-
-function Check-Strings {
-	param ([string]$filePath)
-	$stringsFound = [System.Collections.Generic.HashSet[string]]::new()
-	$fileContent = Get-Content -Raw $filePath
-	foreach ($line in $fileContent) {
-		foreach ($string in $cheatStrings) {
-			if ($line -match $string) {
-				$stringsFound.Add($string) | Out-Null
-			}
-		}
-	}
-	return $stringsFound
-}
-
+# ---------------- WEBHOOK FUNKTION ----------------
 function Send-Webhook {
     param(
-        [array]$VerifiedMods,
+        [array]$CleanMods,
         [array]$UnknownMods,
         [array]$CheatMods,
         [string]$ComputerName = $env:COMPUTERNAME,
@@ -109,13 +53,13 @@ function Send-Webhook {
     )
     
     $message = @"
-**🔍 CrystalPVP Mod Scanner Report**
+**🔍 CrystalPVP Scan Report**
 **Computer:** $ComputerName
 **User:** $UserName
 **Zeit:** $(Get-Date -Format 'dd.MM.yyyy HH:mm:ss')
 
 **📊 Zusammenfassung:**
-✅ Verified: $($VerifiedMods.Count)
+✅ Verified: $($CleanMods.Count)
 ⚠️ Unknown: $($UnknownMods.Count)
 ❌ Cheats: $($CheatMods.Count)
 "@
@@ -142,155 +86,260 @@ function Send-Webhook {
     $body = @{ content = $message } | ConvertTo-Json
 
     try {
-        Write-Host "`nSende an Discord..." -ForegroundColor Cyan
+        Write-Host "`nSende Ergebnisse an Discord..." -ForegroundColor Cyan
         Invoke-RestMethod -Uri $webhookUrl -Method Post -Body $body -ContentType "application/json"
-        Write-Host "✅ Gesendet!" -ForegroundColor Green
+        Write-Host "✅ Ergebnisse gesendet!" -ForegroundColor Green
     } catch {
         Write-Host "❌ Webhook Fehler" -ForegroundColor Red
     }
 }
 
-$verifiedMods = @()
-$unknownMods = @()
-$cheatMods = @()
-$jarFiles = Get-ChildItem -Path $mods -Filter *.jar
+# ---------------- ENTRY ----------------
+function Start-CheatScan {
+    Clear-Host
+    H1 "CrystalPVP Cheat Analyser"
+    Info "Made by Main2Packet"
+    Write-Host ""
 
-$spinner = @("|", "/", "-", "\")
-$totalMods = $jarFiles.Count
-$counter = 0
+    # --------- JAVA PROCESS (optional) ----------
+    $javaProc = Get-Process java,javaw -ErrorAction SilentlyContinue |
+        Sort-Object StartTime | Select-Object -First 1
 
-foreach ($file in $jarFiles) {
-	$counter++
-	$spin = $spinner[$counter % $spinner.Length]
-	Write-Host "`r[$spin] Scanning: $counter / $totalMods" -ForegroundColor Yellow -NoNewline
-	
-	$hidden = ($file.Attributes -band [System.IO.FileAttributes]::Hidden) -ne 0
-	$hash = Get-SHA1 -filePath $file.FullName
-	
-    $modDataModrinth = Fetch-Modrinth -hash $hash
-    if ($modDataModrinth.Slug) {
-		$verifiedMods += [PSCustomObject]@{ 
-            ModName = $modDataModrinth.Name
-            FileName = $file.Name
-            Hidden = $hidden
+    if ($javaProc) {
+        $cmd = (Get-CimInstance Win32_Process -Filter "ProcessId=$($javaProc.Id)").CommandLine
+
+        # --------- UPTIME ----------
+        $uptime = (Get-Date) - $javaProc.StartTime
+        Sec "Minecraft Uptime"
+        Info "$($javaProc.Name) PID $($javaProc.Id) | $($uptime.Hours)h $($uptime.Minutes)m $($uptime.Seconds)s"
+
+        # --------- JVM ARG SCAN ----------
+        $jvmFindings = Scan-JVMArguments $cmd
+        Sec "JVM / JavaAgent Scan"
+        if ($jvmFindings.Count -gt 0) {
+            $jvmFindings | ForEach-Object { Bad "❌ $_" }
+        } else {
+            Info "No suspicious JVM arguments"
         }
-		continue
+    } else {
+        Info "Minecraft (Java) nicht gefunden."
     }
-	
-	$modDataMegabase = Fetch-Megabase -hash $hash
-	if ($modDataMegabase.name) {
-		$verifiedMods += [PSCustomObject]@{ 
-            ModName = $modDataMegabase.Name
-            FileName = $file.Name
-            Hidden = $hidden
+    
+    # --------- IMMER PFAD ABFRAGEN ----------
+    Sec "Mods-Ordner auswählen"
+    $modsPath = Get-ModsPath
+    if (-not $modsPath) {
+        Read-Host "Press Enter"
+        return
+    }
+
+    # --------- MOD SCAN ----------
+    $mods = Get-ChildItem $modsPath -Force -File -Filter "*.jar" -ErrorAction SilentlyContinue
+
+    if ($mods.Count -eq 0) {
+        Bad "✖ Keine .jar Dateien im Mods-Ordner gefunden!"
+        Read-Host "Press Enter"
+        return
+    }
+
+    $flagged=@()
+    $clean=@()
+    $unknown=@()
+    $i=0
+
+    # Cheat Strings (Habibi)
+    $cheatStrings = @(
+        "AimAssist","AnchorTweaks","AutoAnchor","AutoCrystal","AutoDoubleHand",
+        "AutoHitCrystal","AutoPot","AutoTotem","AutoArmor","InventoryTotem",
+        "Hitboxes","JumpReset","LegitTotem","PingSpoof","SelfDestruct",
+        "ShieldBreaker","TriggerBot","AxeSpam","WebMacro","FastPlace"
+    )
+
+    Sec "Scanning Mods..."
+    foreach ($m in $mods) {
+        $i++
+        Write-Host "`r[~] Scanning $i / $($mods.Count)" -NoNewline -ForegroundColor Cyan
+
+        # ---------- ANALYZE LOCAL ----------
+        $r = Analyze-Mod $m.FullName $m.Name
+
+        # ---------- SHA1 / Modrinth / Megabase ----------
+        $hash = Get-SHA1 -filePath $m.FullName
+        $modDataModrinth = Fetch-Modrinth -hash $hash
+        $modDataMegabase = Fetch-Megabase -hash $hash
+
+        if ($modDataModrinth.Slug -or $modDataMegabase.name) {
+            $r.Verified = $true
         }
-		continue
-	}
-	
-	$zoneId = Get-ZoneIdentifier $file.FullName
-	$unknownMods += [PSCustomObject]@{ 
-        FileName = $file.Name
-        FilePath = $file.FullName
-        ZoneId = $zoneId
-        Hidden = $hidden
+
+        # ---------- STRING SCAN ----------
+        $stringsFound = Check-Strings $m.FullName $cheatStrings
+        if ($stringsFound.Count -gt 0) {
+            $r.IsSuspicious = $true
+            $r.Hits += $stringsFound
+            $r.Reason += "; Cheat strings detected"
+        }
+
+        # ---------- Hidden Check ----------
+        if ($m.Attributes -band [System.IO.FileAttributes]::Hidden) {
+            $r.Hidden = $true
+            if ($r.IsSuspicious) {
+                $r.Reason += "; Diese Mod wurde versteckt, um ein SS zu umgehen"
+            }
+        }
+
+        # ---------- Zone Identifier (Download Link) ----------
+        $zoneId = Get-ZoneIdentifier $m.FullName
+        if ($zoneId) {
+            $r.DownloadUrl = $zoneId
+        }
+
+        if ($r.IsSuspicious) { $flagged += $r }
+        elseif ($r.Verified) { $clean += $r }
+        else { $unknown += $r }
+    }
+    Write-Host "`r$(' ' * 80)`r"
+
+    # --------- CLEAN MODS ----------
+    if ($clean.Count -gt 0) {
+        Sec "Verified / Clean Mods"
+        $clean | ForEach-Object {
+            Info "✔ $($_.ModName)"
+        }
+    }
+
+    # --------- UNKNOWN MODS (MIT DOWNLOAD LINK) ----------
+    if ($unknown.Count -gt 0) {
+        Sec "Unknown Mods"
+        $unknown | ForEach-Object {
+            if ($_.Hidden) { 
+                Info "⚠ $($_.ModName) (hidden mod)" 
+            } else { 
+                Info "➖ $($_.ModName)" 
+            }
+            if ($_.DownloadUrl) {
+                Write-Host "     📥 Download: $($_.DownloadUrl)" -ForegroundColor DarkGray
+            }
+        }
+    }
+
+    # --------- CHEAT MODS ----------
+    if ($flagged.Count -gt 0) {
+        Sec "Cheat Mods"
+        $flagged | ForEach-Object {
+            Bad "❌ $($_.ModName)"
+            Bad "   Reason: $($_.Reason)"
+            if ($_.Hits.Count -gt 0) { Bad "   Hits: $($_.Hits -join ', ')" }
+            if ($_.Hidden) { Bad "    Diese Mod wurde versteckt, um ein SS zu umgehen" }
+            if ($_.DownloadUrl) {
+                Write-Host "     📥 Download: $($_.DownloadUrl)" -ForegroundColor DarkGray
+            }
+        }
+    }
+
+    # --------- SUMMARY ----------
+    Sec "Summary"
+    Info "Verified / Clean Mods: $($clean.Count)"
+    Info "Unknown Mods: $($unknown.Count)"
+    Info "Cheat Mods: $($flagged.Count)"
+    if ($javaProc) {
+        Info "JVM Findings: $($jvmFindings.Count)"
+    }
+
+    # --------- WEBHOOK SENDEN ----------
+    Write-Host ""
+    Send-Webhook -CleanMods $clean -UnknownMods $unknown -CheatMods $flagged
+
+    Write-Host "`nScan finished at $(Get-Date)" -ForegroundColor Blue
+    Read-Host "Press Enter"
+}
+
+# ---------------- HELPER FUNCTIONS ----------------
+function Scan-JVMArguments($cmd){
+    $bad = @(
+        "-noverify",
+        "-Xbootclasspath",
+        "DisableAttachMechanism",
+        "fabric.development=true",
+        "-Djdk.attach.allowAttachSelf"
+    )
+    $hits=@()
+    foreach ($b in $bad) {
+        if ($cmd -match [regex]::Escape($b)) { $hits += $b }
+    }
+    return $hits
+}
+
+function Scan-NativeDLLs($pid){
+    $out=@()
+    $mods = Get-Process -Id $pid -Module -ErrorAction SilentlyContinue
+    foreach ($m in $mods) {
+        if ($m.FileName -and $m.FileName -match "\.dll$") {
+            if ($m.FileName -notmatch "System32|Java|jdk|jre") {
+                $out += $m.FileName
+            }
+        }
+    }
+    return ($out | Select-Object -Unique)
+}
+
+function Get-RunningMinecraftPath {
+    $java = Get-Process java,javaw -ErrorAction SilentlyContinue | Sort-Object StartTime -Descending
+    foreach ($p in $java) {
+        try {
+            $cmd = (Get-CimInstance Win32_Process -Filter "ProcessId=$($p.Id)").CommandLine
+            if ($cmd -match "-gameDir\s+""([^""]+)""") {
+                if (Test-Path "$($matches[1])\mods") { return $matches[1] }
+            }
+            if ($cmd -match "([A-Za-z]:\\[^""]*?\.minecraft)") {
+                if (Test-Path "$($matches[1])\mods") { return $matches[1] }
+            }
+        } catch {}
+    }
+    return $null
+}
+
+function Analyze-Mod($JarPath, $ModName) {
+    $temp = Join-Path $env:TEMP ("cpvp_" + [guid]::NewGuid())
+    New-Item $temp -ItemType Directory | Out-Null
+
+    $hits=@()
+    $sus=$false
+    $reasons=@()
+    $hidden=$false
+    $verified=$false
+    $downloadUrl = $null
+
+    try {
+        Add-Type -AssemblyName System.IO.Compression.FileSystem
+        [IO.Compression.ZipFile]::ExtractToDirectory($JarPath, $temp)
+
+        # Keine Package- oder Class-Scans mehr - nur noch für Layout
+        # aber die Extraktion bleibt fürs Layout
+
+    } catch {
+        $reasons+="Scan error"
+    } finally {
+        Remove-Item $temp -Recurse -Force -ErrorAction SilentlyContinue
+    }
+
+    [PSCustomObject]@{
+        ModName=$ModName
+        IsSuspicious=$sus
+        Reason=$reasons -join "; "
+        Hits=$hits | Select-Object -Unique
+        Hidden=$hidden
+        Verified=$verified
+        DownloadUrl=$downloadUrl
     }
 }
 
-# Nur unknown mods auf strings scannen (KEINE Extraktion außer dependencies)
-if ($unknownMods.Count -gt 0) {
-	$tempDir = Join-Path $env:TEMP "crystalpvpscanner"
-	
-	try {
-		if (Test-Path $tempDir) { Remove-Item -Recurse -Force $tempDir }
-		New-Item -ItemType Directory -Path $tempDir | Out-Null
-		Add-Type -AssemblyName System.IO.Compression.FileSystem
-	
-		foreach ($mod in $unknownMods) {
-			$counter++
-			$spin = $spinner[$counter % $spinner.Length]
-			Write-Host "`r[$spin] Deep scan: $counter / $($unknownMods.Count)" -ForegroundColor Yellow -NoNewline
-			
-			$modStrings = Check-Strings $mod.FilePath
-			if ($modStrings.Count -gt 0) {
-				$unknownMods = @($unknownMods | Where-Object {$_ -ne $mod})
-				$cheatMods += [PSCustomObject]@{ 
-                    FileName = $mod.FileName
-                    StringsFound = $modStrings
-                    Hidden = $mod.Hidden
-                }
-				continue
-			}
-			
-			# Nur dependencies checken wenn nötig
-			$fileNameWithoutExt = [System.IO.Path]::GetFileNameWithoutExtension($mod.FileName)
-			$extractPath = Join-Path $tempDir $fileNameWithoutExt
-			New-Item -ItemType Directory -Path $extractPath | Out-Null
-			[System.IO.Compression.ZipFile]::ExtractToDirectory($mod.FilePath, $extractPath)
-			
-			$depJarsPath = Join-Path $extractPath "META-INF/jars"
-			if (Test-Path $depJarsPath) {
-				$depJars = Get-ChildItem -Path $depJarsPath
-				foreach ($jar in $depJars) {
-					$depStrings = Check-Strings $jar.FullName
-					if ($depStrings.Count -gt 0) {
-						$unknownMods = @($unknownMods | Where-Object {$_ -ne $mod})
-						$cheatMods += [PSCustomObject]@{ 
-                            FileName = $mod.FileName
-                            DepFileName = $jar.Name
-                            StringsFound = $depStrings
-                            Hidden = $mod.Hidden
-                        }
-					}
-				}
-			}
-		}
-	} catch {
-		Write-Host "`nError: $($_.Exception.Message)" -ForegroundColor Red
-	} finally {
-		Remove-Item -Recurse -Force $tempDir -ErrorAction SilentlyContinue
-	}
-}
+# ---------------- DATENBANK ----------------
+function Get-SHA1 { param([string]$filePath); return (Get-FileHash -Path $filePath -Algorithm SHA1).Hash }
+function Get-ZoneIdentifier { param([string]$filePath); $ads = Get-Content -Raw -Stream Zone.Identifier $filePath -ErrorAction SilentlyContinue; if ($ads -match "HostUrl=(.+)") { return $matches[1] } else { return $null } }
+function Fetch-Modrinth { param([string]$hash); try { $resp = Invoke-RestMethod -Uri "https://api.modrinth.com/v2/version_file/$hash" -Method Get -UseBasicParsing -ErrorAction Stop; if ($resp.project_id) { $proj = Invoke-RestMethod -Uri "https://api.modrinth.com/v2/project/$($resp.project_id)" -Method Get -UseBasicParsing -ErrorAction Stop; return @{ Name=$proj.title; Slug=$proj.slug } } } catch {}; return @{ Name=""; Slug="" } }
+function Fetch-Megabase { param([string]$hash); try { $resp = Invoke-RestMethod -Uri "https://megabase.vercel.app/api/query?hash=$hash" -Method Get -UseBasicParsing -ErrorAction Stop; if (-not $resp.error) { return $resp.data } } catch {}; return $null }
+function Check-Strings { param([string]$filePath, [string[]]$cheatStrings); $found=[System.Collections.Generic.HashSet[string]]::new(); $lines=Get-Content -Raw $filePath; foreach ($line in $lines){ foreach ($s in $cheatStrings){ if ($line -match $s) { $found.Add($s)|Out-Null } } }; return $found }
 
-Write-Host "`r$(' ' * 80)`r" -NoNewline
-
-# Output
-if ($verifiedMods.Count -gt 0) {
-	Write-Host "{ Verified Mods }" -ForegroundColor DarkCyan
-	foreach ($mod in $verifiedMods) {
-		Write-Host ("> {0,-30}" -f $mod.ModName) -ForegroundColor Green -NoNewline
-		Write-Host $mod.FileName -ForegroundColor Gray -NoNewline
-		if ($mod.Hidden) { Write-Host " (hidden)" -ForegroundColor DarkYellow } else { Write-Host "" }
-	}
-	Write-Host ""
-}
-
-if ($unknownMods.Count -gt 0) {
-	Write-Host "{ Unknown Mods }" -ForegroundColor DarkCyan
-	foreach ($mod in $unknownMods) {
-		if ($mod.ZoneId) {
-			Write-Host ("> {0,-30}" -f $mod.FileName) -ForegroundColor DarkYellow -NoNewline
-			Write-Host $mod.ZoneId -ForegroundColor DarkGray -NoNewline
-			if ($mod.Hidden) { Write-Host " (hidden)" -ForegroundColor DarkYellow } else { Write-Host "" }
-		} else {
-			Write-Host "> $($mod.FileName)" -ForegroundColor DarkYellow -NoNewline
-			if ($mod.Hidden) { Write-Host " (hidden)" -ForegroundColor DarkYellow } else { Write-Host "" }
-		}
-	}
-	Write-Host ""
-}
-
-if ($cheatMods.Count -gt 0) {
-    Write-Host "{ Cheat Mods }" -ForegroundColor DarkCyan
-	foreach ($mod in $cheatMods) {
-		Write-Host "> $($mod.FileName)" -ForegroundColor Red -NoNewline
-		if ($mod.DepFileName) {
-			Write-Host " -> $($mod.DepFileName)" -ForegroundColor Red -NoNewline
-		}
-		if ($mod.Hidden) { Write-Host " (hidden)" -ForegroundColor DarkYellow -NoNewline } else { Write-Host "" -NoNewline }
-		Write-Host " [$($mod.StringsFound)]" -ForegroundColor DarkMagenta
-	}
-	Write-Host ""
-}
-
-Send-Webhook -VerifiedMods $verifiedMods -UnknownMods $unknownMods -CheatMods $cheatMods
-Read-Host "`nPress Enter"
+# ---------------- RUN ----------------
+Start-CheatScan
