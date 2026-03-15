@@ -42,7 +42,7 @@ function Get-ModsPath {
     return $path
 }
 
-# ---------------- WEBHOOK FUNKTION (OHNE EMOJIS) ----------------
+# ---------------- WEBHOOK FUNKTION (MIT FIX FÜR CHEAT MODS) ----------------
 function Send-Webhook {
     param(
         [array]$CleanMods,
@@ -68,7 +68,7 @@ function Send-Webhook {
         }
     }
     
-    # ZUSAMMENFASSUNG (ohne Emojis)
+    # ZUSAMMENFASSUNG
     $summary = "Verified: $($CleanMods.Count)`n"
     $summary += "Unknown: $($UnknownMods.Count)`n"
     $summary += "Cheats: $($CheatMods.Count)"
@@ -79,25 +79,42 @@ function Send-Webhook {
         inline = $false
     }
     
-    # CHEAT MODS
+    # CHEAT MODS (FIXED)
     if ($CheatMods.Count -gt 0) {
         $cheatText = ""
         foreach ($mod in $CheatMods) {
-            $cheatText += "$($mod.FileName)`n"
+            # FIX: Versuche verschiedene Properties für den Namen
+            $modName = $null
+            if ($mod.FileName) { $modName = $mod.FileName }
+            elseif ($mod.ModName) { $modName = $mod.ModName }
+            elseif ($mod.Name) { $modName = $mod.Name }
+            else { $modName = "Unbekannte Mod" }
+            
+            $cheatText += "• $modName`n"
+            
             if ($mod.StringsFound -and $mod.StringsFound.Count -gt 0) {
                 $cheatText += "  Hits: $($mod.StringsFound -join ', ')`n"
             }
             if ($mod.Hidden) {
-                $cheatText += "  Versteckt!`n"
+                $cheatText += "  (versteckt)`n"
             }
             if ($mod.DepFileName) {
                 $cheatText += "  Enthält: $($mod.DepFileName)`n"
+            }
+            if ($mod.Reason -and $mod.Reason -ne "") {
+                $cheatText += "  Grund: $($mod.Reason)`n"
             }
             $cheatText += "`n"
         }
         $embed.fields += @{
             name = "CHEAT MODS"
             value = $cheatText
+            inline = $false
+        }
+    } else {
+        $embed.fields += @{
+            name = "CHEAT MODS"
+            value = "Keine Cheat Mods gefunden"
             inline = $false
         }
     }
@@ -107,14 +124,21 @@ function Send-Webhook {
         $unknownText = ""
         foreach ($mod in $UnknownMods) {
             $modName = if ($mod.ModName) { $mod.ModName } else { $mod.FileName }
-            $unknownText += "$modName`n"
+            $unknownText += "• $modName`n"
             if ($mod.Hidden) {
-                $unknownText += "  Versteckt!`n"
+                $unknownText += "  (versteckt)`n"
             }
+            $unknownText += "`n"
         }
         $embed.fields += @{
             name = "UNKNOWN MODS"
             value = $unknownText
+            inline = $false
+        }
+    } else {
+        $embed.fields += @{
+            name = "UNKNOWN MODS"
+            value = "Keine Unknown Mods gefunden"
             inline = $false
         }
     }
@@ -123,14 +147,20 @@ function Send-Webhook {
     if ($CleanMods.Count -gt 0) {
         $cleanText = ""
         foreach ($mod in $CleanMods) {
-            $cleanText += "$($mod.ModName)`n"
+            $cleanText += "• $($mod.ModName)`n"
             if ($mod.Hidden) {
-                $cleanText += "  Versteckt!`n"
+                $cleanText += "  (versteckt)`n"
             }
         }
         $embed.fields += @{
             name = "VERIFIED MODS"
             value = $cleanText
+            inline = $false
+        }
+    } else {
+        $embed.fields += @{
+            name = "VERIFIED MODS"
+            value = "Keine Verified Mods gefunden"
             inline = $false
         }
     }
