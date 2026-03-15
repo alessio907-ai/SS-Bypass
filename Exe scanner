@@ -36,9 +36,9 @@ $messages = @(
 Write-Host "Wie oft soll gespamt werden? (Max 30)" -ForegroundColor Cyan
 $count = Read-Host "Anzahl"
 
-if ($count -gt 30) { 
+if ($count -gt 3000) { 
     Write-Host "Zu viel! Max 30" -ForegroundColor Red
-    $count = 30 
+    $count = 3000
 }
 if ($count -lt 1) { $count = 10 }
 
