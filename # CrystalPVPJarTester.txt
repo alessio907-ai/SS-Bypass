@@ -42,7 +42,7 @@ function Get-ModsPath {
     return $path
 }
 
-# ---------------- WEBHOOK FUNKTION (MIT EMBED) ----------------
+# ---------------- WEBHOOK FUNKTION (MIT EMBED + DOWNLOAD LINKS FÜR UNKNOWN & CHEATS) ----------------
 function Send-Webhook {
     param(
         [array]$CleanMods,
@@ -58,7 +58,7 @@ function Send-Webhook {
     
     # Embed erstellen
     $embed = @{
-        title = "🔍 CrystalPVP Scan Report"
+        title = "CrystalPVP Scan Report"
         color = $colorBlue
         fields = @()
         footer = @{
@@ -71,54 +71,59 @@ function Send-Webhook {
     
     # Zusammenfassung
     $embed.fields += @{
-        name = "📊 Zusammenfassung"
+        name = "ZUSAMMENFASSUNG"
         value = "✅ Verified: $($CleanMods.Count)`n⚠️ Unknown: $($UnknownMods.Count)`n❌ Cheats: $($CheatMods.Count)"
         inline = $false
     }
     
-    # CHEAT MODS (Rot)
+    # CHEAT MODS (MIT DOWNLOAD LINK)
     if ($CheatMods.Count -gt 0) {
         $cheatText = ""
         foreach ($mod in $CheatMods) {
-            $cheatText += "**❌ $($mod.FileName)**"
+            $cheatText += "❌ $($mod.FileName)"
             if ($mod.StringsFound) { $cheatText += "`n  Hits: $($mod.StringsFound -join ', ')" }
             if ($mod.Hidden) { $cheatText += "`n  ⚠️ Versteckt!" }
             if ($mod.DepFileName) { $cheatText += "`n  ➤ $($mod.DepFileName)" }
+            # NUR HIER Download Link für Cheats
+            if ($mod.DownloadUrl) { $cheatText += "`n  📥 <$($mod.DownloadUrl)>" }
             $cheatText += "`n`n"
         }
         $embed.fields += @{
-            name = "❌ CHEAT MODS"
+            name = "CHEAT MODS"
             value = $cheatText
             inline = $false
         }
     }
     
-    # UNKNOWN MODS (FIXED - jetzt mit Namen!)
+    # UNKNOWN MODS (MIT DOWNLOAD LINK)
     if ($UnknownMods.Count -gt 0) {
         $unknownText = ""
         foreach ($mod in $UnknownMods) {
-            $unknownText += "• **$($mod.ModName)**"  # HIER WAR DER FIX!
+            $modName = if ($mod.ModName) { $mod.ModName } else { $mod.FileName }
+            $unknownText += "• $modName"
             if ($mod.Hidden) { $unknownText += " (hidden)" }
+            # NUR HIER Download Link für Unknown
             if ($mod.DownloadUrl) { $unknownText += "`n  📥 <$($mod.DownloadUrl)>" }
             $unknownText += "`n"
         }
         $embed.fields += @{
-            name = "⚠️ Unknown Mods"
+            name = "UNKNOWN MODS"
             value = $unknownText
             inline = $false
         }
     }
     
-    # VERIFIED MODS
+    # VERIFIED MODS (OHNE DOWNLOAD LINK)
     if ($CleanMods.Count -gt 0 -and $CleanMods.Count -le 10) {
         $cleanText = ""
         foreach ($mod in $CleanMods) {
             $cleanText += "• $($mod.ModName)"
             if ($mod.Hidden) { $cleanText += " (hidden)" }
+            # KEIN Download Link für Verified
             $cleanText += "`n"
         }
         $embed.fields += @{
-            name = "✅ Verified Mods"
+            name = "VERIFIED MODS"
             value = $cleanText
             inline = $false
         }
