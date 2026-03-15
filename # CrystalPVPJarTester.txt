@@ -357,6 +357,14 @@ function Analyze-Mod($JarPath, $ModName) {
         Add-Type -AssemblyName System.IO.Compression.FileSystem
         [IO.Compression.ZipFile]::ExtractToDirectory($JarPath, $temp)
 
+        # SUSPICIOUS CLASSES SCAN
+        $cls = Scan-SuspiciousClasses $temp
+        if ($cls.Hits.Count -ge 3) {
+            $sus=$true
+            $reasons+="Multiple suspicious class names"
+            $hits+=$cls.Hits
+        }
+
     } catch {
         $reasons+="Scan error"
     } finally {
@@ -372,6 +380,23 @@ function Analyze-Mod($JarPath, $ModName) {
         Verified=$verified
         DownloadUrl=$downloadUrl
     }
+}
+
+# ---------------- SUSPICIOUS CLASSES SCAN ----------------
+function Scan-SuspiciousClasses {
+    param($ExtractPath)
+    $hits=@()
+    $frags=@("killaura","crystalaura","autoclick","triggerbot","aimassist","autocrystal","clickcrystal",
+             "anchormacro","wtap","tpaura","placecrystal","breakcrystal","autototem","autoinv","playeresp",
+             "storageesp","fastexp","doubleanchor","autoexplode")
+    $classes=Get-ChildItem $ExtractPath -Recurse -Filter "*.class" -ErrorAction SilentlyContinue
+    foreach($c in $classes){
+        try{
+            $txt=[Text.Encoding]::UTF8.GetString([IO.File]::ReadAllBytes($c.FullName))
+            foreach($f in $frags){ if($txt -match $f){ $hits+="class:$f" } }
+        }catch{}
+    }
+    [PSCustomObject]@{ Hits=$hits | Select-Object -Unique }
 }
 
 # ---------------- DATENBANK ----------------
