@@ -42,7 +42,7 @@ function Get-ModsPath {
     return $path
 }
 
-# ---------------- WEBHOOK FUNKTION ----------------
+# ---------------- WEBHOOK FUNKTION (MIT EMBED) ----------------
 function Send-Webhook {
     param(
         [array]$CleanMods,
@@ -52,45 +52,89 @@ function Send-Webhook {
         [string]$UserName = $env:USERNAME
     )
     
-    $message = @"
-**🔍 CrystalPVP Scan Report**
-**Computer:** $ComputerName
-**User:** $UserName
-**Zeit:** $(Get-Date -Format 'dd.MM.yyyy HH:mm:ss')
-
-**📊 Zusammenfassung:**
-✅ Verified: $($CleanMods.Count)
-⚠️ Unknown: $($UnknownMods.Count)
-❌ Cheats: $($CheatMods.Count)
-"@
-
+    # Farben für Discord
+    $colorBlue = 3447003      # Blau
+    $colorRed = 15548997      # Rot für Cheats
+    
+    # Embed erstellen
+    $embed = @{
+        title = "🔍 CrystalPVP Scan Report"
+        color = $colorBlue
+        fields = @()
+        footer = @{
+            text = "Scan completed at $(Get-Date -Format 'dd.MM.yyyy HH:mm:ss')"
+        }
+        author = @{
+            name = "$ComputerName - $UserName"
+        }
+    }
+    
+    # Zusammenfassung
+    $embed.fields += @{
+        name = "📊 Zusammenfassung"
+        value = "✅ Verified: $($CleanMods.Count)`n⚠️ Unknown: $($UnknownMods.Count)`n❌ Cheats: $($CheatMods.Count)"
+        inline = $false
+    }
+    
+    # CHEAT MODS (Rot)
     if ($CheatMods.Count -gt 0) {
-        $message += "`n`n**❌ CHEAT MODS:**"
+        $cheatText = ""
         foreach ($mod in $CheatMods) {
-            $message += "`n**• $($mod.FileName)**"
-            if ($mod.StringsFound) { $message += "`n  Hits: $($mod.StringsFound -join ', ')" }
-            if ($mod.Hidden) { $message += "`n  ⚠️ Versteckt!" }
-            if ($mod.DepFileName) { $message += "`n  ➤ $($mod.DepFileName)" }
+            $cheatText += "**❌ $($mod.FileName)**"
+            if ($mod.StringsFound) { $cheatText += "`n  Hits: $($mod.StringsFound -join ', ')" }
+            if ($mod.Hidden) { $cheatText += "`n  ⚠️ Versteckt!" }
+            if ($mod.DepFileName) { $cheatText += "`n  ➤ $($mod.DepFileName)" }
+            $cheatText += "`n`n"
+        }
+        $embed.fields += @{
+            name = "❌ CHEAT MODS"
+            value = $cheatText
+            inline = $false
         }
     }
-
+    
+    # UNKNOWN MODS (FIXED - jetzt mit Namen!)
     if ($UnknownMods.Count -gt 0) {
-        $message += "`n`n**⚠️ UNKNOWN MODS:**"
+        $unknownText = ""
         foreach ($mod in $UnknownMods) {
-            $message += "`n• $($mod.FileName)"
-            if ($mod.Hidden) { $message += " (hidden)" }
-            if ($mod.ZoneId) { $message += " - <$($mod.ZoneId)>" }
+            $unknownText += "• **$($mod.ModName)**"  # HIER WAR DER FIX!
+            if ($mod.Hidden) { $unknownText += " (hidden)" }
+            if ($mod.DownloadUrl) { $unknownText += "`n  📥 <$($mod.DownloadUrl)>" }
+            $unknownText += "`n"
+        }
+        $embed.fields += @{
+            name = "⚠️ Unknown Mods"
+            value = $unknownText
+            inline = $false
         }
     }
-
-    $body = @{ content = $message } | ConvertTo-Json
+    
+    # VERIFIED MODS
+    if ($CleanMods.Count -gt 0 -and $CleanMods.Count -le 10) {
+        $cleanText = ""
+        foreach ($mod in $CleanMods) {
+            $cleanText += "• $($mod.ModName)"
+            if ($mod.Hidden) { $cleanText += " (hidden)" }
+            $cleanText += "`n"
+        }
+        $embed.fields += @{
+            name = "✅ Verified Mods"
+            value = $cleanText
+            inline = $false
+        }
+    }
+    
+    # Body mit Embed
+    $body = @{
+        embeds = @($embed)
+    } | ConvertTo-Json -Depth 10
 
     try {
         Write-Host "`nSende Ergebnisse an Discord..." -ForegroundColor Cyan
         Invoke-RestMethod -Uri $webhookUrl -Method Post -Body $body -ContentType "application/json"
         Write-Host "✅ Ergebnisse gesendet!" -ForegroundColor Green
     } catch {
-        Write-Host "❌ Webhook Fehler" -ForegroundColor Red
+        Write-Host "❌ Webhook Fehler: $($_.Exception.Message)" -ForegroundColor Red
     }
 }
 
@@ -314,8 +358,7 @@ function Analyze-Mod($JarPath, $ModName) {
         Add-Type -AssemblyName System.IO.Compression.FileSystem
         [IO.Compression.ZipFile]::ExtractToDirectory($JarPath, $temp)
 
-        # Keine Package- oder Class-Scans mehr - nur noch für Layout
-        # aber die Extraktion bleibt fürs Layout
+        # Keine Package- oder Class-Scans mehr
 
     } catch {
         $reasons+="Scan error"
