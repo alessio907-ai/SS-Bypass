@@ -1,5 +1,5 @@
 # =====================================================
-# CrystalPVPJarTester BLUE - OPTIMIERT (Habibi-Logik)
+# CrystalPVPJarTester BLUE
 # =====================================================
 
 $ErrorActionPreference = "SilentlyContinue"
