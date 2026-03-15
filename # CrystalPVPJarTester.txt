@@ -42,7 +42,7 @@ function Get-ModsPath {
     return $path
 }
 
-# ---------------- WEBHOOK FUNKTION (MIT EMBED + DOWNLOAD LINKS FÜR UNKNOWN & CHEATS) ----------------
+# ---------------- WEBHOOK FUNKTION (OHNE DOWNLOAD LINKS) ----------------
 function Send-Webhook {
     param(
         [array]$CleanMods,
@@ -76,7 +76,7 @@ function Send-Webhook {
         inline = $false
     }
     
-    # CHEAT MODS (MIT DOWNLOAD LINK)
+    # CHEAT MODS (OHNE DOWNLOAD LINK)
     if ($CheatMods.Count -gt 0) {
         $cheatText = ""
         foreach ($mod in $CheatMods) {
@@ -84,8 +84,7 @@ function Send-Webhook {
             if ($mod.StringsFound) { $cheatText += "`n  Hits: $($mod.StringsFound -join ', ')" }
             if ($mod.Hidden) { $cheatText += "`n  ⚠️ Versteckt!" }
             if ($mod.DepFileName) { $cheatText += "`n  ➤ $($mod.DepFileName)" }
-            # NUR HIER Download Link für Cheats
-            if ($mod.DownloadUrl) { $cheatText += "`n  📥 <$($mod.DownloadUrl)>" }
+            # KEIN Download Link
             $cheatText += "`n`n"
         }
         $embed.fields += @{
@@ -95,15 +94,14 @@ function Send-Webhook {
         }
     }
     
-    # UNKNOWN MODS (MIT DOWNLOAD LINK)
+    # UNKNOWN MODS (OHNE DOWNLOAD LINK)
     if ($UnknownMods.Count -gt 0) {
         $unknownText = ""
         foreach ($mod in $UnknownMods) {
             $modName = if ($mod.ModName) { $mod.ModName } else { $mod.FileName }
             $unknownText += "• $modName"
             if ($mod.Hidden) { $unknownText += " (hidden)" }
-            # NUR HIER Download Link für Unknown
-            if ($mod.DownloadUrl) { $unknownText += "`n  📥 <$($mod.DownloadUrl)>" }
+            # KEIN Download Link
             $unknownText += "`n"
         }
         $embed.fields += @{
@@ -113,13 +111,12 @@ function Send-Webhook {
         }
     }
     
-    # VERIFIED MODS (OHNE DOWNLOAD LINK)
+    # VERIFIED MODS
     if ($CleanMods.Count -gt 0 -and $CleanMods.Count -le 10) {
         $cleanText = ""
         foreach ($mod in $CleanMods) {
             $cleanText += "• $($mod.ModName)"
             if ($mod.Hidden) { $cleanText += " (hidden)" }
-            # KEIN Download Link für Verified
             $cleanText += "`n"
         }
         $embed.fields += @{
@@ -201,7 +198,7 @@ function Start-CheatScan {
         "AimAssist","AnchorTweaks","AutoAnchor","AutoCrystal","AutoDoubleHand",
         "AutoHitCrystal","AutoPot","AutoTotem","AutoArmor","InventoryTotem",
         "Hitboxes","JumpReset","LegitTotem","PingSpoof","SelfDestruct",
-        "ShieldBreaker","TriggerBot","AxeSpam","WebMacro","FastPlace"
+        "ShieldBreaker","TriggerBot","AxeSpam","WebMacro","FastPlace","autoexplode","breakcrystal"
     )
 
     Sec "Scanning Mods..."
