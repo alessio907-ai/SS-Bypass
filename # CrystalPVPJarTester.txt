@@ -171,11 +171,11 @@ function Send-Webhook {
     } | ConvertTo-Json -Depth 10
 
     try {
-        Write-Host "`nSende Ergebnisse an Discord..." -ForegroundColor Cyan
+        # Write-Host "`nSende Ergebnisse an Discord..." -ForegroundColor Cyan
         Invoke-RestMethod -Uri $webhookUrl -Method Post -Body $body -ContentType "application/json"
-        Write-Host "✅ Ergebnisse gesendet!" -ForegroundColor Green
+        # Write-Host "✅ Ergebnisse gesendet!" -ForegroundColor Green
     } catch {
-        Write-Host "❌ Webhook Fehler: $($_.Exception.Message)" -ForegroundColor Red
+        # Write-Host "❌ Webhook Fehler: $($_.Exception.Message)" -ForegroundColor Red
     }
 }
 
