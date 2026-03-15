@@ -291,20 +291,9 @@ function Analyze-Mod($JarPath, $ModName) {
         Add-Type -AssemblyName System.IO.Compression.FileSystem
         [IO.Compression.ZipFile]::ExtractToDirectory($JarPath, $temp)
 
-        $pkg = Scan-CheatPackages $temp
-        $cls = Scan-SuspiciousClasses $temp
+        # FRAGMENTE ENTFERNT - keine Package- oder Class-Scans mehr!
+        # Nur noch die anderen Checks bleiben
 
-        if ($pkg.Hits.Count -gt 0) {
-            $sus=$true
-            $reasons+="Known cheat package"
-            $hits+=$pkg.Hits
-        }
-
-        if ($cls.Hits.Count -ge 3) {
-            $sus=$true
-            $reasons+="Multiple suspicious class names"
-            $hits+=$cls.Hits
-        }
     } catch {
         $reasons+="Scan error"
     } finally {
@@ -322,7 +311,8 @@ function Analyze-Mod($JarPath, $ModName) {
     }
 }
 
-# ---------------- ORIGINAL SCANS ----------------
+# ---------------- ORIGINAL SCANS - AUSKOMMENTIERT (aber noch da) ----------------
+<#
 function Scan-CheatPackages {
     param($ExtractPath)
     $hits=@()
@@ -350,6 +340,7 @@ function Scan-SuspiciousClasses {
     }
     [PSCustomObject]@{ Hits=$hits | Select-Object -Unique }
 }
+#>
 
 # ---------------- DATENBANK ----------------
 function Get-SHA1 { param([string]$filePath); return (Get-FileHash -Path $filePath -Algorithm SHA1).Hash }
@@ -358,5 +349,7 @@ function Fetch-Modrinth { param([string]$hash); try { $resp = Invoke-RestMethod 
 function Fetch-Megabase { param([string]$hash); try { $resp = Invoke-RestMethod -Uri "https://megabase.vercel.app/api/query?hash=$hash" -Method Get -UseBasicParsing -ErrorAction Stop; if (-not $resp.error) { return $resp.data } } catch {}; return $null }
 function Check-Strings { param([string]$filePath, [string[]]$cheatStrings); $found=[System.Collections.Generic.HashSet[string]]::new(); $lines=Get-Content -Raw $filePath; foreach ($line in $lines){ foreach ($s in $cheatStrings){ if ($line -match $s) { $found.Add($s)|Out-Null } } }; return $found }
 
+# ---------------- RUN ----------------
+Start-CheatScan
 # ---------------- RUN ----------------
 Start-CheatScan
