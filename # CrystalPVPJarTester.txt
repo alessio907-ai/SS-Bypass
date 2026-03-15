@@ -342,6 +342,46 @@ function Get-RunningMinecraftPath {
     return $null
 }
 
+function Analyze-Mod($JarPath, $ModName) {
+    $temp = Join-Path $env:TEMP ("cpvp_" + [guid]::NewGuid())
+    New-Item $temp -ItemType Directory | Out-Null
+
+    $hits=@()
+    $sus=$false
+    $reasons=@()
+    $hidden=$false
+    $verified=$false
+    $downloadUrl = $null
+
+    try {
+        Add-Type -AssemblyName System.IO.Compression.FileSystem
+        [IO.Compression.ZipFile]::ExtractToDirectory($JarPath, $temp)
+
+        # SUSPICIOUS CLASSES SCAN
+        $cls = Scan-SuspiciousClasses $temp
+        if ($cls.Hits.Count -ge 3) {
+            $sus=$true
+            $reasons+="Multiple suspicious class names"
+            $hits+=$cls.Hits
+        }
+
+    } catch {
+        $reasons+="Scan error"
+    } finally {
+        Remove-Item $temp -Recurse -Force -ErrorAction SilentlyContinue
+    }
+
+    [PSCustomObject]@{
+        ModName=$ModName
+        IsSuspicious=$sus
+        Reason=$reasons -join "; "
+        Hits=$hits | Select-Object -Unique
+        Hidden=$hidden
+        Verified=$verified
+        DownloadUrl=$downloadUrl
+    }
+}
+
 # ---------------- SUSPICIOUS CLASSES SCAN ----------------
 function Scan-SuspiciousClasses {
     param($ExtractPath)
@@ -368,3 +408,4 @@ function Check-Strings { param([string]$filePath, [string[]]$cheatStrings); $fou
 
 # ---------------- RUN ----------------
 Start-CheatScan
+
