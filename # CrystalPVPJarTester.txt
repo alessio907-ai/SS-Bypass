@@ -191,21 +191,10 @@ function Start-CheatScan {
         Sort-Object StartTime | Select-Object -First 1
 
     if ($javaProc) {
-        $cmd = (Get-CimInstance Win32_Process -Filter "ProcessId=$($javaProc.Id)").CommandLine
-
         # --------- UPTIME ----------
         $uptime = (Get-Date) - $javaProc.StartTime
         Sec "Minecraft Uptime"
         Info "$($javaProc.Name) PID $($javaProc.Id) | $($uptime.Hours)h $($uptime.Minutes)m $($uptime.Seconds)s"
-
-        # --------- JVM ARG SCAN ----------
-        $jvmFindings = Scan-JVMArguments $cmd
-        Sec "JVM / JavaAgent Scan"
-        if ($jvmFindings.Count -gt 0) {
-            $jvmFindings | ForEach-Object { Bad "❌ $_" }
-        } else {
-            Info "No suspicious JVM arguments"
-        }
     } else {
         Info "Minecraft (Java) nicht gefunden."
     }
@@ -327,9 +316,6 @@ function Start-CheatScan {
     Info "Verified / Clean Mods: $($clean.Count)"
     Info "Unknown Mods: $($unknown.Count)"
     Info "Cheat Mods: $($flagged.Count)"
-    if ($javaProc) {
-        Info "JVM Findings: $($jvmFindings.Count)"
-    }
 
     # --------- WEBHOOK SENDEN ----------
     Write-Host ""
@@ -340,34 +326,6 @@ function Start-CheatScan {
 }
 
 # ---------------- HELPER FUNCTIONS ----------------
-function Scan-JVMArguments($cmd){
-    $bad = @(
-        "-noverify",
-        "-Xbootclasspath",
-        "DisableAttachMechanism",
-        "fabric.development=true",
-        "-Djdk.attach.allowAttachSelf"
-    )
-    $hits=@()
-    foreach ($b in $bad) {
-        if ($cmd -match [regex]::Escape($b)) { $hits += $b }
-    }
-    return $hits
-}
-
-function Scan-NativeDLLs($pid){
-    $out=@()
-    $mods = Get-Process -Id $pid -Module -ErrorAction SilentlyContinue
-    foreach ($m in $mods) {
-        if ($m.FileName -and $m.FileName -match "\.dll$") {
-            if ($m.FileName -notmatch "System32|Java|jdk|jre") {
-                $out += $m.FileName
-            }
-        }
-    }
-    return ($out | Select-Object -Unique)
-}
-
 function Get-RunningMinecraftPath {
     $java = Get-Process java,javaw -ErrorAction SilentlyContinue | Sort-Object StartTime -Descending
     foreach ($p in $java) {
@@ -399,7 +357,13 @@ function Analyze-Mod($JarPath, $ModName) {
         Add-Type -AssemblyName System.IO.Compression.FileSystem
         [IO.Compression.ZipFile]::ExtractToDirectory($JarPath, $temp)
 
-        # Keine Package- oder Class-Scans mehr
+        # SUSPICIOUS CLASSES SCAN
+        $cls = Scan-SuspiciousClasses $temp
+        if ($cls.Hits.Count -ge 3) {
+            $sus=$true
+            $reasons+="Multiple suspicious class names"
+            $hits+=$cls.Hits
+        }
 
     } catch {
         $reasons+="Scan error"
@@ -416,6 +380,23 @@ function Analyze-Mod($JarPath, $ModName) {
         Verified=$verified
         DownloadUrl=$downloadUrl
     }
+}
+
+# ---------------- SUSPICIOUS CLASSES SCAN ----------------
+function Scan-SuspiciousClasses {
+    param($ExtractPath)
+    $hits=@()
+    $frags=@("killaura","crystalaura","autoclick","triggerbot","aimassist","autocrystal","clickcrystal",
+             "anchormacro","wtap","tpaura","placecrystal","breakcrystal","autototem","autoinv","playeresp",
+             "storageesp","fastexp","doubleanchor","autoexplode")
+    $classes=Get-ChildItem $ExtractPath -Recurse -Filter "*.class" -ErrorAction SilentlyContinue
+    foreach($c in $classes){
+        try{
+            $txt=[Text.Encoding]::UTF8.GetString([IO.File]::ReadAllBytes($c.FullName))
+            foreach($f in $frags){ if($txt -match $f){ $hits+="class:$f" } }
+        }catch{}
+    }
+    [PSCustomObject]@{ Hits=$hits | Select-Object -Unique }
 }
 
 # ---------------- DATENBANK ----------------
