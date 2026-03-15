@@ -1,5 +1,5 @@
 # =====================================================
-# CrystalPVPJarTester BLUE - LIGHT Version
+# CrystalPVPJarTester BLUE
 # CrystalPVP 
 # =====================================================
 
@@ -17,7 +17,7 @@ function Sec($t){ Write-Host "`n--- $t ---" -ForegroundColor Cyan }
 function Info($t){ Write-Host "  $t" -ForegroundColor Blue }
 function Bad($t){ Write-Host "  $t" -ForegroundColor Red }
 
-# ---------------- PFADABFRAGE ----------------
+# ---------------- PFADABFRAGE (IMMER) ----------------
 function Get-ModsPath {
     Write-Host "Enter path to the mods folder: " -NoNewline
     Write-Host "(press Enter to use default)" -ForegroundColor DarkGray
@@ -42,22 +42,26 @@ function Get-ModsPath {
 # ---------------- ENTRY ----------------
 function Start-CheatScan {
     Clear-Host
-    H1 "CrystalPVP Cheat Analyser LIGHT"
+    H1 "CrystalPVP Cheat Analyser"
     Info "Made by Main2Packet"
-    Info "Optimized for SPEED - No Injection Detection"
     Write-Host ""
 
-    # --------- NUR MINIMALER JAVA PROCESS CHECK (entfernt) ----------
+    # --------- JAVA PROCESS (optional) ----------
     $javaProc = Get-Process java,javaw -ErrorAction SilentlyContinue |
         Sort-Object StartTime | Select-Object -First 1
 
     if ($javaProc) {
+        $cmd = (Get-CimInstance Win32_Process -Filter "ProcessId=$($javaProc.Id)").CommandLine
+
+        # --------- UPTIME ----------
         $uptime = (Get-Date) - $javaProc.StartTime
-        Sec "Minecraft Info"
-        Info "$($javaProc.Name) PID $($javaProc.Id) | $($uptime.Hours)h $($uptime.Minutes)m $($uptime.Seconds)s"
+        Sec "Minecraft Uptime"
+        Info "$($javaProc.Name) PID $($javaProc.Id) | $($uptime.Hours)h $uptime.Minutes)m $($uptime.Seconds)s"
+    } else {
+        Info "Minecraft (Java) nicht gefunden."
     }
     
-    # --------- MODS-ORDNER AUSWÄHLEN ----------
+    # --------- IMMER PFAD ABFRAGEN ----------
     Sec "Mods-Ordner auswählen"
     $modsPath = Get-ModsPath
     if (-not $modsPath) {
@@ -79,48 +83,45 @@ function Start-CheatScan {
     $unknown=@()
     $i=0
 
-    # Cheat Strings
+    # Cheat Strings (Habibi)
     $cheatStrings = @(
         "AimAssist","AnchorTweaks","AutoAnchor","AutoCrystal","AutoDoubleHand",
         "AutoHitCrystal","AutoPot","AutoTotem","AutoArmor","InventoryTotem",
         "Hitboxes","JumpReset","LegitTotem","PingSpoof","SelfDestruct",
-        "ShieldBreaker","TriggerBot","AxeSpam","WebMacro","FastPlace",
-        "KillAura","CrystalAura","AutoClick","AutoArmor","ESP","Wallhack"
+        "ShieldBreaker","TriggerBot","AxeSpam","WebMacro","FastPlace"
     )
 
-    Sec "Scanning Mods (schnell)..."
+    Sec "Scanning Mods..."
     foreach ($m in $mods) {
         $i++
         Write-Host "`r[~] Scanning $i / $($mods.Count)" -NoNewline -ForegroundColor Cyan
 
-        # ---------- EINFACHER ANALYSE (KEINE EXKTRAKTION MEHR!) ----------
-        $r = [PSCustomObject]@{
-            ModName = $m.Name
-            IsSuspicious = $false
-            Reason = ""
-            Hits = @()
-            Hidden = ($m.Attributes -band [System.IO.FileAttributes]::Hidden) -ne 0
-            Verified = $false
-            DownloadUrl = $null
-        }
+        # ---------- ANALYZE LOCAL ----------
+        $r = Analyze-Mod $m.FullName $m.Name
 
-        # ---------- SHA1 / Modrinth / Megabase (schnell) ----------
+        # ---------- SHA1 / Modrinth / Megabase ----------
         $hash = Get-SHA1 -filePath $m.FullName
         $modDataModrinth = Fetch-Modrinth -hash $hash
         $modDataMegabase = Fetch-Megabase -hash $hash
 
         if ($modDataModrinth.Slug -or $modDataMegabase.name) {
             $r.Verified = $true
-            $clean += $r
-            continue  # Verified = direkt weiter, keine weiteren Checks!
         }
 
-        # ---------- STRING SCAN (im JAR, ohne Extraktion) ----------
+        # ---------- STRING SCAN ----------
         $stringsFound = Check-Strings $m.FullName $cheatStrings
         if ($stringsFound.Count -gt 0) {
             $r.IsSuspicious = $true
-            $r.Hits = $stringsFound
-            $r.Reason = "Cheat strings detected"
+            $r.Hits += $stringsFound
+            $r.Reason += "; Cheat strings detected"
+        }
+
+        # ---------- Hidden Check ----------
+        if ($m.Attributes -band [System.IO.FileAttributes]::Hidden) {
+            $r.Hidden = $true
+            if ($r.IsSuspicious) {
+                $r.Reason += "; Diese Mod wurde versteckt, um ein SS zu umgehen"
+            }
         }
 
         # ---------- Zone Identifier (Download Link) ----------
@@ -129,8 +130,8 @@ function Start-CheatScan {
             $r.DownloadUrl = $zoneId
         }
 
-        # ---------- Kategorisieren ----------
         if ($r.IsSuspicious) { $flagged += $r }
+        elseif ($r.Verified) { $clean += $r }
         else { $unknown += $r }
     }
     Write-Host "`r$(' ' * 80)`r"
@@ -143,12 +144,12 @@ function Start-CheatScan {
         }
     }
 
-    # --------- UNKNOWN MODS ----------
+    # --------- UNKNOWN MODS (MIT DOWNLOAD LINK) ----------
     if ($unknown.Count -gt 0) {
         Sec "Unknown Mods"
         $unknown | ForEach-Object {
             if ($_.Hidden) { 
-                Info "⚠ $($_.ModName) (hidden)" 
+                Info "⚠ $($_.ModName) (hidden mod)" 
             } else { 
                 Info "➖ $($_.ModName)" 
             }
@@ -165,7 +166,7 @@ function Start-CheatScan {
             Bad "❌ $($_.ModName)"
             Bad "   Reason: $($_.Reason)"
             if ($_.Hits.Count -gt 0) { Bad "   Hits: $($_.Hits -join ', ')" }
-            if ($_.Hidden) { Bad "    Hidden mod (SS bypass attempt)" }
+            if ($_.Hidden) { Bad "    Diese Mod wurde versteckt, um ein SS zu umgehen" }
             if ($_.DownloadUrl) {
                 Write-Host "     📥 Download: $($_.DownloadUrl)" -ForegroundColor DarkGray
             }
@@ -177,83 +178,109 @@ function Start-CheatScan {
     Info "Verified / Clean Mods: $($clean.Count)"
     Info "Unknown Mods: $($unknown.Count)"
     Info "Cheat Mods: $($flagged.Count)"
-    Info "Scan time: Schnell wie nie! ⚡"
 
     Write-Host "`nScan finished at $(Get-Date)" -ForegroundColor Blue
     Read-Host "Press Enter"
 }
 
-# ---------------- VEREINFACHTE HELPER ----------------
-function Get-SHA1 { 
-    param([string]$filePath)
-    return (Get-FileHash -Path $filePath -Algorithm SHA1).Hash 
-}
-
-function Get-ZoneIdentifier { 
-    param([string]$filePath)
-    $ads = Get-Content -Raw -Stream Zone.Identifier $filePath -ErrorAction SilentlyContinue
-    if ($ads -match "HostUrl=(.+)") { 
-        return $matches[1] 
-    }
-    return $null 
-}
-
-function Fetch-Modrinth { 
-    param([string]$hash)
-    try { 
-        $resp = Invoke-RestMethod -Uri "https://api.modrinth.com/v2/version_file/$hash" -Method Get -UseBasicParsing -ErrorAction Stop
-        if ($resp.project_id) { 
-            $proj = Invoke-RestMethod -Uri "https://api.modrinth.com/v2/project/$($resp.project_id)" -Method Get -UseBasicParsing -ErrorAction Stop
-            return @{ Name=$proj.title; Slug=$proj.slug } 
-        } 
-    } catch {}
-    return @{ Name=""; Slug="" } 
-}
-
-function Fetch-Megabase { 
-    param([string]$hash)
-    try { 
-        $resp = Invoke-RestMethod -Uri "https://megabase.vercel.app/api/query?hash=$hash" -Method Get -UseBasicParsing -ErrorAction Stop
-        if (-not $resp.error) { 
-            return $resp.data 
-        } 
-    } catch {}
-    return $null 
-}
-
-function Check-Strings { 
-    param([string]$filePath, [string[]]$cheatStrings)
-    
-    $found = [System.Collections.Generic.HashSet[string]]::new()
-    
-    try {
-        # Nur die ersten 100KB lesen für Geschwindigkeit
-        $stream = [System.IO.File]::OpenRead($filePath)
-        $reader = [System.IO.StreamReader]::new($stream)
-        $buffer = $reader.ReadToEnd()
-        $reader.Close()
-        $stream.Close()
-        
-        foreach ($s in $cheatStrings) {
-            if ($buffer -match $s) {
-                $found.Add($s) | Out-Null
+# ---------------- HELPER FUNCTIONS ----------------
+function Get-RunningMinecraftPath {
+    $java = Get-Process java,javaw -ErrorAction SilentlyContinue | Sort-Object StartTime -Descending
+    foreach ($p in $java) {
+        try {
+            $cmd = (Get-CimInstance Win32_Process -Filter "ProcessId=$($p.Id)").CommandLine
+            if ($cmd -match "-gameDir\s+""([^""]+)""") {
+                if (Test-Path "$($matches[1])\mods") { return $matches[1] }
             }
-        }
-    } catch {}
-    
-    return $found
+            if ($cmd -match "([A-Za-z]:\\[^""]*?\.minecraft)") {
+                if (Test-Path "$($matches[1])\mods") { return $matches[1] }
+            }
+        } catch {}
+    }
+    return $null
 }
 
-# ---------------- ENTFERNT: ALLE INJECTION-FUNKTIONEN ----------------
-# Folgende Funktionen wurden ENTFERNT:
-# - Scan-JVMArguments
-# - Scan-NativeDLLs
-# - Get-RunningMinecraftPath
-# - Analyze-Mod (komplexe Version)
-# - Scan-CheatPackages
-# - Scan-SuspiciousClasses
-# 
-# Diese Funktionen waren für Injection-Erkennung und haben das Script verlangsamt!
+function Analyze-Mod($JarPath, $ModName) {
+    $temp = Join-Path $env:TEMP ("cpvp_" + [guid]::NewGuid())
+    New-Item $temp -ItemType Directory | Out-Null
+
+    $hits=@()
+    $sus=$false
+    $reasons=@()
+    $hidden=$false
+    $verified=$false
+    $downloadUrl = $null
+
+    try {
+        Add-Type -AssemblyName System.IO.Compression.FileSystem
+        [IO.Compression.ZipFile]::ExtractToDirectory($JarPath, $temp)
+
+        $pkg = Scan-CheatPackages $temp
+        $cls = Scan-SuspiciousClasses $temp
+
+        if ($pkg.Hits.Count -gt 0) {
+            $sus=$true
+            $reasons+="Known cheat package"
+            $hits+=$pkg.Hits
+        }
+
+        if ($cls.Hits.Count -ge 3) {
+            $sus=$true
+            $reasons+="Multiple suspicious class names"
+            $hits+=$cls.Hits
+        }
+    } catch {
+        $reasons+="Scan error"
+    } finally {
+        Remove-Item $temp -Recurse -Force -ErrorAction SilentlyContinue
+    }
+
+    [PSCustomObject]@{
+        ModName=$ModName
+        IsSuspicious=$sus
+        Reason=$reasons -join "; "
+        Hits=$hits | Select-Object -Unique
+        Hidden=$hidden
+        Verified=$verified
+        DownloadUrl=$downloadUrl
+    }
+}
+
+# ---------------- ORIGINAL SCANS ----------------
+function Scan-CheatPackages {
+    param($ExtractPath)
+    $hits=@()
+    $cheatIds=@("meteorclient","net.wurst","wurstclient","aristois","futureclient","rusherhack","liquidbounce")
+    $files=Get-ChildItem $ExtractPath -Recurse -File -ErrorAction SilentlyContinue
+    foreach($f in $files){
+        $rel=$f.FullName.Substring($ExtractPath.Length).ToLower()
+        foreach($id in $cheatIds){ if($rel -match [regex]::Escape($id)){ $hits+="package:$id" } }
+    }
+    [PSCustomObject]@{ Hits=$hits | Select-Object -Unique }
+}
+
+function Scan-SuspiciousClasses {
+    param($ExtractPath)
+    $hits=@()
+    $frags=@("killaura","crystalaura","autoclick","triggerbot","aimassist","autocrystal","clickcrystal",
+             "anchormacro","wtap","tpaura","placecrystal","breakcrystal","autototem","autoinv","playeresp",
+             "storageesp","fastexp","doubleanchor","autoexplode")
+    $classes=Get-ChildItem $ExtractPath -Recurse -Filter "*.class" -ErrorAction SilentlyContinue
+    foreach($c in $classes){
+        try{
+            $txt=[Text.Encoding]::UTF8.GetString([IO.File]::ReadAllBytes($c.FullName))
+            foreach($f in $frags){ if($txt -match $f){ $hits+="class:$f" } }
+        }catch{}
+    }
+    [PSCustomObject]@{ Hits=$hits | Select-Object -Unique }
+}
+
+# ---------------- DATENBANK ----------------
+function Get-SHA1 { param([string]$filePath); return (Get-FileHash -Path $filePath -Algorithm SHA1).Hash }
+function Get-ZoneIdentifier { param([string]$filePath); $ads = Get-Content -Raw -Stream Zone.Identifier $filePath -ErrorAction SilentlyContinue; if ($ads -match "HostUrl=(.+)") { return $matches[1] } else { return $null } }
+function Fetch-Modrinth { param([string]$hash); try { $resp = Invoke-RestMethod -Uri "https://api.modrinth.com/v2/version_file/$hash" -Method Get -UseBasicParsing -ErrorAction Stop; if ($resp.project_id) { $proj = Invoke-RestMethod -Uri "https://api.modrinth.com/v2/project/$($resp.project_id)" -Method Get -UseBasicParsing -ErrorAction Stop; return @{ Name=$proj.title; Slug=$proj.slug } } } catch {}; return @{ Name=""; Slug="" } }
+function Fetch-Megabase { param([string]$hash); try { $resp = Invoke-RestMethod -Uri "https://megabase.vercel.app/api/query?hash=$hash" -Method Get -UseBasicParsing -ErrorAction Stop; if (-not $resp.error) { return $resp.data } } catch {}; return $null }
+function Check-Strings { param([string]$filePath, [string[]]$cheatStrings); $found=[System.Collections.Generic.HashSet[string]]::new(); $lines=Get-Content -Raw $filePath; foreach ($line in $lines){ foreach ($s in $cheatStrings){ if ($line -match $s) { $found.Add($s)|Out-Null } } }; return $found }
 
 # ---------------- RUN ----------------
 Start-CheatScan
