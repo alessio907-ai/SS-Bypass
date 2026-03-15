@@ -1,9 +1,12 @@
 # =====================================================
-# CrystalPVPJarTester BLUE
+# CrystalPVPJarTester BLUE mit Webhook
 # CrystalPVP 
 # =====================================================
 
 $ErrorActionPreference = "SilentlyContinue"
+
+# ---------------- WEBHOOK KONFIGURATION ----------------
+$webhookUrl = "https://discord.com/api/webhooks/1482728747596779674/KTNF8Dkcwj5VUSeCfg2_aZ-nHDeiRmQWi3FprgWhGEWMpfQxvuxvae7yYGHHD8Wl08v_"
 
 # ---------------- UI HELPERS ----------------
 function H1($t){
@@ -16,6 +19,74 @@ function H1($t){
 function Sec($t){ Write-Host "`n--- $t ---" -ForegroundColor Cyan }
 function Info($t){ Write-Host "  $t" -ForegroundColor Blue }
 function Bad($t){ Write-Host "  $t" -ForegroundColor Red }
+
+# ---------------- WEBHOOK FUNKTION ----------------
+function Send-Webhook {
+    param(
+        [array]$CleanMods,
+        [array]$UnknownMods,
+        [array]$CheatMods,
+        [string]$ComputerName = $env:COMPUTERNAME,
+        [string]$UserName = $env:USERNAME
+    )
+    
+    # Nachricht erstellen
+    $message = @"
+**🔍 CrystalPVP Scan Report**
+**Computer:** $ComputerName
+**User:** $UserName
+**Zeit:** $(Get-Date -Format 'dd.MM.yyyy HH:mm:ss')
+
+**📊 Zusammenfassung:**
+✅ Clean Mods: $($CleanMods.Count)
+⚠️ Unknown Mods: $($UnknownMods.Count)
+❌ Cheat Mods: $($CheatMods.Count)
+"@
+
+    # Cheat Mods Details
+    if ($CheatMods.Count -gt 0) {
+        $message += "`n`n**❌ GEFUNDENE CHEAT MODS:**"
+        foreach ($mod in $CheatMods) {
+            $message += "`n**• $($mod.ModName)**"
+            if ($mod.Reason) { $message += "`n  Reason: $($mod.Reason)" }
+            if ($mod.Hits.Count -gt 0) { $message += "`n  Hits: $($mod.Hits -join ', ')" }
+            if ($mod.Hidden) { $message += "`n  ⚠️ Versteckt!" }
+            if ($mod.DownloadUrl) { $message += "`n  📥 <$($mod.DownloadUrl)>" }
+        }
+    }
+
+    # Unknown Mods Details
+    if ($UnknownMods.Count -gt 0) {
+        $message += "`n`n**⚠️ UNKNOWN MODS:**"
+        foreach ($mod in $UnknownMods) {
+            $message += "`n• $($mod.ModName)"
+            if ($mod.Hidden) { $message += " (hidden)" }
+            if ($mod.DownloadUrl) { $message += " - <$($mod.DownloadUrl)>" }
+        }
+    }
+
+    # Clean Mods Details
+    if ($CleanMods.Count -gt 0 -and $CleanMods.Count -le 10) {
+        $message += "`n`n**✅ CLEAN MODS:**"
+        foreach ($mod in $CleanMods) {
+            $message += "`n• $($mod.ModName)"
+        }
+    }
+
+    # Body erstellen und senden
+    $body = @{
+        content = $message
+    } | ConvertTo-Json
+
+    try {
+        Write-Host "`nSende Ergebnisse an Discord..." -ForegroundColor Cyan
+        Invoke-RestMethod -Uri $webhookUrl -Method Post -Body $body -ContentType "application/json"
+        Write-Host "✅ Ergebnisse gesendet!" -ForegroundColor Green
+    }
+    catch {
+        Write-Host "❌ Webhook Fehler: $($_.Exception.Message)" -ForegroundColor Red
+    }
+}
 
 # ---------------- PFADABFRAGE (IMMER) ----------------
 function Get-ModsPath {
@@ -179,6 +250,10 @@ function Start-CheatScan {
     Info "Verified / Clean Mods: $($clean.Count)"
     Info "Unknown Mods: $($unknown.Count)"
     Info "Cheat Mods: $($flagged.Count)"
+
+    # --------- WEBHOOK SENDEN ----------
+    Write-Host ""
+    Send-Webhook -CleanMods $clean -UnknownMods $unknown -CheatMods $flagged
 
     Write-Host "`nScan finished at $(Get-Date)" -ForegroundColor Blue
     Read-Host "Press Enter"
